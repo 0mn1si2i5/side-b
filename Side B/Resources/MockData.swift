@@ -6,21 +6,21 @@ enum MockData {
             title: "Nights",
             artistName: "Frank Ocean",
             albumTitle: "Blonde",
-            sourcePlatformName: "Spotify",
+            sourcePlatform: .spotify,
             artworkURL: URL(string: "https://example.com/artwork/nights.jpg")
         ),
         Track(
             title: "想去海边",
             artistName: "夏日入侵企画",
             albumTitle: "想去海边",
-            sourcePlatformName: "网易云音乐",
+            sourcePlatform: .neteaseMusic,
             artworkURL: URL(string: "https://example.com/artwork/beach.jpg")
         ),
         Track(
             title: "After Hours",
             artistName: "The Weeknd",
             albumTitle: "After Hours",
-            sourcePlatformName: "Apple Music",
+            sourcePlatform: .appleMusic,
             artworkURL: URL(string: "https://example.com/artwork/after-hours.jpg")
         )
     ]
@@ -33,23 +33,23 @@ enum MockData {
             title: tracks[1].title,
             artistName: tracks[1].artistName,
             albumTitle: tracks[1].albumTitle,
-            sourcePlatformName: MusicPlatform.qqMusic.rawValue,
+            sourcePlatform: .qqMusic,
             artworkURL: tracks[1].artworkURL
         )
     ]
 
     static let platformLinks: [PlatformLink] = [
         PlatformLink(
-            platformName: "Spotify",
+            platform: .spotify,
             destinationURL: URL(string: "https://open.spotify.com/track/mock-nights")!,
             isSource: true
         ),
         PlatformLink(
-            platformName: "网易云音乐",
+            platform: .neteaseMusic,
             destinationURL: URL(string: "https://music.163.com/song?id=mock-beach")!
         ),
         PlatformLink(
-            platformName: "Apple Music",
+            platform: .appleMusic,
             destinationURL: URL(string: "https://music.apple.com/song/mock-after-hours")!
         )
     ]

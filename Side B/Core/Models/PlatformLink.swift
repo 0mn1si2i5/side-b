@@ -2,20 +2,23 @@ import Foundation
 
 struct PlatformLink: Identifiable, Hashable {
     let id: UUID
-    let platformName: String
+    let platform: MusicPlatform
     let destinationURL: URL
     let isSource: Bool
 
+    var platformName: String {
+        platform.displayName
+    }
+
     init(
         id: UUID = UUID(),
-        platformName: String,
+        platform: MusicPlatform,
         destinationURL: URL,
         isSource: Bool = false
     ) {
         self.id = id
-        self.platformName = platformName
+        self.platform = platform
         self.destinationURL = destinationURL
         self.isSource = isSource
     }
 }
-

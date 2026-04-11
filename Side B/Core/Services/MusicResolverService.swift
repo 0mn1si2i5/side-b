@@ -4,13 +4,6 @@ protocol MusicResolverService {
     func resolveTrack(from link: String) -> Track
 }
 
-enum MusicPlatform: String, CaseIterable {
-    case appleMusic = "Apple Music"
-    case spotify = "Spotify"
-    case qqMusic = "QQ 音乐"
-    case neteaseMusic = "网易云音乐"
-}
-
 protocol MusicPlatformProvider {
     var platform: MusicPlatform { get }
     func canHandle(link: String) -> Bool

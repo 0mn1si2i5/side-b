@@ -5,22 +5,26 @@ struct Track: Identifiable, Hashable {
     let title: String
     let artistName: String
     let albumTitle: String?
-    let sourcePlatformName: String
+    let sourcePlatform: MusicPlatform
     let artworkURL: URL?
+
+    var sourcePlatformName: String {
+        sourcePlatform.displayName
+    }
 
     init(
         id: UUID = UUID(),
         title: String,
         artistName: String,
         albumTitle: String? = nil,
-        sourcePlatformName: String,
+        sourcePlatform: MusicPlatform,
         artworkURL: URL? = nil
     ) {
         self.id = id
         self.title = title
         self.artistName = artistName
         self.albumTitle = albumTitle
-        self.sourcePlatformName = sourcePlatformName
+        self.sourcePlatform = sourcePlatform
         self.artworkURL = artworkURL
     }
 }

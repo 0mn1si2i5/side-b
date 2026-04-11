@@ -54,6 +54,7 @@
 - 聊天室相关 View 已从 `MainTabViews.swift` 中拆分到 `Features/Rooms`
 - 平台按钮已接入真实深链占位打开逻辑
 - mock resolver 已改为 provider 抽象驱动
+- 平台定义已开始从字符串收敛到统一类型
 
 ---
 

@@ -48,7 +48,7 @@ struct RoomsListView: View {
 }
 
 struct SongDetailView: View {
-    private let platformDisplayOrder = ["Apple Music", "Spotify", "QQ 音乐", "网易云音乐"]
+    private let platformDisplayOrder = MusicPlatform.allCases
     private let navigationService: PlatformNavigationService = MockPlatformNavigationService()
     let track: Track
     @State private var platformFeedbackMessage = ""
@@ -107,9 +107,9 @@ struct SongDetailView: View {
 
                     ForEach(platformButtonRows, id: \.self) { row in
                         HStack(spacing: 12) {
-                            ForEach(row, id: \.self) { platformName in
-                                PlatformJumpButton(title: platformName) {
-                                    showPlatformFeedback(for: platformName)
+                            ForEach(row, id: \.self) { platform in
+                                PlatformJumpButton(title: platform.displayName) {
+                                    showPlatformFeedback(for: platform)
                                 }
                             }
                         }
@@ -127,22 +127,22 @@ struct SongDetailView: View {
         }
     }
 
-    private func showPlatformFeedback(for platformName: String) {
-        guard let destinationURL = navigationService.destinationURL(for: platformName, track: track) else {
-            platformFeedbackMessage = "A destination for \(platformName) is not available in this mock build."
+    private func showPlatformFeedback(for platform: MusicPlatform) {
+        guard let destinationURL = navigationService.destinationURL(for: platform, track: track) else {
+            platformFeedbackMessage = "A destination for \(platform.displayName) is not available in this mock build."
             isShowingPlatformFeedback = true
             return
         }
 
         openURL(destinationURL) { accepted in
             if !accepted {
-                platformFeedbackMessage = "Could not open \(platformName)."
+                platformFeedbackMessage = "Could not open \(platform.displayName)."
                 isShowingPlatformFeedback = true
             }
         }
     }
 
-    private var platformButtonRows: [[String]] {
+    private var platformButtonRows: [[MusicPlatform]] {
         stride(from: 0, to: platformDisplayOrder.count, by: 2).map { index in
             Array(platformDisplayOrder[index..<min(index + 2, platformDisplayOrder.count)])
         }
