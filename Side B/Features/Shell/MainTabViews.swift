@@ -55,15 +55,12 @@ struct RoomDetailView: View {
         List {
             if let latestTrack = room.latestTrack {
                 Section("Now in Room") {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(latestTrack.title)
-                            .font(.headline)
-
-                        Text(latestTrack.artistName)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                    NavigationLink {
+                        SongDetailView(track: latestTrack)
+                    } label: {
+                        SongCardView(track: latestTrack)
                     }
-                    .padding(.vertical, 4)
+                    .buttonStyle(.plain)
                 }
             }
 
@@ -80,9 +77,12 @@ struct RoomDetailView: View {
                         }
 
                         if let track = message.track {
-                            Text("\(track.title) · \(track.artistName)")
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
+                            NavigationLink {
+                                SongDetailView(track: track)
+                            } label: {
+                                SongCardView(track: track)
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                     .padding(.vertical, 4)
@@ -92,6 +92,124 @@ struct RoomDetailView: View {
         .listStyle(.insetGrouped)
         .navigationTitle(room.name)
         .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+struct SongDetailView: View {
+    let track: Track
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(Color.secondary.opacity(0.15))
+                    .frame(maxWidth: .infinity)
+                    .aspectRatio(1, contentMode: .fit)
+                    .overlay {
+                        Image(systemName: "music.note")
+                            .font(.system(size: 48))
+                            .foregroundStyle(.secondary)
+                    }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(track.title)
+                        .font(.title2)
+                        .fontWeight(.bold)
+
+                    Text(track.artistName)
+                        .font(.title3)
+                        .foregroundStyle(.secondary)
+
+                    if let albumTitle = track.albumTitle {
+                        Text("Album: \(albumTitle)")
+                            .font(.body)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Text("Source: \(track.sourcePlatformName)")
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                }
+
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Open In")
+                        .font(.headline)
+
+                    HStack(spacing: 12) {
+                        PlatformJumpButton(title: track.sourcePlatformName, isPrimary: true)
+                        PlatformJumpButton(title: "Apple Music")
+                    }
+
+                    HStack(spacing: 12) {
+                        PlatformJumpButton(title: "Spotify")
+                        PlatformJumpButton(title: "网易云音乐")
+                    }
+                }
+            }
+            .padding()
+        }
+        .navigationTitle(track.title)
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+struct PlatformJumpButton: View {
+    let title: String
+    var isPrimary: Bool = false
+
+    var body: some View {
+        Button(action: {}) {
+            Text(title)
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(isPrimary ? .blue : .gray)
+        .disabled(true)
+    }
+}
+
+struct SongCardView: View {
+    let track: Track
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.secondary.opacity(0.15))
+                .frame(width: 56, height: 56)
+                .overlay {
+                    Image(systemName: "music.note")
+                        .foregroundStyle(.secondary)
+                }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(track.title)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+
+                Text(track.artistName)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
+                if let albumTitle = track.albumTitle {
+                    Text(albumTitle)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+
+                Text(track.sourcePlatformName)
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundStyle(.blue)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(12)
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 }
 
