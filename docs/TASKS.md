@@ -1,195 +1,207 @@
 # 开发任务
 
-## 当前阶段目标
+## 文档目的
 
-当前阶段开始做真实接入前的 API 预埋，先补平台 provider 抽象与解析边界，但不接真实服务。
+本文件不再记录细碎执行过程，只保留当前可复用的项目现状与后续开发路线。
 
-后续 coding mode 应遵守：
+后续 coding agent 应优先把它当作：
 
-- 每次只完成一个最小任务
-- 每次最多修改 1-3 个文件
-- 始终保持工程可编译
-- 先模型，后 mock，后页面，后交互
-- 先打通主路径，再补细节
+- 当前能力边界说明
+- 下一阶段 phase 拆分
+- 真实接入前的分层约束
 
 ---
 
-## 当前原则
+## 当前已完成能力
 
-- 所有功能先基于 mock data 实现
-- 暂不接入真实 Spotify / 网易云 / Apple Music / QQ 音乐 API
-- 暂不实现真实播放能力
-- 暂不实现登录、鉴权、后端同步
-- 不引入第三方 UI 库
-- 不修改 `project.pbxproj`，除非明确要求
-- View 不写复杂业务逻辑
-- 新增内容必须能被下一轮复用，不做一次性临时堆叠
+当前仓库已完成 MVP 前期主链路，后续开发应默认这些能力已存在且不应回退：
+
+- Rooms 列表可浏览并进入房间详情
+- Room 详情已是轻量聊天室结构
+- 支持发送纯文本消息
+- 支持在统一 composer 内粘贴链接发歌
+- 支持引用已有歌曲消息继续发言
+- 歌曲消息可进入歌曲详情页
+- `Track` / `PlatformLink` / `Room` / `Message` 已形成当前统一模型
+- `MusicPlatform` 已作为共享平台类型进入模型层
+- `Track.platformLinks` 已接入歌曲详情页按钮渲染
+- `PlatformNavigationService` 已提供真机可测试的跳转占位 URL
+- `MusicResolverService` 已返回 `ResolvedTrackPayload`
+- 当前 resolver 已能识别 4 个平台的最小链接并提取资源 id：
+  - Spotify
+  - Apple Music
+  - 网易云音乐
+  - QQ 音乐
+- 当前 resolver 已具备最小 provider 抽象，但仍是 mock 驱动
+
+---
+
+## 当前架构判断
+
+基于现有代码，项目已经从“纯 mock 页面阶段”进入“真实 metadata 接入前的分层准备阶段”。
+
+当前最重要的判断：
+
+- 聊天 UI 主路径已经可用，下一阶段不要重做 Rooms / Chat 交互
+- 平台统一类型已经落地，但平台相关字段仍有继续收口空间
+- resolver 现在同时承担了链接识别、资源 id 提取、mock metadata 组装、platformLinks 生成，职责仍偏厚
+- 真实 API 接入前，必须先拆清 `LinkParsing` 和 `MetadataFetching`
 
 ---
 
 ## 当前不做
 
-- 真实平台 API 接入
-- 真实深链跳转
+以下内容在当前阶段明确不做，避免后续 agent 跑偏：
+
 - 站内播放
-- 登录与用户体系
+- 登录、鉴权、账号体系
 - 云端同步
+- 社区、评论、推荐
 - 截图识别
-- 复杂状态管理
-- 推荐、社区、评论等扩展功能
+- 多平台同时真实接入
+- 大规模 UI 重构
+- 改聊天主路径交互
+- 为了接 API 提前引入复杂第三方架构
 
 ---
 
-## 当前已完成的聊天能力
+## Phase 1：Resolver 分层收口
 
-- 房间详情页已改成聊天式结构
-- 支持纯文本消息发送
-- 支持统一 composer 内发送歌曲链接
-- 支持从任意歌曲消息发起引用
-- 消息流按上旧下新展示
-- 自己发送消息后自动滚动到底部
-- 只有未停留在底部时，才显示新消息提示气泡
-- 连续同一发送者的消息会弱化重复名字和时间
-- 发送消息时提供轻量发送中过渡反馈
-- 聊天室相关 View 已从 `MainTabViews.swift` 中拆分到 `Features/Rooms`
-- 平台按钮已接入真实深链占位打开逻辑
-- mock resolver 已改为 provider 抽象驱动
-- 平台定义已开始从字符串收敛到统一类型
-- resolver 已开始返回带来源上下文的解析结果层
-- 歌曲详情页按钮已开始读取歌曲自身的 `platformLinks`
+目标：把当前 mock resolver 拆成后续可替换真实 provider 的稳定结构，但先不接真实 API。
 
----
+本 phase 应解决：
 
-## Phase 0：初始化
+- 将“链接识别 / 平台判断 / 资源 id 提取”从“歌曲 metadata 获取”中拆开
+- 明确 resolver 编排层只负责流程调度，不直接持有平台 mock 细节
+- 为后续真实 provider 保留稳定输入输出
 
-目标：确认项目基础骨架已存在，不重复建设。
+建议交付：
 
-- [X] 创建基础目录结构
-- [X] 创建基础文档
-- [X] 创建 `SideBApp.swift` 应用入口
-- [X] 创建 `RootView.swift` 根界面
-- [X] 建立 `TabView + NavigationStack` 基础导航结构
-- [X] 清理默认模板残留代码（仅在确有残留时处理）
+- 新增或明确 `LinkParsing` 层职责
+- 新增或明确 `MetadataFetching` / provider 层职责
+- 让 `ResolvedTrackPayload` 成为 resolver 对上层的稳定结果
+- 保持 `RoomDetailViewModel` 调用方式尽量不变
+
+验收标准：
+
+- 代码里能区分“解析链接”和“拉取 metadata”两步
+- mock 数据仍可驱动完整发歌链路
+- 不改聊天 UI 行为
 
 ---
 
-## Phase 1：骨架确认
+## Phase 2：Spotify 真实 metadata 接入
 
-目标：保持入口清晰、占位最小可用，为后续模型接入预留稳定落点。
+目标：优先打通 Spotify 的真实歌曲信息获取，作为第一条真实 provider 链路。
 
-- [X] 确认 `RootView` 继续只承担导航与占位职责
-- [X] 确认 Home / Rooms / Profile 保持最轻占位，不承载业务逻辑
-- [X] 统一页面命名与文件组织方式
-- [X] 评估是否需要将占位页面从 `RootView` 中拆分到 `Features` 目录
-- [X] 如需拆分，占位页面拆分仍保持无业务逻辑
+为什么先做 Spotify：
 
----
+- 当前链接识别已存在最小基础
+- 资源 id 提取已具备
+- 最适合作为 metadata provider 骨架的第一平台
 
-## Phase 2：模型定义
+本 phase 应优先完成：
 
-目标：先统一数据形状，再进入 mock 数据与页面绑定。
+- 定义 Spotify metadata provider 协议或服务骨架
+- 明确 provider 输入：
+  - 平台类型
+  - 资源 id
+- 明确 provider 输出：
+  - 标准化后的 `Track`
+  - 可选的原始平台上下文
+- 保留 mock fallback，保证工程可继续运行
 
-- [X] 创建 `Track`
-- [X] 创建 `PlatformLink`
-- [X] 创建 `Room`
-- [X] 创建 `Message`
-- [X] 为 `Track` 补充当前页面所需的最小字段
-- [X] 为 `PlatformLink` 补充当前页面所需的最小字段
-- [X] 为 `Room` 补充当前页面所需的最小字段
-- [X] 为 `Message` 补充当前页面所需的最小字段
+本 phase 暂不要求：
 
----
+- 完整鉴权闭环
+- 多平台一起接入
+- UI 上增加复杂错误态
 
-## Phase 3：Mock 数据
+验收标准：
 
-目标：为页面和服务提供统一的本地假数据来源。
-
-- [X] 添加 mock `Track` 数据
-- [X] 添加 mock `Room` 数据
-- [X] 添加 mock `Message` 数据
-- [X] 确定 mock 数据是放在模型内还是集中放在独立文件
-- [X] 保持 mock 数据结构与统一模型一致
+- Spotify provider 可以作为独立层被 resolver 调用
+- 即使真实调用未完全接通，代码结构也已经从 mock provider 中抽离
+- 上层 UI 不需要知道 Spotify 的平台细节
 
 ---
 
-## Phase 4：Rooms 主路径
+## Phase 3：平台模型继续统一
 
-目标：先打通房间列表与房间详情这条主浏览路径。
+目标：减少平台相关过渡字段，让共享模型成为唯一可信来源。
 
-- [X] 用 `Room` 模型替换 Rooms 页中的字符串数组
-- [X] 实现房间列表页
-- [X] 房间列表展示：房间名 / 最近歌曲摘要 / 最近消息摘要
-- [X] 点击进入房间详情页
-- [X] 实现房间详情页
-- [X] 房间详情页展示 mock `Message` 列表
+本 phase 重点：
 
----
+- 继续收口 `MusicPlatform`
+- 逐步减少过渡型展示字段的扩散，例如 `sourcePlatformName`
+- 明确 `PlatformLink` 在“来源平台”和“目标跳转平台”中的角色
+- 统一平台展示顺序、按钮数据来源和来源标记逻辑
 
-## Phase 5：Song 展示
+验收标准：
 
-目标：让消息流中的歌曲内容能被统一展示和查看详情。
-
-- [X] 创建歌曲卡片组件
-- [X] 在房间详情页接入歌曲卡片
-- [X] 点击歌曲卡片进入歌曲详情页
-- [X] 实现歌曲详情页
-- [X] 歌曲详情页展示：封面占位 / 标题 / 艺人 / 平台信息 / 歌词 mock 区域
-- [X] 创建平台跳转按钮占位
+- UI 展示尽量从 `MusicPlatform` / `PlatformLink` 推导，而不是依赖散落字符串
+- resolver / mock data / details UI 使用同一套平台定义
 
 ---
 
-## Phase 6：Mock 服务
+## Phase 4：Apple Music 第二阶段接入
 
-目标：在交互接入前补上“输入链接 -> 返回统一 Track”的本地解析闭环。
+目标：在 Spotify 路径稳定后，复制同样的 provider 结构接入 Apple Music。
 
-- [X] 创建 `MusicResolverService`
-- [X] 定义最小输入：歌曲链接字符串
-- [X] 定义最小输出：统一 `Track`
-- [X] 提供 mock 实现
-- [X] 先只处理固定成功路径
-- [X] 暂不处理真实链接解析与复杂失败态
-- [X] 为后续真实接入预埋平台 provider 抽象
-- [X] 为 Spotify / Apple Music / 网易云 / QQ 补最小资源 id 提取能力
+本 phase 应遵守：
 
----
+- 复用 Spotify 阶段已经稳定的分层
+- 不为 Apple Music 单独发明另一套 resolver 流程
+- 继续保证 mock fallback 可用
 
-## Phase 7：基础交互
+验收标准：
 
-目标：补上最小输入交互，让用户能通过粘贴链接生成一条 mock 消息。
-
-- [X] 在房间页添加“粘贴链接”输入入口
-- [X] 输入链接后调用 mock `MusicResolverService`
-- [X] 生成一条歌曲卡片消息
-- [X] 刷新房间消息流
-- [X] 点击平台按钮时先打印日志或显示占位提示
-- [X] 暂不实现真实深链跳转
+- Apple Music provider 接入方式与 Spotify 保持一致
+- resolver 不因平台增多而继续膨胀
 
 ---
 
-## Phase 8：房间消息增强
+## Phase 5：网易云 / QQ 第三阶段接入
 
-目标：把房间做成轻量聊天室，用户既可以自由发文本消息，也可以发送“引用任意歌曲”的消息。
+目标：在前两个平台路径稳定后，再扩展中文平台。
 
-- [X] 新增 `RoomDetailViewModel`
-- [X] 将房间详情页状态从 View 挪到 ViewModel
-- [X] 将 `messages`、`draftText`、`linkInput`、`quotedTrack`、`isShowingLinkInput` 放入 ViewModel
-- [X] 提供 `sendTextMessage(...)`、`sendResolvedTrackMessage(...)`、`startQuoting(track:)`、`clearQuotedTrack()` 等最小接口
-- [X] `Message` 继续复用 `text + track`，不新增独立 `Comment` 模型
-- [X] 保留 `MusicResolverService` 现状，暂不扩展其接口
-- [X] 移除当前独立 `Share Link` 区块
-- [X] 新增底部统一输入栏
-- [X] 支持发送纯文本消息
-- [X] 支持发送“引用任意歌曲”的消息
-- [X] 文本消息和引用歌曲消息共用同一消息流
-- [X] 房间页开始呈现轻量聊天室感，而不是纯分区表单感
-- [X] 保留 resolver 能力，并已并入统一 composer
-- [X] 消息流顺序调整为上旧下新
-- [X] 移除 `Messages` 外层分组容器
-- [X] 自己发送消息后自动滚动到底部
-- [X] 他人新消息出现时显示右下角提示气泡
-- [X] 仅在未停留在底部时显示新消息提示气泡
-- [X] 发送消息时提供轻量发送中过渡反馈
-- [X] 支持针对消息流中任意歌曲发起引用
-- [ ] 真实平台深链跳转（当前仅为搜索页占位打开，不是最终平台级深链）
-- [ ] 真实 API 接入
-- [ ] 用户系统与同步
+本 phase 关注点：
+
+- 保持 provider 接口不变
+- 优先复用统一链接解析结果
+- 不在这一阶段反向改坏前面已稳定的 Spotify / Apple Music 结构
+
+说明：
+
+- 网易云与 QQ 不要求在当前阶段提前设计过深
+- 先保证架构可接，再逐个平台落地
+
+---
+
+## Phase 6：`platformLinks` 继续接入 UI
+
+目标：让 `platformLinks` 不只停留在歌曲详情页，而是逐步成为统一跳转数据源。
+
+本 phase 重点：
+
+- 继续确认所有平台按钮都从 `Track.platformLinks` 读取
+- 评估 Rooms 列表、聊天消息卡片是否需要轻量暴露平台状态
+- 保持 UI 只消费结果，不拼平台目标 URL
+
+验收标准：
+
+- 平台跳转相关 UI 不再各自拼装目标链接
+- 平台按钮来源稳定、顺序稳定、来源平台标记稳定
+
+---
+
+## 每轮开发约束
+
+后续 agent 继续开发时，默认遵守以下约束：
+
+- 每次只做一个最小任务
+- 每次最多修改 1-3 个文件
+- 始终保持项目可编译
+- 不修改 `project.pbxproj`
+- 不把业务逻辑塞回 SwiftUI View
+- 优先补结构，再做真实接入
+- 任何新抽象都必须服务于后续真实 provider 落地

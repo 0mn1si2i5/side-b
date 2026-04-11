@@ -63,7 +63,7 @@ struct MockMusicPlatformProvider: MusicPlatformProvider {
 
         let resourceID = extractResourceIdentifier(from: link)
         let sourceURL = URL(string: link)
-        let platformLinks = Self.platformLinks(for: MockData.track(for: platform), sourcePlatform: platform)
+        let platformLinks = Self.platformLinks(for: MockData.track(for: platform), sourcePlatform: platform, sourceURL: sourceURL)
         let track = MockData.track(for: platform, platformLinks: platformLinks)
 
         return ResolvedTrackPayload(
@@ -99,7 +99,7 @@ struct MockMusicPlatformProvider: MusicPlatformProvider {
         ),
         MockMusicPlatformProvider(
             platform: .qqMusic,
-            matchingKeywords: ["y.qq.com", "qqmusic.qq.com", "ryqq"],
+            matchingKeywords: ["y.qq.com", "qqmusic.qq.com", "ryqq", "c6.y.qq.com"],
             resourceIDExtractor: { link in
                 firstMatch(in: link, pattern: #"songDetail/([A-Za-z0-9]+)"#)
                     ?? firstMatch(in: link, pattern: #"song/([A-Za-z0-9]+)"#)
@@ -110,7 +110,7 @@ struct MockMusicPlatformProvider: MusicPlatformProvider {
     static func fallbackPayload(for link: String) -> ResolvedTrackPayload {
         let sourceURL = URL(string: link)
         let sourcePlatform = MockData.tracks[0].sourcePlatform
-        let platformLinks = platformLinks(for: MockData.tracks[0], sourcePlatform: sourcePlatform)
+        let platformLinks = platformLinks(for: MockData.tracks[0], sourcePlatform: sourcePlatform, sourceURL: sourceURL)
         let fallbackTrack = MockData.track(for: sourcePlatform, platformLinks: platformLinks)
 
         return ResolvedTrackPayload(
@@ -122,11 +122,18 @@ struct MockMusicPlatformProvider: MusicPlatformProvider {
         )
     }
 
-    private static func platformLinks(for track: Track, sourcePlatform: MusicPlatform) -> [PlatformLink] {
+    private static func platformLinks(for track: Track, sourcePlatform: MusicPlatform, sourceURL: URL?) -> [PlatformLink] {
         let navigationService = MockPlatformNavigationService()
 
         return MusicPlatform.allCases.compactMap { platform in
-            let destinationURL = navigationService.destinationURL(for: platform, track: track)
+            let destinationURL: URL?
+
+            if platform == sourcePlatform, let sourceURL {
+                destinationURL = sourceURL
+            } else {
+                destinationURL = navigationService.destinationURL(for: platform, track: track)
+            }
+
             guard let destinationURL else { return nil }
 
             return PlatformLink(

@@ -1,6 +1,13 @@
 import Foundation
 
 enum MockData {
+    private static let realSourceURLs: [MusicPlatform: URL] = [
+        .spotify: URL(string: "https://open.spotify.com/track/6qxvy9Pe4RJIq5JBVbbwbS?si=sQxRHdmHST-Nze5nudbENw")!,
+        .appleMusic: URL(string: "https://music.apple.com/cn/album/somebody-that-i-used-to-know-feat-kimbra/1445885993?i=1445886556")!,
+        .qqMusic: URL(string: "https://c6.y.qq.com/base/fcgi-bin/u?__=H7s1JEFxvL47")!,
+        .neteaseMusic: URL(string: "https://163cn.tv/4XXWGgw")!
+    ]
+
     static let tracks: [Track] = [
         Track(
             title: "Nights",
@@ -114,10 +121,10 @@ enum MockData {
 
     private static func defaultPlatformLinks(for sourcePlatform: MusicPlatform) -> [PlatformLink] {
         let destinations: [MusicPlatform: URL] = [
-            .spotify: URL(string: "https://open.spotify.com/track/mock-nights")!,
-            .appleMusic: URL(string: "https://music.apple.com/song/mock-after-hours")!,
-            .neteaseMusic: URL(string: "https://music.163.com/song?id=mock-beach")!,
-            .qqMusic: URL(string: "https://y.qq.com/n/ryqq/songDetail/004O1DHG4MjYOi")!
+            .spotify: realSourceURLs[.spotify]!,
+            .appleMusic: realSourceURLs[.appleMusic]!,
+            .neteaseMusic: realSourceURLs[.neteaseMusic]!,
+            .qqMusic: realSourceURLs[.qqMusic]!
         ]
 
         return MusicPlatform.allCases.compactMap { platform in

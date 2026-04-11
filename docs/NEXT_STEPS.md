@@ -1,80 +1,84 @@
 # NEXT STEPS
 
-## 当前阶段目标
+## 当前目标
 
-聊天室主路径的代码清理与文档收口已经完成，平台按钮也已接入真实深链占位打开逻辑。当前开始进入 API 预埋阶段。
+下一阶段不是继续堆聊天功能，而是为真实歌曲信息获取做结构准备。
 
-- 纯文本消息
-- 引用任意歌曲的消息
-- 统一 composer 内发歌链接
+默认原则：
 
----
-
-## 下一轮建议任务
-
-建议按下面顺序逐步推进：
-
-1. 继续减少平台兼容层，例如逐步减少 `sourcePlatformName` 这类过渡属性
-2. 再决定是否把歌曲详情页以外的地方也接到 `platformLinks`
-3. 保持当前聊天主路径和跳转占位不回退
+- 先拆分 resolver 职责
+- 先做 Spotify provider 骨架
+- 不改聊天 UI 主路径
 
 ---
 
-## Public Interfaces / Types
+## 下一个 agent 先做什么
 
-当前已引入接口与结构：
+### 1. 先拆 `LinkParsing` 和 `MetadataFetching`
 
-- `RoomDetailViewModel`
-  - `messages`
-  - `draftText`
-  - `linkInput`
-  - `quotedTrack`
-  - `isShowingLinkInput`
-  - `isSending`
-  - `sendTextMessage(...)`
-  - `sendResolvedTrackMessage(...)`
-  - `startQuoting(track:)`
-  - `clearQuotedTrack()`
+这是当前最优先任务。
 
-保持不变：
+原因：
 
-- `Message` 继续复用 `text + track`
-- 不新增独立 `Comment` 模型
-- `MusicResolverService` 保持现状，暂不扩展
-- `PlatformNavigationService` 提供平台搜索页占位打开能力
-- `MusicPlatformProvider` 作为后续真实平台接入的最小 provider 抽象
-- mock 数据已开始按平台集中映射，不再散落在 resolver 内
-- `MusicPlatform` 作为共享平台定义，已进入模型层
-- `ResolvedTrackPayload` 作为真实解析结果层的最小形态已引入
-- `Track` 已开始直接持有 `platformLinks`
+- 现在 `MusicResolverService` 同时承担链接识别、资源 id 提取、mock track 组装、`platformLinks` 生成
+- 如果不先拆层，后面接 Spotify 真实 metadata 时会继续把 resolver 做厚
 
-当前代码组织状态：
+本轮目标应是：
 
-- `MainTabViews.swift` 只保留 tab 级页面入口
-- `RoomDetailView.swift` 承担房间详情页装配
-- `RoomMessageComponents.swift` 承担消息展示组件
+- 把“从链接得到平台与资源 id”定义成独立步骤
+- 把“根据平台与资源 id 获取 metadata”定义成独立步骤
+- 保持上层调用仍然能拿到 `ResolvedTrackPayload`
+
+限制：
+
+- 不改 `RoomDetailViewModel` 主调用路径
+- 不改聊天页面交互
 
 ---
 
-## 本轮不做
+### 2. 建立 Spotify metadata provider 骨架
 
-- 不做线程回复
-- 不做歌曲卡片下评论
-- 不做真实跳转
-- 不做真实 API
-- 不在本轮新增用户系统
+在分层之后，下一最小任务就是给 Spotify 建一个真实接入前可落位的 provider 骨架。
+
+本轮只需要做到：
+
+- 有清晰的 Spotify provider 类型或协议实现位置
+- 输入是 Spotify 资源 id
+- 输出对齐统一 `Track` / `ResolvedTrackPayload`
+- 暂时允许内部继续返回 mock 数据或 placeholder 数据
+
+先不要做：
+
+- 多平台一起接
+- UI 改版
+- 复杂错误态铺开
 
 ---
 
-## 下一轮验收标准
+### 3. 保持聊天主路径冻结
 
-- `MainTabViews.swift` 中不再堆叠聊天室实现细节
-- 聊天室 UI 已拆到 `Features/Rooms`
-- 房间页现有行为不回退
-- 文档与当前代码状态一致
-- mock resolver 已不再依赖一组散落的字符串判断
-- 平台 mock 数据与 provider 映射关系已集中到 `MockData`
-- 平台按钮、resolver、mock 数据已开始共享同一套平台定义
-- Spotify / Apple Music / 网易云 / QQ 链接已可提取最小资源标识
-- 歌曲详情页按钮已改为读取 `Track.platformLinks`
-- 平台按钮已不再只是提示，而会尝试打开对应平台搜索页
+下一阶段所有结构调整，都不应该影响以下行为：
+
+- Rooms 列表进入 Room 详情
+- 文本消息发送
+- 粘贴链接发歌
+- 引用歌曲消息
+- 歌曲详情页查看
+- 详情页平台按钮展示与跳转占位
+
+如果新改动会触碰以上 UI 行为，优先回到更小的结构性任务。
+
+---
+
+## 建议的最小起手任务
+
+下一轮 coding mode 建议直接从下面这个最小任务开始：
+
+`把当前 resolver 中“链接解析结果”抽成独立类型，并让 Spotify 走这条解析结果到 metadata provider 的新骨架，但暂时仍返回 mock track。`
+
+这样做的原因：
+
+- 改动范围最小
+- 不需要碰聊天 UI
+- 能直接为真实 Spotify 接入铺路
+- 能验证新的分层是否成立
