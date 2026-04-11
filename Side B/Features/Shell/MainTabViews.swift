@@ -49,83 +49,213 @@ struct RoomsListView: View {
 
 struct RoomDetailView: View {
     let room: Room
-    private let resolver = MockMusicResolverService()
-    @State private var inputLink = ""
-    @State private var displayedMessages = MockData.messages
+    @StateObject private var viewModel: RoomDetailViewModel
+    @State private var pendingIncomingMessageCount = 0
+    @State private var isAtBottom = true
+
+    init(room: Room) {
+        self.room = room
+        _viewModel = StateObject(
+            wrappedValue: RoomDetailViewModel(initialMessages: MockData.messages)
+        )
+    }
 
     var body: some View {
-        List {
-            if let latestTrack = room.latestTrack {
-                Section("Now in Room") {
-                    NavigationLink {
-                        SongDetailView(track: latestTrack)
-                    } label: {
-                        SongCardView(track: latestTrack)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-
-            Section("Share Link") {
-                TextField("Paste a music link", text: $inputLink)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-
-                Button("Add Song Message") {
-                    addResolvedTrackMessage()
-                }
-                .disabled(inputLink.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            }
-
-            Section("Messages") {
-                ForEach(displayedMessages) { message in
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack {
-                            Text(message.senderName)
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
-
-                            Spacer()
-
-                            Text(message.sentAt.formatted(date: .omitted, time: .shortened))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-
-                        if let text = message.text {
-                            Text(text)
-                                .font(.body)
-                        }
-
-                        if let track = message.track {
-                            NavigationLink {
-                                SongDetailView(track: track)
-                            } label: {
-                                SongCardView(track: track)
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    ForEach(Array(viewModel.messages.enumerated()), id: \.element.id) { index, message in
+                        MessageRowView(
+                            message: message,
+                            showsMetadata: shouldShowMetadata(for: index),
+                            isGroupedWithNextMessage: isGroupedWithNextMessage(for: index),
+                            onQuoteTrack: { track in
+                                viewModel.startQuoting(track: track)
                             }
-                            .buttonStyle(.plain)
-                        }
+                        )
+                        .padding(.horizontal, 16)
+                        .padding(.top, shouldShowMetadata(for: index) ? 10 : 3)
+                        .padding(.bottom, isGroupedWithNextMessage(for: index) ? 3 : 10)
                     }
-                    .padding(.vertical, 4)
+
+                    Color.clear
+                        .frame(height: 1)
+                        .id("bottom-anchor")
+                        .onAppear {
+                            isAtBottom = true
+                            pendingIncomingMessageCount = 0
+                        }
+                        .onDisappear {
+                            isAtBottom = false
+                        }
+                }
+                .padding(.top, 8)
+            }
+            .navigationTitle(room.name)
+            .navigationBarTitleDisplayMode(.inline)
+            .safeAreaInset(edge: .bottom) {
+                messageComposer
+            }
+            .overlay(alignment: .bottomTrailing) {
+                if pendingIncomingMessageCount > 0 {
+                    Button {
+                        withAnimation {
+                            proxy.scrollTo("bottom-anchor", anchor: .bottom)
+                        }
+                        pendingIncomingMessageCount = 0
+                    } label: {
+                        Text("新消息 \(pendingIncomingMessageCount) 条")
+                            .font(.footnote)
+                            .fontWeight(.medium)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 10)
+                            .background(.ultraThinMaterial)
+                            .clipShape(Capsule())
+                    }
+                    .padding(.trailing, 16)
+                    .padding(.bottom, 82)
+                }
+            }
+            .onChange(of: viewModel.messages.count) { _, _ in
+                guard let latestMessage = viewModel.messages.last else { return }
+
+                if latestMessage.senderName == "You" {
+                    withAnimation {
+                        proxy.scrollTo("bottom-anchor", anchor: .bottom)
+                    }
+                    pendingIncomingMessageCount = 0
+                } else {
+                    if isAtBottom {
+                        withAnimation {
+                            proxy.scrollTo("bottom-anchor", anchor: .bottom)
+                        }
+                        pendingIncomingMessageCount = 0
+                    } else {
+                        pendingIncomingMessageCount += 1
+                    }
+                }
+            }
+            .onAppear {
+                proxy.scrollTo("bottom-anchor", anchor: .bottom)
+                pendingIncomingMessageCount = 0
+            }
+        }
+    }
+
+    private var messageComposer: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if let quotedTrack = viewModel.quotedTrack {
+                HStack(spacing: 10) {
+                    Image(systemName: "quote.opening")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Replying to song")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+
+                        Text("\(quotedTrack.title) - \(quotedTrack.artistName)")
+                            .font(.footnote)
+                            .lineLimit(1)
+                    }
+
+                    Spacer()
+
+                    Button {
+                        viewModel.clearQuotedTrack()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(Color(.secondarySystemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+            }
+
+            HStack(spacing: 12) {
+                Button {
+                    viewModel.toggleLinkInput()
+                } label: {
+                    Image(systemName: viewModel.isShowingLinkInput ? "message" : "link")
+                        .frame(width: 20, height: 20)
+                }
+                .buttonStyle(.bordered)
+                .tint(viewModel.isShowingLinkInput ? .blue : .gray)
+
+                Group {
+                    if viewModel.isShowingLinkInput {
+                        TextField("Paste a music link", text: $viewModel.linkInput)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .textFieldStyle(.roundedBorder)
+                            .disabled(viewModel.isSending)
+                            .submitLabel(.send)
+                            .onSubmit {
+                                submitComposer()
+                            }
+                    } else {
+                        TextField("Send a message", text: $viewModel.draftText)
+                            .textFieldStyle(.roundedBorder)
+                            .disabled(viewModel.isSending)
+                            .submitLabel(.send)
+                            .onSubmit {
+                                submitComposer()
+                            }
+                    }
+                }
+
+                Button(viewModel.isShowingLinkInput ? "Share" : "Send") {
+                    submitComposer()
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(activeComposerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isSending)
+                .overlay {
+                    if viewModel.isSending {
+                        HStack(spacing: 6) {
+                            ProgressView()
+                                .controlSize(.small)
+
+                            Text(viewModel.isShowingLinkInput ? "Sharing" : "Sending")
+                                .font(.footnote)
+                                .fontWeight(.medium)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(Color.accentColor)
+                        .clipShape(Capsule())
+                    }
                 }
             }
         }
-        .listStyle(.insetGrouped)
-        .navigationTitle(room.name)
-        .navigationBarTitleDisplayMode(.inline)
+        .padding(.horizontal)
+        .padding(.top, 10)
+        .padding(.bottom, 12)
+        .background(.regularMaterial)
     }
 
-    private func addResolvedTrackMessage() {
-        let resolvedTrack = resolver.resolveTrack(from: inputLink)
-        let newMessage = Message(
-            senderName: "You",
-            text: "Shared a song link",
-            track: resolvedTrack,
-            sentAt: Date()
-        )
+    private var activeComposerText: String {
+        viewModel.isShowingLinkInput ? viewModel.linkInput : viewModel.draftText
+    }
 
-        displayedMessages.insert(newMessage, at: 0)
-        inputLink = ""
+    private func shouldShowMetadata(for index: Int) -> Bool {
+        guard index > 0 else { return true }
+        return viewModel.messages[index - 1].senderName != viewModel.messages[index].senderName
+    }
+
+    private func isGroupedWithNextMessage(for index: Int) -> Bool {
+        guard index < viewModel.messages.count - 1 else { return false }
+        return viewModel.messages[index + 1].senderName == viewModel.messages[index].senderName
+    }
+
+    private func submitComposer() {
+        if viewModel.isShowingLinkInput {
+            viewModel.sendResolvedTrackMessage()
+        } else {
+            viewModel.sendTextMessage()
+        }
     }
 }
 
@@ -275,6 +405,137 @@ struct SongCardView: View {
         .padding(12)
         .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+}
+
+struct MessageRowView: View {
+    let message: Message
+    let showsMetadata: Bool
+    let isGroupedWithNextMessage: Bool
+    let onQuoteTrack: (Track) -> Void
+
+    private var isCurrentUser: Bool {
+        message.senderName == "You"
+    }
+
+    var body: some View {
+        HStack(alignment: .bottom, spacing: 0) {
+            if isCurrentUser {
+                Spacer(minLength: 44)
+            }
+
+            VStack(alignment: isCurrentUser ? .trailing : .leading, spacing: 6) {
+                if showsMetadata {
+                    HStack(spacing: 8) {
+                        if !isCurrentUser {
+                            Text(message.senderName)
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                        }
+
+                        Text(message.sentAt.formatted(date: .omitted, time: .shortened))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+
+                        if isCurrentUser {
+                            Text(message.senderName)
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                        }
+                    }
+                }
+
+                if let text = message.text {
+                    Text(text)
+                        .font(.body)
+                        .foregroundStyle(isCurrentUser ? .white : .primary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                        .background(isCurrentUser ? Color.accentColor : Color(.secondarySystemBackground))
+                        .clipShape(RoundedRectangle(cornerRadius: 18))
+                }
+
+                if let track = message.track {
+                    VStack(alignment: .leading, spacing: 8) {
+                        NavigationLink {
+                            SongDetailView(track: track)
+                        } label: {
+                            CompactSongAttachmentView(track: track, isCurrentUser: isCurrentUser)
+                        }
+                        .buttonStyle(.plain)
+
+                        if !isGroupedWithNextMessage {
+                            HStack {
+                                Button {
+                                    onQuoteTrack(track)
+                                } label: {
+                                    Label("Quote song", systemImage: "quote.bubble")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                .buttonStyle(.borderless)
+
+                                Spacer(minLength: 0)
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.top, -2)
+                        }
+                    }
+                }
+            }
+
+            if !isCurrentUser {
+                Spacer(minLength: 44)
+            }
+        }
+    }
+}
+
+struct CompactSongAttachmentView: View {
+    let track: Track
+    let isCurrentUser: Bool
+
+    var body: some View {
+        HStack(spacing: 10) {
+            RoundedRectangle(cornerRadius: 10)
+                .fill((isCurrentUser ? Color.white.opacity(0.18) : Color.secondary.opacity(0.12)))
+                .frame(width: 42, height: 42)
+                .overlay {
+                    Image(systemName: "music.note")
+                        .font(.footnote)
+                        .foregroundStyle(isCurrentUser ? .white.opacity(0.85) : .secondary)
+                }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(track.title)
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(isCurrentUser ? .white : .primary)
+                    .lineLimit(1)
+
+                Text(track.artistName)
+                    .font(.caption)
+                    .foregroundStyle(isCurrentUser ? .white.opacity(0.8) : .secondary)
+                    .lineLimit(1)
+
+                Text(track.sourcePlatformName)
+                    .font(.caption2)
+                    .foregroundStyle(isCurrentUser ? .white.opacity(0.7) : .secondary)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(10)
+        .background(isCurrentUser ? Color.accentColor.opacity(0.16) : Color.white.opacity(0.88))
+        .overlay {
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(
+                    isCurrentUser ? Color.accentColor.opacity(0.32) : Color.black.opacity(0.12),
+                    lineWidth: 1.5
+                )
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .shadow(color: Color.black.opacity(isCurrentUser ? 0.04 : 0.03), radius: 4, y: 1)
     }
 }
 

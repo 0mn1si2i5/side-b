@@ -2,7 +2,7 @@
 
 ## 当前阶段目标
 
-当前阶段的非保留项已完成收口，下一步进入房间消息增强：把房间详情页逐步改造成轻量聊天室，并支持“引用当前歌曲”的消息。
+当前阶段继续做展示细节收口，补齐更接近真实聊天页的消息滚动与新消息反馈。
 
 后续 coding mode 应遵守：
 
@@ -146,24 +146,30 @@
 
 ## Phase 8：房间消息增强
 
-目标：把房间做成轻量聊天室，用户既可以自由发文本消息，也可以发送“引用当前歌曲”的消息。
+目标：把房间做成轻量聊天室，用户既可以自由发文本消息，也可以发送“引用任意歌曲”的消息。
 
-- [ ] 新增 `RoomDetailViewModel`
-- [ ] 将房间详情页状态从 View 挪到 ViewModel
-- [ ] 将 `messages`、`draftText`、`isQuotingCurrentTrack` 放入 ViewModel
-- [ ] 提供 `sendMessage(...)` 之类的最小发送接口
-- [ ] `Message` 继续复用 `text + track`，不新增独立 `Comment` 模型
-- [ ] 保留 `MusicResolverService` 现状，暂不扩展其接口
-- [ ] 移除当前独立 `Share Link` 区块
-- [ ] 新增底部统一输入栏
-- [ ] 支持发送纯文本消息
-- [ ] 支持发送“引用当前歌曲”的消息
-- [ ] 文本消息和引用歌曲消息共用同一消息流
-- [ ] 房间页呈现轻量聊天室感，而不是分区表单感
-- [ ] 保留 resolver 能力，但本轮不并入统一 composer
+- [X] 新增 `RoomDetailViewModel`
+- [X] 将房间详情页状态从 View 挪到 ViewModel
+- [X] 将 `messages`、`draftText`、`linkInput`、`quotedTrack`、`isShowingLinkInput` 放入 ViewModel
+- [X] 提供 `sendTextMessage(...)`、`sendResolvedTrackMessage(...)`、`startQuoting(track:)`、`clearQuotedTrack()` 等最小接口
+- [X] `Message` 继续复用 `text + track`，不新增独立 `Comment` 模型
+- [X] 保留 `MusicResolverService` 现状，暂不扩展其接口
+- [X] 移除当前独立 `Share Link` 区块
+- [X] 新增底部统一输入栏
+- [X] 支持发送纯文本消息
+- [X] 支持发送“引用任意歌曲”的消息
+- [X] 文本消息和引用歌曲消息共用同一消息流
+- [X] 房间页开始呈现轻量聊天室感，而不是纯分区表单感
+- [X] 保留 resolver 能力，并已并入统一 composer
+- [X] 消息流顺序调整为上旧下新
+- [X] 移除 `Messages` 外层分组容器
+- [X] 自己发送消息后自动滚动到底部
+- [X] 他人新消息出现时显示右下角提示气泡
+- [X] 仅在未停留在底部时显示新消息提示气泡
+- [X] 发送消息时提供轻量发送中过渡反馈
 - [ ] 暂不支持线程回复
 - [ ] 暂不支持歌曲卡片下子评论
-- [ ] 暂不支持针对消息流中任意歌曲发起引用
+- [X] 支持针对消息流中任意歌曲发起引用
 - [ ] 真实平台深链跳转
 - [ ] 真实 API 接入
 - [ ] 用户系统与同步
