@@ -49,7 +49,9 @@ struct RoomsListView: View {
 
 struct RoomDetailView: View {
     let room: Room
-    let messages = MockData.messages
+    private let resolver = MockMusicResolverService()
+    @State private var inputLink = ""
+    @State private var displayedMessages = MockData.messages
 
     var body: some View {
         List {
@@ -64,12 +66,31 @@ struct RoomDetailView: View {
                 }
             }
 
+            Section("Share Link") {
+                TextField("Paste a music link", text: $inputLink)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+
+                Button("Add Song Message") {
+                    addResolvedTrackMessage()
+                }
+                .disabled(inputLink.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+
             Section("Messages") {
-                ForEach(messages) { message in
+                ForEach(displayedMessages) { message in
                     VStack(alignment: .leading, spacing: 6) {
-                        Text(message.senderName)
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
+                        HStack {
+                            Text(message.senderName)
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+
+                            Spacer()
+
+                            Text(message.sentAt.formatted(date: .omitted, time: .shortened))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
 
                         if let text = message.text {
                             Text(text)
@@ -93,10 +114,26 @@ struct RoomDetailView: View {
         .navigationTitle(room.name)
         .navigationBarTitleDisplayMode(.inline)
     }
+
+    private func addResolvedTrackMessage() {
+        let resolvedTrack = resolver.resolveTrack(from: inputLink)
+        let newMessage = Message(
+            senderName: "You",
+            text: "Shared a song link",
+            track: resolvedTrack,
+            sentAt: Date()
+        )
+
+        displayedMessages.insert(newMessage, at: 0)
+        inputLink = ""
+    }
 }
 
 struct SongDetailView: View {
+    private let platformDisplayOrder = ["Apple Music", "Spotify", "QQ 音乐", "网易云音乐"]
     let track: Track
+    @State private var platformFeedbackMessage = ""
+    @State private var isShowingPlatformFeedback = false
 
     var body: some View {
         ScrollView {
@@ -132,17 +169,30 @@ struct SongDetailView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 12) {
+                    Text("Lyrics")
+                        .font(.headline)
+
+                    Text("Mock lyrics preview")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+
+                    Text("City lights blur into morning\nWe keep the chorus for the ride home\nThis section stays static until real lyrics arrive")
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                }
+
+                VStack(alignment: .leading, spacing: 12) {
                     Text("Open In")
                         .font(.headline)
 
-                    HStack(spacing: 12) {
-                        PlatformJumpButton(title: track.sourcePlatformName, isPrimary: true)
-                        PlatformJumpButton(title: "Apple Music")
-                    }
-
-                    HStack(spacing: 12) {
-                        PlatformJumpButton(title: "Spotify")
-                        PlatformJumpButton(title: "网易云音乐")
+                    ForEach(platformButtonRows, id: \.self) { row in
+                        HStack(spacing: 12) {
+                            ForEach(row, id: \.self) { platformName in
+                                PlatformJumpButton(title: platformName) {
+                                    showPlatformFeedback(for: platformName)
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -150,15 +200,31 @@ struct SongDetailView: View {
         }
         .navigationTitle(track.title)
         .navigationBarTitleDisplayMode(.inline)
+        .alert("Coming Soon", isPresented: $isShowingPlatformFeedback) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(platformFeedbackMessage)
+        }
+    }
+
+    private func showPlatformFeedback(for platformName: String) {
+        platformFeedbackMessage = "Jumping to \(platformName) is not available yet in this mock build."
+        isShowingPlatformFeedback = true
+    }
+
+    private var platformButtonRows: [[String]] {
+        stride(from: 0, to: platformDisplayOrder.count, by: 2).map { index in
+            Array(platformDisplayOrder[index..<min(index + 2, platformDisplayOrder.count)])
+        }
     }
 }
 
 struct PlatformJumpButton: View {
     let title: String
-    var isPrimary: Bool = false
+    let action: () -> Void
 
     var body: some View {
-        Button(action: {}) {
+        Button(action: action) {
             Text(title)
                 .font(.subheadline)
                 .fontWeight(.medium)
@@ -166,8 +232,7 @@ struct PlatformJumpButton: View {
                 .padding(.vertical, 12)
         }
         .buttonStyle(.borderedProminent)
-        .tint(isPrimary ? .blue : .gray)
-        .disabled(true)
+        .tint(.gray)
     }
 }
 
