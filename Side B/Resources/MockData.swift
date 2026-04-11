@@ -25,6 +25,19 @@ enum MockData {
         )
     ]
 
+    static let tracksByPlatform: [MusicPlatform: Track] = [
+        .spotify: tracks[0],
+        .neteaseMusic: tracks[1],
+        .appleMusic: tracks[2],
+        .qqMusic: Track(
+            title: tracks[1].title,
+            artistName: tracks[1].artistName,
+            albumTitle: tracks[1].albumTitle,
+            sourcePlatformName: MusicPlatform.qqMusic.rawValue,
+            artworkURL: tracks[1].artworkURL
+        )
+    ]
+
     static let platformLinks: [PlatformLink] = [
         PlatformLink(
             platformName: "Spotify",
@@ -79,4 +92,8 @@ enum MockData {
             latestMessagePreview: messages[2].text
         )
     ]
+
+    static func track(for platform: MusicPlatform) -> Track {
+        tracksByPlatform[platform] ?? tracks[0]
+    }
 }

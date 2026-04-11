@@ -49,9 +49,11 @@ struct RoomsListView: View {
 
 struct SongDetailView: View {
     private let platformDisplayOrder = ["Apple Music", "Spotify", "QQ 音乐", "网易云音乐"]
+    private let navigationService: PlatformNavigationService = MockPlatformNavigationService()
     let track: Track
     @State private var platformFeedbackMessage = ""
     @State private var isShowingPlatformFeedback = false
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         ScrollView {
@@ -126,8 +128,18 @@ struct SongDetailView: View {
     }
 
     private func showPlatformFeedback(for platformName: String) {
-        platformFeedbackMessage = "Jumping to \(platformName) is not available yet in this mock build."
-        isShowingPlatformFeedback = true
+        guard let destinationURL = navigationService.destinationURL(for: platformName, track: track) else {
+            platformFeedbackMessage = "A destination for \(platformName) is not available in this mock build."
+            isShowingPlatformFeedback = true
+            return
+        }
+
+        openURL(destinationURL) { accepted in
+            if !accepted {
+                platformFeedbackMessage = "Could not open \(platformName)."
+                isShowingPlatformFeedback = true
+            }
+        }
     }
 
     private var platformButtonRows: [[String]] {
