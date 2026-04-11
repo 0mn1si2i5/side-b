@@ -1,0 +1,82 @@
+import Foundation
+
+enum MockData {
+    static let tracks: [Track] = [
+        Track(
+            title: "Nights",
+            artistName: "Frank Ocean",
+            albumTitle: "Blonde",
+            sourcePlatformName: "Spotify",
+            artworkURL: URL(string: "https://example.com/artwork/nights.jpg")
+        ),
+        Track(
+            title: "想去海边",
+            artistName: "夏日入侵企画",
+            albumTitle: "想去海边",
+            sourcePlatformName: "网易云音乐",
+            artworkURL: URL(string: "https://example.com/artwork/beach.jpg")
+        ),
+        Track(
+            title: "After Hours",
+            artistName: "The Weeknd",
+            albumTitle: "After Hours",
+            sourcePlatformName: "Apple Music",
+            artworkURL: URL(string: "https://example.com/artwork/after-hours.jpg")
+        )
+    ]
+
+    static let platformLinks: [PlatformLink] = [
+        PlatformLink(
+            platformName: "Spotify",
+            destinationURL: URL(string: "https://open.spotify.com/track/mock-nights")!,
+            isSource: true
+        ),
+        PlatformLink(
+            platformName: "网易云音乐",
+            destinationURL: URL(string: "https://music.163.com/song?id=mock-beach")!
+        ),
+        PlatformLink(
+            platformName: "Apple Music",
+            destinationURL: URL(string: "https://music.apple.com/song/mock-after-hours")!
+        )
+    ]
+
+    static let messages: [Message] = [
+        Message(
+            senderName: "Mia",
+            text: "这首适合凌晨听",
+            track: tracks[0],
+            sentAt: Date(timeIntervalSince1970: 1_712_000_000)
+        ),
+        Message(
+            senderName: "Leo",
+            text: "副歌一出来就上头了",
+            track: tracks[1],
+            sentAt: Date(timeIntervalSince1970: 1_712_086_400)
+        ),
+        Message(
+            senderName: "Noah",
+            text: "这版制作很满，适合耳机",
+            track: tracks[2],
+            sentAt: Date(timeIntervalSince1970: 1_712_172_800)
+        )
+    ]
+
+    static let rooms: [Room] = [
+        Room(
+            name: "Late Night Loop",
+            latestTrack: tracks[0],
+            latestMessagePreview: messages[0].text
+        ),
+        Room(
+            name: "Side B Club",
+            latestTrack: tracks[1],
+            latestMessagePreview: messages[1].text
+        ),
+        Room(
+            name: "Daily Finds",
+            latestTrack: tracks[2],
+            latestMessagePreview: messages[2].text
+        )
+    ]
+}
