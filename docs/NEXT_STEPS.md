@@ -14,8 +14,8 @@
 
 建议按下面顺序逐步推进：
 
-1. 继续把平台信息从字符串迁到统一模型边界，例如进一步减少兼容层
-2. 评估是否需要让 `PlatformLink` 和 `Track` 共享更多平台映射信息
+1. 继续减少平台兼容层，例如逐步减少 `sourcePlatformName` 这类过渡属性
+2. 再决定是否把歌曲详情页以外的地方也接到 `platformLinks`
 3. 保持当前聊天主路径和跳转占位不回退
 
 ---
@@ -45,6 +45,8 @@
 - `MusicPlatformProvider` 作为后续真实平台接入的最小 provider 抽象
 - mock 数据已开始按平台集中映射，不再散落在 resolver 内
 - `MusicPlatform` 作为共享平台定义，已进入模型层
+- `ResolvedTrackPayload` 作为真实解析结果层的最小形态已引入
+- `Track` 已开始直接持有 `platformLinks`
 
 当前代码组织状态：
 
@@ -73,4 +75,6 @@
 - mock resolver 已不再依赖一组散落的字符串判断
 - 平台 mock 数据与 provider 映射关系已集中到 `MockData`
 - 平台按钮、resolver、mock 数据已开始共享同一套平台定义
+- Spotify / Apple Music / 网易云 / QQ 链接已可提取最小资源标识
+- 歌曲详情页按钮已改为读取 `Track.platformLinks`
 - 平台按钮已不再只是提示，而会尝试打开对应平台搜索页

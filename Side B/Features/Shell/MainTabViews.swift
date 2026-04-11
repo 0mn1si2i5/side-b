@@ -48,7 +48,6 @@ struct RoomsListView: View {
 }
 
 struct SongDetailView: View {
-    private let platformDisplayOrder = MusicPlatform.allCases
     private let navigationService: PlatformNavigationService = MockPlatformNavigationService()
     let track: Track
     @State private var platformFeedbackMessage = ""
@@ -107,9 +106,9 @@ struct SongDetailView: View {
 
                     ForEach(platformButtonRows, id: \.self) { row in
                         HStack(spacing: 12) {
-                            ForEach(row, id: \.self) { platform in
-                                PlatformJumpButton(title: platform.displayName) {
-                                    showPlatformFeedback(for: platform)
+                            ForEach(row, id: \.self) { platformLink in
+                                PlatformJumpButton(title: platformLink.platformName) {
+                                    showPlatformFeedback(for: platformLink)
                                 }
                             }
                         }
@@ -127,24 +126,34 @@ struct SongDetailView: View {
         }
     }
 
-    private func showPlatformFeedback(for platform: MusicPlatform) {
-        guard let destinationURL = navigationService.destinationURL(for: platform, track: track) else {
-            platformFeedbackMessage = "A destination for \(platform.displayName) is not available in this mock build."
+    private func showPlatformFeedback(for platformLink: PlatformLink) {
+        let destinationURL = platformLink.destinationURL
+
+        guard navigationService.destinationURL(for: platformLink.platform, track: track) != nil || platformLink.isSource else {
+            platformFeedbackMessage = "A destination for \(platformLink.platformName) is not available in this mock build."
             isShowingPlatformFeedback = true
             return
         }
 
         openURL(destinationURL) { accepted in
             if !accepted {
-                platformFeedbackMessage = "Could not open \(platform.displayName)."
+                platformFeedbackMessage = "Could not open \(platformLink.platformName)."
                 isShowingPlatformFeedback = true
             }
         }
     }
 
-    private var platformButtonRows: [[MusicPlatform]] {
-        stride(from: 0, to: platformDisplayOrder.count, by: 2).map { index in
-            Array(platformDisplayOrder[index..<min(index + 2, platformDisplayOrder.count)])
+    private var orderedPlatformLinks: [PlatformLink] {
+        let linkByPlatform = Dictionary(uniqueKeysWithValues: track.platformLinks.map { ($0.platform, $0) })
+
+        return MusicPlatform.allCases.compactMap { platform in
+            linkByPlatform[platform]
+        }
+    }
+
+    private var platformButtonRows: [[PlatformLink]] {
+        stride(from: 0, to: orderedPlatformLinks.count, by: 2).map { index in
+            Array(orderedPlatformLinks[index..<min(index + 2, orderedPlatformLinks.count)])
         }
     }
 }

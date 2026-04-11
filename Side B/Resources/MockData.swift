@@ -7,6 +7,7 @@ enum MockData {
             artistName: "Frank Ocean",
             albumTitle: "Blonde",
             sourcePlatform: .spotify,
+            platformLinks: defaultPlatformLinks(for: .spotify),
             artworkURL: URL(string: "https://example.com/artwork/nights.jpg")
         ),
         Track(
@@ -14,6 +15,7 @@ enum MockData {
             artistName: "夏日入侵企画",
             albumTitle: "想去海边",
             sourcePlatform: .neteaseMusic,
+            platformLinks: defaultPlatformLinks(for: .neteaseMusic),
             artworkURL: URL(string: "https://example.com/artwork/beach.jpg")
         ),
         Track(
@@ -21,6 +23,7 @@ enum MockData {
             artistName: "The Weeknd",
             albumTitle: "After Hours",
             sourcePlatform: .appleMusic,
+            platformLinks: defaultPlatformLinks(for: .appleMusic),
             artworkURL: URL(string: "https://example.com/artwork/after-hours.jpg")
         )
     ]
@@ -34,6 +37,7 @@ enum MockData {
             artistName: tracks[1].artistName,
             albumTitle: tracks[1].albumTitle,
             sourcePlatform: .qqMusic,
+            platformLinks: defaultPlatformLinks(for: .qqMusic),
             artworkURL: tracks[1].artworkURL
         )
     ]
@@ -93,7 +97,37 @@ enum MockData {
         )
     ]
 
-    static func track(for platform: MusicPlatform) -> Track {
-        tracksByPlatform[platform] ?? tracks[0]
+    static func track(for platform: MusicPlatform, platformLinks: [PlatformLink] = []) -> Track {
+        let baseTrack = tracksByPlatform[platform] ?? tracks[0]
+        let resolvedPlatformLinks = platformLinks.isEmpty ? baseTrack.platformLinks : platformLinks
+
+        return Track(
+            id: baseTrack.id,
+            title: baseTrack.title,
+            artistName: baseTrack.artistName,
+            albumTitle: baseTrack.albumTitle,
+            sourcePlatform: baseTrack.sourcePlatform,
+            platformLinks: resolvedPlatformLinks,
+            artworkURL: baseTrack.artworkURL
+        )
+    }
+
+    private static func defaultPlatformLinks(for sourcePlatform: MusicPlatform) -> [PlatformLink] {
+        let destinations: [MusicPlatform: URL] = [
+            .spotify: URL(string: "https://open.spotify.com/track/mock-nights")!,
+            .appleMusic: URL(string: "https://music.apple.com/song/mock-after-hours")!,
+            .neteaseMusic: URL(string: "https://music.163.com/song?id=mock-beach")!,
+            .qqMusic: URL(string: "https://y.qq.com/n/ryqq/songDetail/004O1DHG4MjYOi")!
+        ]
+
+        return MusicPlatform.allCases.compactMap { platform in
+            guard let destinationURL = destinations[platform] else { return nil }
+
+            return PlatformLink(
+                platform: platform,
+                destinationURL: destinationURL,
+                isSource: platform == sourcePlatform
+            )
+        }
     }
 }

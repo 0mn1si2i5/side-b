@@ -25,11 +25,11 @@ final class RoomDetailViewModel: ObservableObject {
 
         beginSendingState()
 
-        let resolvedTrack = resolver.resolveTrack(from: normalizedLink)
+        let resolvedPayload = resolver.resolvePayload(from: normalizedLink)
         let newMessage = Message(
             senderName: senderName,
             text: "Shared a song link",
-            track: resolvedTrack,
+            track: resolvedPayload.track,
             sentAt: Date()
         )
 

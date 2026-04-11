@@ -6,6 +6,7 @@ struct Track: Identifiable, Hashable {
     let artistName: String
     let albumTitle: String?
     let sourcePlatform: MusicPlatform
+    let platformLinks: [PlatformLink]
     let artworkURL: URL?
 
     var sourcePlatformName: String {
@@ -18,6 +19,7 @@ struct Track: Identifiable, Hashable {
         artistName: String,
         albumTitle: String? = nil,
         sourcePlatform: MusicPlatform,
+        platformLinks: [PlatformLink] = [],
         artworkURL: URL? = nil
     ) {
         self.id = id
@@ -25,6 +27,7 @@ struct Track: Identifiable, Hashable {
         self.artistName = artistName
         self.albumTitle = albumTitle
         self.sourcePlatform = sourcePlatform
+        self.platformLinks = platformLinks
         self.artworkURL = artworkURL
     }
 }
