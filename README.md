@@ -1,72 +1,80 @@
 # Side B
 
-## 项目简介
+一个轻量级跨平台歌曲分享 iOS App。
 
-Side B 是一个极轻量级的跨平台歌曲分享 iOS App。
+## 当前状态
 
-它解决的问题是：
-朋友使用不同音乐平台（如 Spotify、网易云、QQ 音乐、Apple Music）时，歌曲分享体验很差。用户往往只能收到一个自己打不开的链接，或者只能记住歌名再手动去搜索。
+当前仓库已经不是纯 mock UI。
 
-在 Side B 中，用户可以把歌曲链接发给好友，或发到一个小房间里。接收方点开后，可以看到歌曲的基本信息、平台映射、可能的歌词内容，以及跳转到自己常用音乐 App 的入口。
+主链路现状：
 
----
+- iOS 聊天主路径可用
+- 支持文本消息、粘贴链接发歌、引用歌曲消息
+- 歌曲卡片可进入详情页
+- 详情页当前聚焦：
+  - 封面
+  - 歌名
+  - 艺人
+  - 专辑
+  - 来源平台
+  - 平台按钮
 
-## 当前定位
+Resolver / backend 现状：
 
-不是播放器，不做站内播放。
+- 已有本地 resolver 服务落点：`backend/spotify_resolver_server.py`
+- 已打通 `Spotify -> canonical track -> iOS detail UI`
+- 已打通 `Apple Music -> canonical track -> iOS detail UI`
+- 已支持：
+  - Spotify metadata 真实获取
+  - Apple Music metadata 真实获取
+  - Apple Music <-> Spotify 双向链接映射
+  - Apple Music artwork 高清 URL 返回
+  - 中文简繁归一化
 
-这是一个：
+当前平台策略：
 
-- 轻量级歌曲分享工具
-- 跨平台歌曲信息展示层
-- 小群体朋友之间的音乐分享场景产品
+- 源平台永远显示
+- 其它平台只有命中真实链接时才显示
 
----
+## 当前技术路线
 
-## MVP 功能
+正式路线是：
 
-- 房间列表
-- 房间详情
-- 粘贴歌曲链接
-- 解析为统一歌曲卡片（MVP阶段可先用 mock）
-- 展示歌曲基本信息
-- 展示平台跳转入口
-- 预留歌词展示能力
+`iOS client -> resolver service / backend -> canonical track -> platform links`
 
----
+职责划分：
 
-## 非目标
+- iOS 客户端负责输入、展示、跳转
+- resolver / backend 负责链接解析、metadata 获取、跨平台映射
 
-当前版本不做：
+当前不做：
 
 - 站内播放
-- 统一音频播放能力
-- 大型社区
-- 推荐算法
-- AI 生成歌单
+- 复杂歌词
+- 社区系统
+- 在 SwiftUI View 中写平台解析逻辑
 
----
+## 下一阶段
 
-## 目标用户
+下一阶段优先顺序：
 
-- 小群体朋友
-- 经常互相分享歌的人
-- 使用不同音乐平台的人
+1. 网易云音乐
+   - 先做网易云作为输入源
+   - 目标是三平台彼此双向连接：Spotify / Apple Music / 网易云音乐
+2. QQ 音乐
+   - 再扩到四平台彼此双向连接：Spotify / Apple Music / 网易云音乐 / QQ 音乐
 
----
+说明：
 
-## 技术方向
-
-- iOS
-- SwiftUI
-- MVVM（简化版）
-- 先 mock，后接真实服务
-
----
+- 网易云音乐方向优先按开放平台 / resolver 思路推进
+- 当前已看到第三方资料引用网易云开放平台接口路径，例如：
+  - `/openapi/music/basic/search/song/get/v3`
+  - `/openapi/music/basic/song/detail/get/v2`
+- 这组接口路径本轮未直接在官方文档页完成验证，后续接入前需要再次核对
 
 ## 仓库结构
 
-- `Side B/`：iOS 代码
+- `Side B/`：iOS 客户端
 - `docs/`：产品、架构、任务文档
-- `prompts/`：给 Codex 的提示词模板
-- `backend/`：后端服务（后续）
+- `backend/`：resolver / backend
+- `prompts/`：提示词模板
