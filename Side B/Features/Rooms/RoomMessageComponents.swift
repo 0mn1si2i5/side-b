@@ -89,14 +89,7 @@ struct CompactSongAttachmentView: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            RoundedRectangle(cornerRadius: 10)
-                .fill((isCurrentUser ? Color.white.opacity(0.18) : Color.secondary.opacity(0.12)))
-                .frame(width: 42, height: 42)
-                .overlay {
-                    Image(systemName: "music.note")
-                        .font(.footnote)
-                        .foregroundStyle(isCurrentUser ? .white.opacity(0.85) : .secondary)
-                }
+            artworkThumbnail
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(track.title)
@@ -128,5 +121,32 @@ struct CompactSongAttachmentView: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .shadow(color: Color.black.opacity(isCurrentUser ? 0.04 : 0.03), radius: 4, y: 1)
+    }
+
+    private var artworkThumbnail: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 10)
+                .fill(isCurrentUser ? Color.white.opacity(0.18) : Color.secondary.opacity(0.12))
+
+            if let artworkURL = track.artworkURL {
+                AsyncImage(url: artworkURL) { image in
+                    image
+                        .resizable()
+                        .scaledToFill()
+                } placeholder: {
+                    placeholderArtwork
+                }
+            } else {
+                placeholderArtwork
+            }
+        }
+        .frame(width: 42, height: 42)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+
+    private var placeholderArtwork: some View {
+        Image(systemName: "music.note")
+            .font(.footnote)
+            .foregroundStyle(isCurrentUser ? .white.opacity(0.85) : .secondary)
     }
 }

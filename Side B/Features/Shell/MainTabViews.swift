@@ -57,15 +57,7 @@ struct SongDetailView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                RoundedRectangle(cornerRadius: 24)
-                    .fill(Color.secondary.opacity(0.15))
-                    .frame(maxWidth: .infinity)
-                    .aspectRatio(1, contentMode: .fit)
-                    .overlay {
-                        Image(systemName: "music.note")
-                            .font(.system(size: 48))
-                            .foregroundStyle(.secondary)
-                    }
+                artworkSection
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text(track.title)
@@ -83,19 +75,6 @@ struct SongDetailView: View {
                     }
 
                     Text("Source: \(track.sourcePlatformName)")
-                        .font(.body)
-                        .foregroundStyle(.secondary)
-                }
-
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Lyrics")
-                        .font(.headline)
-
-                    Text("Mock lyrics preview")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-
-                    Text("City lights blur into morning\nWe keep the chorus for the ride home\nThis section stays static until real lyrics arrive")
                         .font(.body)
                         .foregroundStyle(.secondary)
                 }
@@ -124,6 +103,32 @@ struct SongDetailView: View {
         } message: {
             Text(platformFeedbackMessage)
         }
+    }
+
+    private var artworkSection: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 24)
+                .fill(Color.secondary.opacity(0.15))
+
+            if let artworkURL = track.artworkURL {
+                AsyncImage(url: artworkURL) { image in
+                    image
+                        .resizable()
+                        .scaledToFill()
+                } placeholder: {
+                    Image(systemName: "music.note")
+                        .font(.system(size: 48))
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                Image(systemName: "music.note")
+                    .font(.system(size: 48))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .aspectRatio(1, contentMode: .fit)
+        .clipShape(RoundedRectangle(cornerRadius: 24))
     }
 
     private func showPlatformFeedback(for platformLink: PlatformLink) {

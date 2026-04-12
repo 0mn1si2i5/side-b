@@ -2,36 +2,48 @@ import Foundation
 
 enum MockData {
     private static let realSourceURLs: [MusicPlatform: URL] = [
-        .spotify: URL(string: "https://open.spotify.com/track/6qxvy9Pe4RJIq5JBVbbwbS?si=sQxRHdmHST-Nze5nudbENw")!,
-        .appleMusic: URL(string: "https://music.apple.com/cn/album/somebody-that-i-used-to-know-feat-kimbra/1445885993?i=1445886556")!,
-        .qqMusic: URL(string: "https://c6.y.qq.com/base/fcgi-bin/u?__=H7s1JEFxvL47")!,
-        .neteaseMusic: URL(string: "https://163cn.tv/4XXWGgw")!
+        .spotify: URL(string: "https://open.spotify.com/track/6qxvy9Pe4RJIq5JBVbbwbS?si=A8pcxUVOSAydRfDBx_IONw")!,
+        .appleMusic: URL(string: "https://music.apple.com/cn/album/maroon/1689131527?i=1689131532")!,
+        .qqMusic: URL(string: "https://c6.y.qq.com/base/fcgi-bin/u?__=ctDFhEfIaJUS")!,
+        .neteaseMusic: URL(string: "https://163cn.tv/4XYD10p")!
     ]
 
     static let tracks: [Track] = [
         Track(
-            title: "Nights",
-            artistName: "Frank Ocean",
-            albumTitle: "Blonde",
+            title: "Maroon",
+            artistName: "Taylor Swift",
+            albumTitle: "Midnights (The Til Dawn Edition)",
+            durationMS: 218_270,
             sourcePlatform: .spotify,
+            sourcePlatformID: "6qxvy9Pe4RJIq5JBVbbwbS",
+            sourceURL: realSourceURLs[.spotify]!,
+            isrc: "USUG12306678",
             platformLinks: defaultPlatformLinks(for: .spotify),
-            artworkURL: URL(string: "https://example.com/artwork/nights.jpg")
+            artworkURL: URL(string: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/44/1f/b7/441fb7c1-1005-4d0b-85d2-6890af9bf7fb/23UMGIM63834.rgb.jpg/1200x1200bb.jpg")
         ),
         Track(
-            title: "想去海边",
-            artistName: "夏日入侵企画",
-            albumTitle: "想去海边",
+            title: "Maroon",
+            artistName: "Taylor Swift",
+            albumTitle: "Midnights (The Til Dawn Edition)",
+            durationMS: 218_270,
             sourcePlatform: .neteaseMusic,
+            sourcePlatformID: "2049512695",
+            sourceURL: realSourceURLs[.neteaseMusic]!,
+            isrc: "USUG12306678",
             platformLinks: defaultPlatformLinks(for: .neteaseMusic),
-            artworkURL: URL(string: "https://example.com/artwork/beach.jpg")
+            artworkURL: URL(string: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/44/1f/b7/441fb7c1-1005-4d0b-85d2-6890af9bf7fb/23UMGIM63834.rgb.jpg/1200x1200bb.jpg")
         ),
         Track(
-            title: "After Hours",
-            artistName: "The Weeknd",
-            albumTitle: "After Hours",
+            title: "Maroon",
+            artistName: "Taylor Swift",
+            albumTitle: "Midnights (The Til Dawn Edition)",
+            durationMS: 218_270,
             sourcePlatform: .appleMusic,
+            sourcePlatformID: "1689131532",
+            sourceURL: realSourceURLs[.appleMusic]!,
+            isrc: "USUG12306678",
             platformLinks: defaultPlatformLinks(for: .appleMusic),
-            artworkURL: URL(string: "https://example.com/artwork/after-hours.jpg")
+            artworkURL: URL(string: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/44/1f/b7/441fb7c1-1005-4d0b-85d2-6890af9bf7fb/23UMGIM63834.rgb.jpg/1200x1200bb.jpg")
         )
     ]
 
@@ -40,47 +52,55 @@ enum MockData {
         .neteaseMusic: tracks[1],
         .appleMusic: tracks[2],
         .qqMusic: Track(
-            title: tracks[1].title,
-            artistName: tracks[1].artistName,
-            albumTitle: tracks[1].albumTitle,
+            title: tracks[0].title,
+            artistName: tracks[0].artistName,
+            albumTitle: tracks[0].albumTitle,
+            durationMS: tracks[0].durationMS,
             sourcePlatform: .qqMusic,
+            sourcePlatformID: "003OUlho2HcRHC",
+            sourceURL: realSourceURLs[.qqMusic]!,
+            isrc: tracks[0].isrc,
             platformLinks: defaultPlatformLinks(for: .qqMusic),
-            artworkURL: tracks[1].artworkURL
+            artworkURL: tracks[0].artworkURL
         )
     ]
 
     static let platformLinks: [PlatformLink] = [
         PlatformLink(
             platform: .spotify,
-            destinationURL: URL(string: "https://open.spotify.com/track/mock-nights")!,
+            destinationURL: realSourceURLs[.spotify]!,
             isSource: true
         ),
         PlatformLink(
             platform: .neteaseMusic,
-            destinationURL: URL(string: "https://music.163.com/song?id=mock-beach")!
+            destinationURL: realSourceURLs[.neteaseMusic]!
         ),
         PlatformLink(
             platform: .appleMusic,
-            destinationURL: URL(string: "https://music.apple.com/song/mock-after-hours")!
+            destinationURL: realSourceURLs[.appleMusic]!
+        ),
+        PlatformLink(
+            platform: .qqMusic,
+            destinationURL: realSourceURLs[.qqMusic]!
         )
     ]
 
     static let messages: [Message] = [
         Message(
             senderName: "Mia",
-            text: "这首适合凌晨听",
+            text: "这首的颜色感太强了",
             track: tracks[0],
             sentAt: Date(timeIntervalSince1970: 1_712_000_000)
         ),
         Message(
             senderName: "Leo",
-            text: "副歌一出来就上头了",
+            text: "我最近一直单曲循环这首",
             track: tracks[1],
             sentAt: Date(timeIntervalSince1970: 1_712_086_400)
         ),
         Message(
             senderName: "Noah",
-            text: "这版制作很满，适合耳机",
+            text: "这张专辑里我最先回放的就是它",
             track: tracks[2],
             sentAt: Date(timeIntervalSince1970: 1_712_172_800)
         )
@@ -113,7 +133,11 @@ enum MockData {
             title: baseTrack.title,
             artistName: baseTrack.artistName,
             albumTitle: baseTrack.albumTitle,
+            durationMS: baseTrack.durationMS,
             sourcePlatform: baseTrack.sourcePlatform,
+            sourcePlatformID: baseTrack.sourcePlatformID,
+            sourceURL: baseTrack.sourceURL,
+            isrc: baseTrack.isrc,
             platformLinks: resolvedPlatformLinks,
             artworkURL: baseTrack.artworkURL
         )

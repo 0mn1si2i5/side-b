@@ -95,6 +95,10 @@ struct RoomDetailView: View {
 
     private var messageComposer: some View {
         VStack(alignment: .leading, spacing: 10) {
+            if viewModel.linkResolutionState != .idle {
+                linkResolutionFeedback
+            }
+
             if let quotedTrack = viewModel.quotedTrack {
                 HStack(spacing: 10) {
                     Image(systemName: "quote.opening")
@@ -187,6 +191,39 @@ struct RoomDetailView: View {
         .background(.regularMaterial)
     }
 
+    private var linkResolutionFeedback: some View {
+        HStack(spacing: 10) {
+            if viewModel.linkResolutionState == .resolving {
+                ProgressView()
+                    .controlSize(.small)
+            } else {
+                Image(systemName: feedbackIconName)
+                    .font(.caption)
+            }
+
+            Text(feedbackMessage)
+                .font(.footnote)
+                .foregroundStyle(feedbackForegroundColor)
+
+            Spacer(minLength: 0)
+
+            if viewModel.linkResolutionState != .resolving {
+                Button {
+                    viewModel.clearLinkResolutionFeedback()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.caption2)
+                        .foregroundStyle(feedbackForegroundColor.opacity(0.8))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(feedbackBackgroundColor)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+
     private var activeComposerText: String {
         viewModel.isShowingLinkInput ? viewModel.linkInput : viewModel.draftText
     }
@@ -206,6 +243,68 @@ struct RoomDetailView: View {
             viewModel.sendResolvedTrackMessage()
         } else {
             viewModel.sendTextMessage()
+        }
+    }
+
+    private var feedbackMessage: String {
+        viewModel.linkResolutionMessage ?? defaultFeedbackMessage
+    }
+
+    private var defaultFeedbackMessage: String {
+        switch viewModel.linkResolutionState {
+        case .idle:
+            return ""
+        case .resolving:
+            return "Resolving song link..."
+        case .resolved:
+            return "Song resolved."
+        case .fallbackMock:
+            return "Resolver unavailable. Sent a fallback song card."
+        case .failed:
+            return "Could not resolve this song link."
+        }
+    }
+
+    private var feedbackIconName: String {
+        switch viewModel.linkResolutionState {
+        case .idle, .resolving:
+            return "clock"
+        case .resolved:
+            return "checkmark.circle.fill"
+        case .fallbackMock:
+            return "exclamationmark.triangle.fill"
+        case .failed:
+            return "xmark.octagon.fill"
+        }
+    }
+
+    private var feedbackBackgroundColor: Color {
+        switch viewModel.linkResolutionState {
+        case .idle:
+            return .clear
+        case .resolving:
+            return Color.blue.opacity(0.12)
+        case .resolved:
+            return Color.green.opacity(0.12)
+        case .fallbackMock:
+            return Color.orange.opacity(0.14)
+        case .failed:
+            return Color.red.opacity(0.12)
+        }
+    }
+
+    private var feedbackForegroundColor: Color {
+        switch viewModel.linkResolutionState {
+        case .idle:
+            return .secondary
+        case .resolving:
+            return .blue
+        case .resolved:
+            return .green
+        case .fallbackMock:
+            return .orange
+        case .failed:
+            return .red
         }
     }
 }

@@ -1,207 +1,265 @@
 # 开发任务
 
-## 文档目的
+## 文档定位
 
-本文件不再记录细碎执行过程，只保留当前可复用的项目现状与后续开发路线。
+本文件现在用于定义项目正式开发路线，而不再强调“每次只能极小步推进”的旧策略。
 
-后续 coding agent 应优先把它当作：
+新的执行原则是：
 
-- 当前能力边界说明
-- 下一阶段 phase 拆分
-- 真实接入前的分层约束
+- 允许较大步幅推进
+- 允许重组 phase
+- 允许为了主线效率做更大范围的设计调整
+- 但仍需保持结构清晰、主链路优先、工程可维护
 
 ---
 
 ## 当前已完成能力
 
-当前仓库已完成 MVP 前期主链路，后续开发应默认这些能力已存在且不应回退：
+当前仓库已完成的基础能力：
 
-- Rooms 列表可浏览并进入房间详情
-- Room 详情已是轻量聊天室结构
-- 支持发送纯文本消息
-- 支持在统一 composer 内粘贴链接发歌
-- 支持引用已有歌曲消息继续发言
+- Rooms 列表与房间详情可用
+- Room 详情已是轻量聊天室
+- 支持纯文本消息
+- 支持统一 composer 内粘贴链接发歌
+- 支持引用已有歌曲消息
 - 歌曲消息可进入歌曲详情页
-- `Track` / `PlatformLink` / `Room` / `Message` 已形成当前统一模型
-- `MusicPlatform` 已作为共享平台类型进入模型层
-- `Track.platformLinks` 已接入歌曲详情页按钮渲染
-- `PlatformNavigationService` 已提供真机可测试的跳转占位 URL
-- `MusicResolverService` 已返回 `ResolvedTrackPayload`
-- 当前 resolver 已能识别 4 个平台的最小链接并提取资源 id：
-  - Spotify
-  - Apple Music
-  - 网易云音乐
-  - QQ 音乐
-- 当前 resolver 已具备最小 provider 抽象，但仍是 mock 驱动
+- `Track / PlatformLink / Room / Message` 已形成当前模型骨架
+- `MusicPlatform` 已进入共享模型层
+- `Track.platformLinks` 已接到详情页按钮
+- 详情页当前聚焦封面、歌名、艺人、专辑、来源平台和四个平台按钮
+- 当前 resolver 已具备：
+  - 4 平台链接识别
+  - 最小资源 id 提取
+  - `ResolvedTrackPayload`
+  - `LinkParsing` / `MetadataFetching` 初步分层
+  - Spotify metadata provider 骨架
 
 ---
 
-## 当前架构判断
+## 当前正式主线
 
-基于现有代码，项目已经从“纯 mock 页面阶段”进入“真实 metadata 接入前的分层准备阶段”。
+从现在开始，项目正式主线之一是：
 
-当前最重要的判断：
+`Spotify 单曲链接 -> Spotify metadata -> canonical track -> 多平台链接映射 -> iOS 展示`
 
-- 聊天 UI 主路径已经可用，下一阶段不要重做 Rooms / Chat 交互
-- 平台统一类型已经落地，但平台相关字段仍有继续收口空间
-- resolver 现在同时承担了链接识别、资源 id 提取、mock metadata 组装、platformLinks 生成，职责仍偏厚
-- 真实 API 接入前，必须先拆清 `LinkParsing` 和 `MetadataFetching`
+这条主线优先级高于：
+
+- 歌词
+- 更复杂聊天能力
+- 社区化功能
+- 大范围 UI 打磨
 
 ---
 
 ## 当前不做
 
-以下内容在当前阶段明确不做，避免后续 agent 跑偏：
+以下内容当前继续不做，避免主线跑偏：
 
 - 站内播放
-- 登录、鉴权、账号体系
-- 云端同步
-- 社区、评论、推荐
+- 歌词主线能力
+- 推荐 / 社区 / 评论
 - 截图识别
-- 多平台同时真实接入
-- 大规模 UI 重构
-- 改聊天主路径交互
-- 为了接 API 提前引入复杂第三方架构
-
----
-
-## Phase 1：Resolver 分层收口
-
-目标：把当前 mock resolver 拆成后续可替换真实 provider 的稳定结构，但先不接真实 API。
-
-本 phase 应解决：
-
-- 将“链接识别 / 平台判断 / 资源 id 提取”从“歌曲 metadata 获取”中拆开
-- 明确 resolver 编排层只负责流程调度，不直接持有平台 mock 细节
-- 为后续真实 provider 保留稳定输入输出
-
-建议交付：
-
-- 新增或明确 `LinkParsing` 层职责
-- 新增或明确 `MetadataFetching` / provider 层职责
-- 让 `ResolvedTrackPayload` 成为 resolver 对上层的稳定结果
-- 保持 `RoomDetailViewModel` 调用方式尽量不变
-
-验收标准：
-
-- 代码里能区分“解析链接”和“拉取 metadata”两步
-- mock 数据仍可驱动完整发歌链路
-- 不改聊天 UI 行为
-
----
-
-## Phase 2：Spotify 真实 metadata 接入
-
-目标：优先打通 Spotify 的真实歌曲信息获取，作为第一条真实 provider 链路。
-
-为什么先做 Spotify：
-
-- 当前链接识别已存在最小基础
-- 资源 id 提取已具备
-- 最适合作为 metadata provider 骨架的第一平台
-
-本 phase 应优先完成：
-
-- 定义 Spotify metadata provider 协议或服务骨架
-- 明确 provider 输入：
-  - 平台类型
-  - 资源 id
-- 明确 provider 输出：
-  - 标准化后的 `Track`
-  - 可选的原始平台上下文
-- 保留 mock fallback，保证工程可继续运行
-
-本 phase 暂不要求：
-
-- 完整鉴权闭环
-- 多平台一起接入
-- UI 上增加复杂错误态
-
-验收标准：
-
-- Spotify provider 可以作为独立层被 resolver 调用
-- 即使真实调用未完全接通，代码结构也已经从 mock provider 中抽离
-- 上层 UI 不需要知道 Spotify 的平台细节
-
----
-
-## Phase 3：平台模型继续统一
-
-目标：减少平台相关过渡字段，让共享模型成为唯一可信来源。
-
-本 phase 重点：
-
-- 继续收口 `MusicPlatform`
-- 逐步减少过渡型展示字段的扩散，例如 `sourcePlatformName`
-- 明确 `PlatformLink` 在“来源平台”和“目标跳转平台”中的角色
-- 统一平台展示顺序、按钮数据来源和来源标记逻辑
-
-验收标准：
-
-- UI 展示尽量从 `MusicPlatform` / `PlatformLink` 推导，而不是依赖散落字符串
-- resolver / mock data / details UI 使用同一套平台定义
-
----
-
-## Phase 4：Apple Music 第二阶段接入
-
-目标：在 Spotify 路径稳定后，复制同样的 provider 结构接入 Apple Music。
-
-本 phase 应遵守：
-
-- 复用 Spotify 阶段已经稳定的分层
-- 不为 Apple Music 单独发明另一套 resolver 流程
-- 继续保证 mock fallback 可用
-
-验收标准：
-
-- Apple Music provider 接入方式与 Spotify 保持一致
-- resolver 不因平台增多而继续膨胀
-
----
-
-## Phase 5：网易云 / QQ 第三阶段接入
-
-目标：在前两个平台路径稳定后，再扩展中文平台。
-
-本 phase 关注点：
-
-- 保持 provider 接口不变
-- 优先复用统一链接解析结果
-- 不在这一阶段反向改坏前面已稳定的 Spotify / Apple Music 结构
+- 复杂账号体系
+- 云端同步复杂化
+- 为了前端方便把完整平台逻辑塞进 iOS 客户端
 
 说明：
 
-- 网易云与 QQ 不要求在当前阶段提前设计过深
-- 先保证架构可接，再逐个平台落地
+- “不做歌词”是当前阶段策略，不影响未来扩展
+- “不做复杂社区”与当前 Spotify 主链路无关，不应抢占优先级
 
 ---
 
-## Phase 6：`platformLinks` 继续接入 UI
+## Phase 1：Canonical Track 与 Resolver 基础收口
 
-目标：让 `platformLinks` 不只停留在歌曲详情页，而是逐步成为统一跳转数据源。
+目标：
 
-本 phase 重点：
+- 把 canonical track 作为正式数据中心
+- 完成 iOS 展示层与统一结果对象的对齐
+- 保持聊天主路径稳定
 
-- 继续确认所有平台按钮都从 `Track.platformLinks` 读取
-- 评估 Rooms 列表、聊天消息卡片是否需要轻量暴露平台状态
-- 保持 UI 只消费结果，不拼平台目标 URL
+工作项：
+
+- 收口 `Track` 字段
+- 明确 `sourcePlatform / sourcePlatformID / sourceURL / platformLinks`
+- 继续减少 UI 对过渡展示字段的依赖
+- 保持详情页只消费 canonical track
 
 验收标准：
 
-- 平台跳转相关 UI 不再各自拼装目标链接
-- 平台按钮来源稳定、顺序稳定、来源平台标记稳定
+- iOS 详情页不再依赖平台散落字符串逻辑
+- `platformLinks` 成为多平台按钮唯一来源
 
 ---
 
-## 每轮开发约束
+## Phase 2：Spotify Resolver 主链路
 
-后续 agent 继续开发时，默认遵守以下约束：
+目标：
 
-- 每次只做一个最小任务
-- 每次最多修改 1-3 个文件
-- 始终保持项目可编译
-- 不修改 `project.pbxproj`
-- 不把业务逻辑塞回 SwiftUI View
-- 优先补结构，再做真实接入
-- 任何新抽象都必须服务于后续真实 provider 落地
+- 把 Spotify 单曲解析正式纳入项目主链路
+- 完成从链接到 Spotify metadata 的完整服务设计
+
+工作项：
+
+- Spotify URL 识别
+- Spotify track ID 提取
+- Spotify metadata provider 设计
+- Spotify access token 获取边界
+- Spotify catalog request / response 映射
+- 真实 Spotify track metadata 字段映射到 canonical track：
+  - 封面
+  - 歌名
+  - 歌手
+  - 专辑
+  - 时长
+  - Spotify 原始链接
+  - ISRC
+
+验收标准：
+
+- 项目计划层明确 Spotify 是第一条真实 metadata 来源
+- 服务层结构能够自然替换为真实 Spotify API client
+- 上层 iOS 不需要知道 Spotify 原始响应格式
+
+---
+
+## Phase 3：Resolver Service / Backend 正式化
+
+目标：
+
+- 明确 iOS 与服务端边界
+- 把 resolver 从“本地 mock service”提升为正式服务设计
+
+工作项：
+
+- 定义 resolver service 请求结构
+- 定义 resolver service 响应结构
+- 明确服务端职责：
+  - 链接解析
+  - token 获取
+  - metadata 拉取
+  - 多平台映射
+  - 结果组装
+- 明确缓存位点：
+  - link -> parsed result
+  - platformID -> metadata
+  - canonical track -> mapped links
+
+验收标准：
+
+- 后续可以在 `backend/` 下真正落 resolver 服务
+- iOS 客户端可以从 mock service 平滑切到真实 service
+
+---
+
+## Phase 4：跨平台链接映射
+
+目标：
+
+- 在 canonical track 基础上返回其他平台链接
+- 让平台按钮真正基于映射结果服务用户
+
+优先目标平台：
+
+1. Apple Music
+2. QQ 音乐
+3. 网易云音乐（如可行）
+
+工作项：
+
+- 设计 mapping service / mapper 层
+- 优先用 `ISRC` 做匹配
+- 无 `ISRC` 时退回标题 + 艺人 + 专辑策略
+- 统一输出 `platformLinks`
+
+验收标准：
+
+- 客户端不再自己拼平台链接
+- resolver 输出中可直接带多平台可消费链接
+
+---
+
+## Phase 5：iOS 接入真实 Resolver
+
+目标：
+
+- 客户端开始消费真实 resolver 结果
+- 保持现有聊天和详情页体验不回退
+
+工作项：
+
+- 新增 resolver API client
+- 将当前 mock resolver 调用替换为真实 service 调用
+- 增加最小 loading / failure / fallback 状态
+- 校验详情页和平台按钮在真实返回下是否稳定
+
+验收标准：
+
+- 粘贴 Spotify 链接后，客户端可拿到真实 canonical track 结果
+- 详情页可稳定显示基础信息和多平台按钮
+
+---
+
+## Phase 6：Apple Music / QQ / 网易云逐步落地
+
+目标：
+
+- 在 Spotify 主链路稳定后，把映射目标平台逐步做实
+
+工作项：
+
+- Apple Music 映射优先落地
+- QQ 音乐映射第二优先
+- 网易云映射第三优先
+- 评估不同平台映射的可靠性、区域差异和 fallback 策略
+
+验收标准：
+
+- 至少 1-2 个目标平台的映射稳定可用
+- 平台映射失败不应影响 Spotify 原始链路展示
+
+---
+
+## 开发策略调整
+
+旧策略中的“严格小步、一次只做极小任务”不再作为强约束。
+
+当前策略调整为：
+
+- 允许围绕一条主线做更大步幅的规划与实现
+- 允许为主线效率重写 phase 和任务结构
+- 允许在必要时主动重构旧设计
+- 允许为了打通 Spotify 主链路先做更完整的服务边界设计
+
+但仍需坚持：
+
+- 核心目标优先
+- 结构清晰
+- 关键模型稳定
+- 不做与主线无关的大规模分叉
+
+---
+
+## 近期最高优先级任务
+
+当前最应该优先推进的，不是继续做更多 UI，而是以下主链路：
+
+1. 正式定义 Spotify resolver service 请求 / 响应
+2. 正式定义 Spotify access token 获取与 catalog fetching 边界
+3. 明确 canonical track 扩展字段
+4. 明确跨平台 mapping service 设计
+5. 准备 iOS 侧真实 resolver client 接入点
+
+---
+
+## 如果下一轮进入 coding mode，建议优先打的链路
+
+建议优先直接打通这一条：
+
+`Spotify track URL -> resource id -> resolver service response shape -> canonical track -> detail UI consume`
+
+理由：
+
+- 这是当前最有产品价值的一条主链路
+- 也是最适合尽快替换 mock 的链路
+- 它打通后，Apple Music / QQ / 网易云映射才有稳定输入
