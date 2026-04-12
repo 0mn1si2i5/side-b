@@ -104,18 +104,14 @@ final class RoomDetailViewModel: ObservableObject {
         switch response.parsingResult {
         case .unsupportedLink:
             linkResolutionState = .failed
-            linkResolutionMessage = "This link is not supported yet. Paste a Spotify track link."
+            linkResolutionMessage = "This link is not supported yet. Paste a Spotify or Apple Music track link."
             return
         case .missingResourceID:
             linkResolutionState = .failed
-            linkResolutionMessage = "Could not extract a Spotify track ID from this link."
+            linkResolutionMessage = "Could not extract a track ID from this link."
             return
-        case .parsed(let parsedLink):
-            guard parsedLink.platform == .spotify else {
-                linkResolutionState = .failed
-                linkResolutionMessage = "Only Spotify track links are supported in the current resolver."
-                return
-            }
+        case .parsed:
+            break
         }
 
         let newMessage = Message(

@@ -20,7 +20,9 @@ except ImportError:
 
 SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token"
 SPOTIFY_TRACK_URL = "https://api.spotify.com/v1/tracks/{track_id}"
+SPOTIFY_SEARCH_URL = "https://api.spotify.com/v1/search"
 ITUNES_SEARCH_URL = "https://itunes.apple.com/search"
+ITUNES_LOOKUP_URL = "https://itunes.apple.com/lookup"
 SONGLINK_LINKS_URL = "https://api.song.link/v1-alpha.1/links"
 ENV_FILE_PATH = os.path.join(os.path.dirname(__file__), ".env")
 SUPPORTED_PLATFORM_LABELS = {
@@ -35,6 +37,7 @@ SUPPORTED_PLATFORM_LABELS = {
 }
 AGGREGATED_LINK_CACHE: dict[tuple[str, str | None], tuple[float, dict[str, str]]] = {}
 APPLE_MUSIC_LINK_CACHE: dict[tuple[str, str | None], tuple[float, str | None]] = {}
+SPOTIFY_LINK_CACHE: dict[tuple[str, str | None], tuple[float, str | None]] = {}
 CACHE_TTL_SECONDS = 15 * 60
 CACHE_MISS = object()
 TITLE_VERSION_KEYWORDS = (
@@ -80,6 +83,20 @@ def load_dotenv(env_file_path: str = ENV_FILE_PATH) -> None:
 def parse_spotify_track_id(raw_link: str) -> str | None:
     match = re.search(r"track[/:]([A-Za-z0-9]+)", raw_link)
     return match.group(1) if match else None
+
+
+def parse_apple_music_track_id(raw_link: str) -> str | None:
+    parsed_url = parse.urlparse(raw_link)
+    query_track_id = parse.parse_qs(parsed_url.query).get("i", [None])[0]
+    if query_track_id and query_track_id.isdigit():
+        return query_track_id
+
+    path_match = re.search(r"/(?:song|album)/[^/]+/(\d+)", parsed_url.path)
+    if path_match:
+        return path_match.group(1)
+
+    id_match = re.search(r"[?&]i=(\d+)", raw_link)
+    return id_match.group(1) if id_match else None
 
 
 def normalize_link(raw_link: str) -> str:
@@ -156,6 +173,13 @@ def normalize_text(raw_value: str | None) -> str:
     return re.sub(r"\s+", " ", normalized).strip()
 
 
+def upgrade_apple_music_artwork_url(raw_url: str | None) -> str | None:
+    if not raw_url:
+        return None
+
+    return re.sub(r"/\d+x\d+bb(?=\.)", "/1200x1200bb", raw_url)
+
+
 def base_title_variants(title: str) -> list[str]:
     variants = [title.strip()]
     stripped_title = re.sub(r"\s*[\(\[].*?[\)\]]\s*", " ", title).strip()
@@ -226,6 +250,14 @@ def write_cached_apple_music_url(source_url: str, preferred_market: str | None, 
     write_cached_value(APPLE_MUSIC_LINK_CACHE, cache_key_for_url(source_url, preferred_market), apple_music_url)
 
 
+def read_cached_spotify_url(source_url: str, preferred_market: str | None):
+    return read_cached_value(SPOTIFY_LINK_CACHE, cache_key_for_url(source_url, preferred_market))
+
+
+def write_cached_spotify_url(source_url: str, preferred_market: str | None, spotify_url: str | None) -> None:
+    write_cached_value(SPOTIFY_LINK_CACHE, cache_key_for_url(source_url, preferred_market), spotify_url)
+
+
 def fetch_itunes_candidates(search_term: str, storefront: str) -> list[dict]:
     query = parse.urlencode(
         {
@@ -242,6 +274,77 @@ def fetch_itunes_candidates(search_term: str, storefront: str) -> list[dict]:
 
     candidates = payload.get("results", [])
     return candidates if isinstance(candidates, list) else []
+
+
+def fetch_itunes_track(track_id: str, storefront: str) -> dict:
+    query = parse.urlencode(
+        {
+            "id": track_id,
+            "entity": "song",
+            "country": storefront,
+        }
+    )
+    req = request.Request(f"{ITUNES_LOOKUP_URL}?{query}", method="GET")
+
+    with request.urlopen(req, timeout=10) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+
+    results = payload.get("results", [])
+    if not isinstance(results, list):
+        raise ValueError("Invalid iTunes lookup response")
+
+    for result in results:
+        if isinstance(result, dict) and str(result.get("trackId")) == track_id:
+            return result
+
+    raise ValueError("Apple Music track not found")
+
+
+def fetch_spotify_search_candidates(
+    access_token: str,
+    query_text: str,
+    market: str | None,
+) -> list[dict]:
+    query_items = {
+        "q": query_text,
+        "type": "track",
+        "limit": 10,
+    }
+    if market:
+        query_items["market"] = market.upper()
+
+    req = request.Request(
+        f"{SPOTIFY_SEARCH_URL}?{parse.urlencode(query_items)}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        method="GET",
+    )
+
+    with request.urlopen(req, timeout=10) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+
+    items = payload.get("tracks", {}).get("items", [])
+    return items if isinstance(items, list) else []
+
+
+def spotify_search_markets(preferred_market: str | None) -> list[str | None]:
+    normalized_market = normalize_preferred_market(preferred_market)
+    fallback_markets: list[str | None] = [normalized_market, None]
+
+    if normalized_market == "cn":
+        fallback_markets.extend(["tw", "us"])
+    elif normalized_market and normalized_market != "tw":
+        fallback_markets.append("tw")
+
+    deduplicated: list[str | None] = []
+    seen: set[str] = set()
+    for value in fallback_markets:
+        marker = value or "_none_"
+        if marker in seen:
+            continue
+        seen.add(marker)
+        deduplicated.append(value)
+
+    return deduplicated
 
 
 def contains_keyword(value: str, keywords: tuple[str, ...]) -> bool:
@@ -326,6 +429,71 @@ def apple_music_candidate_score(
     return score
 
 
+def spotify_candidate_score(
+    candidate: dict,
+    *,
+    title: str,
+    artist_name: str,
+    album_title: str | None,
+    duration_ms: int | None,
+    query_rank: int,
+) -> int:
+    score = 0
+
+    source_title = normalize_text(title)
+    source_title_variants = [normalize_text(value) for value in base_title_variants(title)]
+    source_artist = normalize_text(artist_name)
+    source_album = normalize_text(album_title)
+
+    candidate_title = normalize_text(candidate.get("name"))
+    candidate_artist = normalize_text(", ".join(artist.get("name", "") for artist in candidate.get("artists", [])))
+    candidate_album = normalize_text(candidate.get("album", {}).get("name"))
+
+    if candidate_title in source_title_variants:
+        score += 60
+    elif source_title and candidate_title and (source_title in candidate_title or candidate_title in source_title):
+        score += 32
+
+    if source_artist and candidate_artist == source_artist:
+        score += 32
+    elif source_artist and candidate_artist and (
+        source_artist in candidate_artist or candidate_artist in source_artist
+    ):
+        score += 14
+
+    if source_album and candidate_album == source_album:
+        score += 24
+    elif source_album and candidate_album and (source_album in candidate_album or candidate_album in source_album):
+        score += 12
+
+    candidate_duration = candidate.get("duration_ms")
+    duration_delta = None
+    if duration_ms and isinstance(candidate_duration, int):
+        duration_delta = abs(candidate_duration - duration_ms)
+        if duration_delta <= 2_000:
+            score += 28
+        elif duration_delta <= 5_000:
+            score += 18
+        elif duration_delta <= 10_000:
+            score += 8
+
+    if query_rank < 10:
+        score += max(0, 18 - query_rank * 2)
+
+    candidate_has_version = contains_keyword(candidate_title, TITLE_VERSION_KEYWORDS)
+    source_has_version = contains_keyword(source_title, TITLE_VERSION_KEYWORDS)
+    if candidate_has_version and not source_has_version:
+        score -= 20
+
+    if contains_keyword(candidate_album, COMPILATION_KEYWORDS):
+        score -= 20
+
+    if query_rank == 0 and duration_delta is not None and duration_delta <= 2_000 and not candidate_has_version:
+        score += 22
+
+    return score
+
+
 def fetch_apple_music_track_url(
     *,
     source_url: str,
@@ -370,6 +538,83 @@ def fetch_apple_music_track_url(
 
     resolved_url = best_url if best_score >= 64 else None
     write_cached_apple_music_url(source_url, preferred_market, resolved_url)
+    return resolved_url
+
+
+def build_spotify_search_terms(title: str, artist_name: str, album_title: str | None) -> list[str]:
+    terms: list[str] = []
+    title_variants = [variant for base_variant in base_title_variants(title) for variant in text_variants(base_variant)]
+    artist_variants = text_variants(artist_name) or [artist_name]
+    album_variants = text_variants(album_title) if album_title else []
+
+    for title_variant in title_variants:
+        for artist_variant in artist_variants:
+            terms.append(f'track:"{title_variant}" artist:"{artist_variant}"')
+            terms.append(f"{title_variant} {artist_variant}")
+        for album_variant in album_variants:
+            terms.append(f'track:"{title_variant}" album:"{album_variant}"')
+
+    deduplicated: list[str] = []
+    seen: set[str] = set()
+    for term in terms:
+        normalized = normalize_text(term)
+        if normalized and normalized not in seen:
+            seen.add(normalized)
+            deduplicated.append(term)
+
+    return deduplicated
+
+
+def fetch_spotify_track_url(
+    *,
+    source_url: str,
+    title: str,
+    artist_name: str,
+    album_title: str | None,
+    duration_ms: int | None,
+    preferred_market: str | None,
+    access_token: str,
+) -> str | None:
+    cached_url = read_cached_spotify_url(source_url, preferred_market)
+    if cached_url is not CACHE_MISS:
+        return cached_url if isinstance(cached_url, str) else None
+
+    best_url: str | None = None
+    best_score = -10_000
+
+    for search_term in build_spotify_search_terms(title, artist_name, album_title):
+        for search_market in spotify_search_markets(preferred_market):
+            try:
+                candidates = fetch_spotify_search_candidates(access_token, search_term, search_market)
+            except Exception as exc:
+                print("Spotify search skipped:", exc)
+                continue
+
+            for query_rank, candidate in enumerate(candidates):
+                candidate_url = candidate.get("external_urls", {}).get("spotify")
+                if not isinstance(candidate_url, str) or not candidate_url.startswith("http"):
+                    continue
+
+                candidate_score = spotify_candidate_score(
+                    candidate,
+                    title=title,
+                    artist_name=artist_name,
+                    album_title=album_title,
+                    duration_ms=duration_ms,
+                    query_rank=query_rank,
+                )
+
+                if search_market is None:
+                    candidate_score += 4
+                elif search_market == "tw":
+                    candidate_score += 2
+
+                if candidate_score > best_score:
+                    best_score = candidate_score
+                    best_url = candidate_url
+
+    resolved_url = best_url if best_score >= 64 else None
+    write_cached_spotify_url(source_url, preferred_market, resolved_url)
     return resolved_url
 
 
@@ -446,6 +691,7 @@ def build_platform_links(
     album_title: str | None,
     duration_ms: int | None,
     preferred_market: str | None,
+    spotify_access_token: str | None = None,
 ) -> list[dict]:
     links = [
         {
@@ -470,6 +716,27 @@ def build_platform_links(
             {
                 "platform": "Apple Music",
                 "destinationURL": apple_music_url,
+                "isSource": False,
+            }
+        )
+
+    spotify_url = None
+    if source_platform != "Spotify" and spotify_access_token:
+        spotify_url = fetch_spotify_track_url(
+            source_url=source_url,
+            title=title,
+            artist_name=artist_name,
+            album_title=album_title,
+            duration_ms=duration_ms,
+            preferred_market=preferred_market,
+            access_token=spotify_access_token,
+        )
+
+    if spotify_url:
+        links.append(
+            {
+                "platform": "Spotify",
+                "destinationURL": spotify_url,
                 "isSource": False,
             }
         )
@@ -537,23 +804,13 @@ def fetch_spotify_track(access_token: str, track_id: str, market: str | None) ->
         return json.loads(response.read().decode("utf-8"))
 
 
-def build_parsed_result(raw_link: str, track_id: str | None, source_platform: str) -> dict:
-    parsed_link = {
-        "originalLink": raw_link,
-        "normalizedLink": normalize_link(raw_link),
-        "platform": source_platform,
-        "sourceURL": raw_link,
-        "resourceID": track_id,
-        "resourceKind": "track",
-    }
-
-    if track_id:
-        return {"type": "parsed", "parsedLink": parsed_link}
-
-    return {"type": "missingResourceID", "partialLink": parsed_link}
-
-
-def build_resolver_response(raw_link: str, track_payload: dict, track_id: str, preferred_market: str | None) -> dict:
+def build_resolver_response_from_spotify(
+    raw_link: str,
+    track_payload: dict,
+    track_id: str,
+    preferred_market: str | None,
+    spotify_access_token: str | None,
+) -> dict:
     source_platform = "Spotify"
     title = track_payload["name"]
     artist_name = ", ".join(artist["name"] for artist in track_payload.get("artists", []))
@@ -575,6 +832,7 @@ def build_resolver_response(raw_link: str, track_payload: dict, track_id: str, p
         album_title=album_title,
         duration_ms=duration_ms,
         preferred_market=preferred_market,
+        spotify_access_token=spotify_access_token,
     )
 
     track = {
@@ -586,6 +844,80 @@ def build_resolver_response(raw_link: str, track_payload: dict, track_id: str, p
         "sourcePlatformID": track_id,
         "sourceURL": external_url,
         "isrc": isrc,
+        "artworkURL": artwork_url,
+    }
+
+    resolved_track = {
+        "track": track,
+        "sourcePlatform": source_platform,
+        "sourceURL": external_url,
+        "sourceResourceID": track_id,
+        "platformLinks": platform_links,
+    }
+
+    return {
+        "resolvedTrack": resolved_track,
+        "parsingResult": build_parsed_result(raw_link, track_id, source_platform),
+        "metadataStatus": "success",
+        "resolverVersion": "spotify-resolver/v1",
+    }
+
+
+def build_parsed_result(raw_link: str, track_id: str | None, source_platform: str) -> dict:
+    parsed_link = {
+        "originalLink": raw_link,
+        "normalizedLink": normalize_link(raw_link),
+        "platform": source_platform,
+        "sourceURL": raw_link,
+        "resourceID": track_id,
+        "resourceKind": "track",
+    }
+
+    if track_id:
+        return {"type": "parsed", "parsedLink": parsed_link}
+
+    return {"type": "missingResourceID", "partialLink": parsed_link}
+
+
+def build_resolver_response_from_apple_music(
+    raw_link: str,
+    track_payload: dict,
+    track_id: str,
+    preferred_market: str | None,
+    spotify_access_token: str | None,
+) -> dict:
+    source_platform = "Apple Music"
+    title = track_payload.get("trackName")
+    artist_name = track_payload.get("artistName")
+    album_title = track_payload.get("collectionName")
+    duration_ms = track_payload.get("trackTimeMillis")
+    artwork_url = upgrade_apple_music_artwork_url(
+        track_payload.get("artworkUrl100")
+        or track_payload.get("artworkUrl60")
+        or track_payload.get("artworkUrl30")
+    )
+    external_url = track_payload.get("trackViewUrl", raw_link)
+
+    platform_links = build_platform_links(
+        source_url=external_url,
+        source_platform=source_platform,
+        title=title,
+        artist_name=artist_name,
+        album_title=album_title,
+        duration_ms=duration_ms,
+        preferred_market=preferred_market,
+        spotify_access_token=spotify_access_token,
+    )
+
+    track = {
+        "title": title,
+        "artistName": artist_name,
+        "albumTitle": album_title,
+        "durationMS": duration_ms,
+        "sourcePlatform": source_platform,
+        "sourcePlatformID": track_id,
+        "sourceURL": external_url,
+        "isrc": None,
         "artworkURL": artwork_url,
     }
 
@@ -636,41 +968,73 @@ class SpotifyResolverHandler(BaseHTTPRequestHandler):
             self._send_json(400, {"error": "rawLink is required"})
             return
 
-        if "spotify" not in raw_link.lower():
+        normalized_link = raw_link.lower()
+
+        if "spotify" not in normalized_link and "music.apple.com" not in normalized_link and "itunes.apple.com" not in normalized_link:
             self._send_json(
                 400,
                 {
-                    "error": "Only Spotify track links are supported in this resolver",
+                    "error": "Only Spotify and Apple Music track links are supported in this resolver",
                     "parsingResult": {"type": "unsupportedLink", "rawLink": raw_link},
                 },
             )
             return
 
-        track_id = parse_spotify_track_id(raw_link)
-        if not track_id:
-            self._send_json(
-                400,
-                {
-                    "error": "Spotify track ID could not be extracted",
-                    "parsingResult": build_parsed_result(raw_link, None, "Spotify"),
-                },
-            )
-            return
-
-        client_id = os.environ.get("SPOTIFY_CLIENT_ID")
-        client_secret = os.environ.get("SPOTIFY_CLIENT_SECRET")
-
-        if not client_id or not client_secret:
-            self._send_json(500, {"error": "Missing SPOTIFY_CLIENT_ID or SPOTIFY_CLIENT_SECRET"})
-            return
-
         try:
-            access_token = fetch_spotify_access_token(client_id, client_secret)
-            track_payload = fetch_spotify_track(access_token, track_id, preferred_market)
-            response = build_resolver_response(raw_link, track_payload, track_id, preferred_market)
+            spotify_access_token = None
+            client_id = os.environ.get("SPOTIFY_CLIENT_ID")
+            client_secret = os.environ.get("SPOTIFY_CLIENT_SECRET")
+            if client_id and client_secret:
+                spotify_access_token = fetch_spotify_access_token(client_id, client_secret)
+
+            if "spotify" in normalized_link:
+                track_id = parse_spotify_track_id(raw_link)
+                if not track_id:
+                    self._send_json(
+                        400,
+                        {
+                            "error": "Spotify track ID could not be extracted",
+                            "parsingResult": build_parsed_result(raw_link, None, "Spotify"),
+                        },
+                    )
+                    return
+
+                if not spotify_access_token:
+                    self._send_json(500, {"error": "Missing SPOTIFY_CLIENT_ID or SPOTIFY_CLIENT_SECRET"})
+                    return
+
+                track_payload = fetch_spotify_track(spotify_access_token, track_id, preferred_market)
+                response = build_resolver_response_from_spotify(
+                    raw_link,
+                    track_payload,
+                    track_id,
+                    preferred_market,
+                    spotify_access_token,
+                )
+            else:
+                track_id = parse_apple_music_track_id(raw_link)
+                if not track_id:
+                    self._send_json(
+                        400,
+                        {
+                            "error": "Apple Music track ID could not be extracted",
+                            "parsingResult": build_parsed_result(raw_link, None, "Apple Music"),
+                        },
+                    )
+                    return
+
+                storefront = apple_music_storefront(preferred_market)
+                track_payload = fetch_itunes_track(track_id, storefront)
+                response = build_resolver_response_from_apple_music(
+                    raw_link,
+                    track_payload,
+                    track_id,
+                    preferred_market,
+                    spotify_access_token,
+                )
         except error.HTTPError as exc:
             detail = exc.read().decode("utf-8", errors="ignore")
-            self._send_json(exc.code, {"error": "Spotify API request failed", "detail": detail})
+            self._send_json(exc.code, {"error": "Resolver upstream request failed", "detail": detail})
             return
         except Exception as exc:
             self._send_json(500, {"error": "Resolver failed", "detail": str(exc)})
