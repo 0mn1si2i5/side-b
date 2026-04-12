@@ -1,0 +1,240 @@
+Metadata-Version: 2.1
+Name: opencc-purepy
+Version: 1.2.0
+Summary: Pure Python implementation of OpenCC for Chinese text conversion
+Author-email: laisuk <laisuk@yahoo.com>
+License: MIT
+Project-URL: Homepage, https://github.com/laisuk/opencc_purepy
+Project-URL: Issues, https://github.com/laisuk/opencc_purepy/issues
+Project-URL: ChangeLog, https://github.com/laisuk/opencc_purepy/blob/master/CHANGELOG.md
+Keywords: opencc,chinese,text,conversion,pure-python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Text Processing :: Linguistic
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+# opencc_purepy
+
+[![PyPI version](https://img.shields.io/pypi/v/opencc-purepy)](https://pypi.org/project/opencc-purepy/)
+[![License](https://img.shields.io/github/license/laisuk/opencc_pyo3)](https://github.com/laisuk/opencc_pyo3/blob/main/LICENSE)
+[![Downloads](https://static.pepy.tech/personalized-badge/opencc-purepy?period=month&units=international_system&left_color=black&right_color=orange&left_text=Downloads)](https://pepy.tech/project/opencc-purepy)
+[![Build & Release](https://github.com/laisuk/opencc_purepy/actions/workflows/release.yml/badge.svg)](https://github.com/laisuk/opencc_purepy/actions/workflows/release.yml)
+
+**opencc_purepy** is a **pure Python** implementation
+of [OpenCC (Open Chinese Convert)](https://github.com/BYVoid/OpenCC),
+supporting conversion between Simplified, Traditional, Hong Kong, Taiwan, and Japanese Kanji.  
+It uses dictionary-based segmentation and mapping logic inspired by the original OpenCC.
+
+---
+
+## 🚩 Features
+
+- **Pure Python** – no native dependencies
+- **Multiple Chinese locale conversions** (Simplified, Traditional, HK, TW, JP)
+- **Punctuation style conversion** (optional)
+- **Automatic code detection** (Simplified/Traditional)
+- **CLI** with Office document support (`.docx`, `.xlsx`, `.pptx`, `.odt`, `.ods`, `.odp`, `.epub`)
+
+> 🐍 `opencc_purepy` requires **Python 3.7 or later**.
+
+---
+
+## 🔁 Supported Conversion Configs
+
+| Code    | Description                                    |
+|---------|------------------------------------------------|
+| `s2t`   | Simplified → Traditional                       |
+| `t2s`   | Traditional → Simplified                       |
+| `s2tw`  | Simplified → Traditional (Taiwan)              |
+| `tw2s`  | Traditional (Taiwan) → Simplified              |
+| `s2twp` | Simplified → Traditional (Taiwan) with idioms  |
+| `tw2sp` | Traditional (Taiwan) → Simplified with idioms  |
+| `s2hk`  | Simplified → Traditional (Hong Kong)           |
+| `hk2s`  | Traditional (Hong Kong) → Simplified           |
+| `t2tw`  | Traditional → Traditional (Taiwan)             |
+| `tw2t`  | Traditional (Taiwan) → Traditional             |
+| `t2twp` | Traditional → Traditional (Taiwan) with idioms |
+| `tw2tp` | Traditional (Taiwan) → Traditional with idioms |
+| `t2hk`  | Traditional → Traditional (Hong Kong)          |
+| `hk2t`  | Traditional (Hong Kong) → Traditional          |
+| `t2jp`  | Japanese Kyujitai → Shinjitai                  |
+| `jp2t`  | Japanese Shinjitai → Kyujitai                  |
+
+---
+
+## 📦 Installation
+
+```bash
+pip install opencc-purepy
+```
+
+---
+
+## 🚀 Usage
+
+### Python
+
+```python
+from opencc_purepy import OpenCC
+
+text = "“春眠不觉晓，处处闻啼鸟。”"
+opencc = OpenCC("s2t")
+converted = opencc.convert(text, punctuation=True)
+print(converted)  # 「春眠不覺曉，處處聞啼鳥。」
+```
+
+### CLI
+
+#### Text File Conversion
+
+```sh
+python -m opencc_purepy convert -i input.txt -o output.txt -c s2t -p
+# or, if installed as a script:
+opencc-purepy convert -i input.txt -o output.txt -c s2t -p
+```
+
+#### Office Document Conversion subcommand (`office`)
+
+Supports: `.docx`, `.xlsx`, `.pptx`, `.odt`, `.ods`, `.odp`, `.epub`
+
+```sh
+# Convert Word document with font preservation
+opencc-purepy office -i example.docx -c t2s --keep-font
+
+# Convert EPUB and auto-detect output name
+opencc-purepy office -i book.epub -c s2t --auto-ext
+
+# Convert Excel and specify output path and format
+opencc-purepy office -i sheet.xlsx -o result.xlsx -c s2tw --format xlsx
+```
+
+> ℹ️ With `office` subcommand, the input is processed as an Office or EPUB document and OpenCC conversion is applied
+> internally.
+
+---
+
+## 🧩 API Reference
+
+### Exports
+
+- `OpenCC`
+- `OpenccConfig`
+
+### `OpenCC` class
+
+- `OpenCC(config: str | OpenccConfig = "s2t")`  
+  Create a converter with a supported config string or `OpenccConfig` enum value.
+- `set_config(config: str | OpenccConfig) -> None`  
+  Update the active conversion config.
+- `get_config() -> str`  
+  Return the current canonical config name.
+- `supported_configs() -> list[str]`  
+  Return all supported config names.
+- `get_last_error() -> str | None`  
+  Return the last validation or conversion error, if any.
+- `convert(input: str, punctuation: bool = False) -> str`  
+  Convert text using the active config, with optional punctuation conversion where supported.
+- `s2t(input: str, punctuation: bool = False) -> str`  
+  Simplified Chinese to Traditional Chinese.
+- `t2s(input: str, punctuation: bool = False) -> str`  
+  Traditional Chinese to Simplified Chinese.
+- `s2tw(input: str, punctuation: bool = False) -> str`  
+  Simplified Chinese to Taiwan Traditional.
+- `tw2s(input: str, punctuation: bool = False) -> str`  
+  Taiwan Traditional to Simplified Chinese.
+- `s2twp(input: str, punctuation: bool = False) -> str`  
+  Simplified Chinese to Taiwan Traditional with idiom and phrase conversion.
+- `tw2sp(input: str, punctuation: bool = False) -> str`  
+  Taiwan Traditional with idioms to Simplified Chinese.
+- `s2hk(input: str, punctuation: bool = False) -> str`  
+  Simplified Chinese to Hong Kong Traditional.
+- `hk2s(input: str, punctuation: bool = False) -> str`  
+  Hong Kong Traditional to Simplified Chinese.
+- `t2tw(input: str) -> str`  
+  Traditional Chinese to Taiwan Traditional.
+- `t2twp(input: str) -> str`  
+  Traditional Chinese to Taiwan Traditional with phrase mappings.
+- `tw2t(input: str) -> str`  
+  Taiwan Traditional to standard Traditional Chinese.
+- `tw2tp(input: str) -> str`  
+  Taiwan Traditional to standard Traditional Chinese with phrase reversal.
+- `t2hk(input: str) -> str`  
+  Traditional Chinese to Hong Kong variant.
+- `hk2t(input: str) -> str`  
+  Hong Kong Traditional to standard Traditional Chinese.
+- `t2jp(input: str) -> str`  
+  Traditional Chinese to Japanese variants.
+- `jp2t(input: str) -> str`  
+  Japanese Shinjitai to Traditional Chinese.
+- `st(input: str) -> str`  
+  Character-only Simplified to Traditional conversion.
+- `ts(input: str) -> str`  
+  Character-only Traditional to Simplified conversion.
+- `zho_check(input: str) -> int`  
+  Detect the input text type:  
+  &nbsp;&nbsp;`1` - Traditional, `2` - Simplified, `0` - Others
+
+### `OpenccConfig` enum
+
+- Members include: `S2T`, `T2S`, `S2TW`, `TW2S`, `S2TWP`, `TW2SP`, `S2HK`, `HK2S`, `T2TW`, `TW2T`, `T2TWP`, `TW2TP`,
+  `T2HK`, `HK2T`, `T2JP`, `JP2T`
+- `to_canonical_name() -> str`  
+  Return the lowercase OpenCC config string.
+- `parse(value: str) -> OpenccConfig`  
+  Parse a config string into an enum value.
+
+---
+
+## 🛠 Development
+
+- Python bindings: [
+  `opencc_purepy/__init__.py`](https://github.com/laisuk/opencc_purepy/blob/master/opencc_purepy/__init__.py), [
+  `opencc_purepy/core.py`](https://github.com/laisuk/opencc_purepy/blob/master/opencc_purepy/core.py)
+- CLI: [`opencc_purepy/__main__.py`](https://github.com/laisuk/opencc_purepy/blob/master/opencc_purepy/__main__.py)
+
+---
+
+## ⚡ Benchmark
+
+> Measured on a local machine using the default "s2t" configuration.  
+> Each test averaged over 20 runs with the shared dictionary cache reused across runs.
+
+| Input Size        | Avg. Time (ms) |
+|-------------------|---------------:|
+| **100 chars**     |        0.15 ms |
+| **1,000 chars**   |        0.93 ms |
+| **10,000 chars**  |        8.76 ms |
+| **100,000 chars** |       86.05 ms |
+
+*Timings reuse the shared dictionary cache, but still include per-run `OpenCC` instance setup; results depend on local
+hardware and background system load.*
+
+
+---
+
+## Projects That Use `opencc-purepy`
+
+[OpenccPurepyGui](https://github.com/laisuk/OpenccPurepyGui)
+
+---
+
+## 📄 License
+
+This project is licensed under the [MIT License](https://github.com/laisuk/opencc_purepy/blob/master/LICENSE).
+
+---
+
+Powered by **Pure Python** and **OpenCC** Lexicons.

@@ -1,0 +1,2 @@
+[console_scripts]
+opencc-purepy = opencc_purepy.__main__:main
