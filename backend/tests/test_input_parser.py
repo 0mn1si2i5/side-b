@@ -23,3 +23,15 @@ class InputParserTests(unittest.TestCase):
     def test_marks_plain_text_as_reserved(self) -> None:
         result = self.parser.parse("Maroon Taylor Swift")
         self.assertEqual(result.kind, "plain_text")
+
+    def test_extracts_qq_link_from_share_copy(self) -> None:
+        extracted = self.parser._extract_candidate_link(
+            "bôa《Duvet》 https://c6.y.qq.com/base/fcgi-bin/u?__=EMFvmMRMagAV @QQ音乐"
+        )
+        self.assertEqual(extracted, "https://c6.y.qq.com/base/fcgi-bin/u?__=EMFvmMRMagAV")
+
+    def test_extracts_netease_link_from_share_copy(self) -> None:
+        extracted = self.parser._extract_candidate_link(
+            "分享George Michael的单曲《Careless Whisper》https://163cn.tv/44SdnwW (@网易云音乐)"
+        )
+        self.assertEqual(extracted, "https://163cn.tv/44SdnwW")

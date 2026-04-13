@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import re
 
 from models.resolver_models import ParsedSource, SourcePlatformAdapter
 from services.source_platform_adapters import default_source_adapters
@@ -19,7 +20,7 @@ class InputParser:
         self.adapters = adapters or default_source_adapters()
 
     def parse(self, raw_input: str) -> InputParseResult:
-        normalized_input = raw_input.strip()
+        normalized_input = self._extract_candidate_link(raw_input.strip())
         if not normalized_input:
             return InputParseResult(kind="unsupported", raw_input=raw_input)
 
@@ -43,3 +44,14 @@ class InputParser:
     @staticmethod
     def _looks_like_plain_text(raw_input: str) -> bool:
         return "://" not in raw_input and "." not in raw_input
+
+    @staticmethod
+    def _extract_candidate_link(raw_input: str) -> str:
+        if not raw_input:
+            return raw_input
+
+        match = re.search(r"https?://[^\s)）]+", raw_input)
+        if match:
+            return match.group(0).strip()
+
+        return raw_input
