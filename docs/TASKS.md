@@ -1,51 +1,98 @@
 # TASKS
 
-## 已完成
+## Phase 0：现状分析与重构规划
 
-- [x] iOS 聊天主路径可用
-- [x] 支持文本消息
-- [x] 支持粘贴链接发歌
-- [x] 支持引用已有歌曲消息
-- [x] 歌曲消息可进入详情页
-- [x] 详情页已收口到基础信息 + 平台按钮
-- [x] 建立 canonical track 模型骨架
-- [x] 建立 resolver request / response contract
-- [x] 建立 remote resolver client 落点
-- [x] 打通 Spotify source resolving
-- [x] 打通 Apple Music source resolving
-- [x] 打通 Apple Music <-> Spotify 双向链接映射
-- [x] Apple Music artwork 升级为高清 URL
-- [x] 中文简繁归一化接入 OpenCC 体系
+- [ ] 完成 Master Plan 文档
+- [ ] 统一 PRD / ARCHITECTURE / TASKS 文档口径
+- [ ] 盘点当前 iOS 与 backend 结构的保留/修改/删除项
+- [ ] 明确 backend 模块化单体目录结构
 
-## 当前进行中
+## Phase 1：基础架构重构
 
-- [ ] 提交当前 Apple Music / Spotify 双平台阶段成果
+- [ ] 新增 InputParser 统一入口
+- [ ] 定义 ParsedInput / ParsedSource / CanonicalTrack / ResolverContext
+- [ ] 收口 backend 为 routes / services / resolvers / models / platform_clients / utils
+- [ ] 将入口脚本瘦身为 app entry / route bootstrap
+- [ ] 建立 `/resolve-input` / `/resolve-link` / `/resolve-text` / `/health`
+- [ ] 固化失败与降级语义
 
-## 下一步：网易云音乐（三平台双向连接）
+## Phase 2：Spotify 主链路
 
-- [ ] 核对网易云开放平台官方文档与接入约束
-- [ ] 确认网易云 source link 形态与 song id 提取规则
-- [ ] 接入网易云 song detail metadata 获取
-- [ ] 将网易云 metadata 映射为 canonical track
-- [ ] 打通 `网易云 -> Spotify` 链接映射
-- [ ] 打通 `网易云 -> Apple Music` 链接映射
-- [ ] 打通 `Spotify / Apple Music -> 网易云` 链接映射
-- [ ] 完成三平台按钮显示规则联调
+- [ ] 固化 Spotify preferred canonical 策略
+- [ ] 完善 Spotify metadata 获取与 canonical 构建
+- [ ] 完善 Spotify search / matching / cache / market fallback
+- [ ] 回归验证 Spotify source path
 
-## 后续：QQ 音乐（四平台双向连接）
+## Phase 3：Apple Resolver
 
-- [ ] 确认 QQ 音乐 source link 形态与 song id 提取规则
-- [ ] 接入 QQ 音乐 metadata 获取
-- [ ] 将 QQ 音乐 metadata 映射为 canonical track
-- [ ] 打通 `QQ -> Spotify` 链接映射
-- [ ] 打通 `QQ -> Apple Music` 链接映射
-- [ ] 打通 `QQ -> 网易云` 链接映射
-- [ ] 打通 `Spotify / Apple Music / 网易云 -> QQ` 链接映射
-- [ ] 完成四平台按钮显示规则联调
+- [ ] 固化 Apple source adapter
+- [ ] 固化 Apple target resolver
+- [ ] 稳定 iTunes lookup + Search matcher
+- [ ] 验证 Apple source -> Spotify link
 
-## 暂不处理
+## Phase 4：网易云 Resolver
 
-- [ ] 站内播放
-- [ ] 歌词主链路
-- [ ] 社区 / 推荐 / 评论
-- [ ] 截图识别
+- [ ] 接入 api-enhanced 自部署服务
+- [ ] 实现 Netease source adapter
+- [ ] 实现 Netease target resolver
+- [ ] 打通 Spotify / Apple / 网易云三平台链路
+
+## Phase 5：QQ Resolver
+
+- [ ] 接入 QQMusicApi 自部署服务
+- [ ] 实现 QQ source adapter
+- [ ] 实现 QQ target resolver
+- [ ] 打通四平台链路
+
+## Phase 6：统一 Resolver Service
+
+- [ ] 新建统一 orchestration service
+- [ ] 实现 canonical source 优先级策略
+- [ ] 实现平台按钮统一编排
+- [ ] 实现置信度与 diagnostics 内部结构
+- [ ] 补 source adapter / target resolver / orchestration 测试
+
+## Phase 7：歌单系统
+
+- [ ] 首页歌单系统设计
+- [ ] 默认歌单“已收藏”
+- [ ] 歌单模型与存储
+- [ ] 支持首页直接粘贴外部链接加入歌单
+- [ ] 支持新增、删除、编辑自定义歌单
+- [ ] 从聊天/详情加入歌单
+
+## Phase 8：聊天室系统
+
+- [ ] Room / Message 后端模型
+- [ ] 双人聊天室与多人聊天室统一模型
+- [ ] 明确不引入私信域
+- [ ] 房间消息 API
+- [ ] 持久化与同步策略
+
+## Phase 9：用户系统
+
+- [ ] 极简用户模型
+- [ ] 登录 / 注册
+- [ ] 按账号创建聊天室
+- [ ] 明确不引入好友系统
+- [ ] 明确不引入邀请 / 同意流程
+
+## Phase 10：客户端完善
+
+- [ ] iOS 接入正式 backend API
+- [ ] 完善加载态、错误态、重试
+- [ ] 完善歌曲详情与平台按钮体验
+- [ ] 推进客户端脱离本地 mock
+
+## Phase 11：部署与上线
+
+- [ ] backend 部署到 VPS / 云服务器
+- [ ] 配置域名
+- [ ] 配置 HTTPS
+- [ ] 运行环境与服务结构稳定化
+
+## Phase 12：后续扩展
+
+- [ ] 推荐系统
+- [ ] 多端支持
+- [ ] 数据分析与指标

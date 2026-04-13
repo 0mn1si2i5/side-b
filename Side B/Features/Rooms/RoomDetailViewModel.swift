@@ -114,6 +114,16 @@ final class RoomDetailViewModel: ObservableObject {
             break
         }
 
+        if response.metadataStatus == .fallbackMock {
+            linkResolutionState = .failed
+            if let diagnosticMessage = response.diagnosticMessage, !diagnosticMessage.isEmpty {
+                linkResolutionMessage = "Could not resolve this song. \(diagnosticMessage)"
+            } else {
+                linkResolutionMessage = "Could not resolve this song."
+            }
+            return
+        }
+
         let newMessage = Message(
             senderName: senderName,
             text: "Shared a song link",
@@ -131,12 +141,8 @@ final class RoomDetailViewModel: ObservableObject {
             linkResolutionState = .resolved
             linkResolutionMessage = nil
         case .fallbackMock:
-            linkResolutionState = .fallbackMock
-            if let diagnosticMessage = response.diagnosticMessage, !diagnosticMessage.isEmpty {
-                linkResolutionMessage = "Resolver unavailable. Sent a fallback song card. \(diagnosticMessage)"
-            } else {
-                linkResolutionMessage = "Resolver unavailable. Sent a fallback song card."
-            }
+            linkResolutionState = .failed
+            linkResolutionMessage = "Could not resolve or match this song."
         case .mockLocal:
             linkResolutionState = .resolved
             linkResolutionMessage = nil

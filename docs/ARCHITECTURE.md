@@ -1,154 +1,275 @@
-# Side B 架构说明
+# Side B Architecture
 
-## 当前实际架构
+## 目标架构
 
-当前项目应按下面这条链路理解：
+Side B 的正式目标架构是：
 
-`客户端输入链接 -> resolver service / backend -> canonical track -> iOS 展示与跳转`
+`iOS Client -> Backend API -> InputParser -> Resolver Service -> Canonical Track -> Platform Links -> iOS Display`
 
-不是：
+产品整体采用：
 
-- 纯前端 mock 项目
-- 在客户端内直接做完整平台解析
+- iOS 轻客户端
+- 模块化单体 backend
+- resolver-first 架构
 
-## 职责边界
+## 系统边界
 
 ### iOS Client
 
 负责：
 
+- 首页歌单 UI
 - Rooms / Chat UI
-- Link input
+- Link / text input
 - 歌曲卡片与详情页展示
-- 平台按钮渲染
-- 调用 resolver
+- 平台按钮渲染与跳转
+- 调用 backend API
 
 不负责：
 
-- 持有平台 secret
-- 写平台搜索 / 匹配逻辑
-- 在 View 中拼平台链接
+- 平台链接推导
+- metadata 获取
+- resolver 候选打分
+- 平台 secret 管理
+- 业务持久化核心逻辑
 
-### Resolver / Backend
+### Backend
 
 负责：
 
-- 链接解析
-- 平台识别
-- 资源 ID 提取
-- 平台 metadata 获取
-- canonical track 组装
-- 跨平台链接映射
-- 结果缓存
+- 输入解析
+- 平台 source link parsing
+- metadata 获取
+- canonical track 构建
+- 跨平台映射
+- 极简用户、聊天室、歌单等产品域
+- API 暴露
+- 缓存与降级
 
-当前已落地：
+## Backend 正式结构
 
-- Spotify source resolving
-- Apple Music source resolving
-- Apple Music <-> Spotify 双向链接映射
-- Apple Music artwork 高清 URL 返回
-- 中文简繁归一化
+目标目录结构：
 
-## Canonical Track
+- `backend/routes`
+- `backend/services`
+- `backend/resolvers`
+- `backend/models`
+- `backend/platform_clients`
+- `backend/utils`
 
-客户端消费对象继续统一到 `Track`。
+当前已演进出的平台模块应逐步迁入上述结构，而不是继续堆在入口脚本中。
 
-当前关键字段：
+## 关键内部模型
 
-- `title`
-- `artistName`
-- `albumTitle`
-- `durationMS`
-- `artworkURL`
-- `sourcePlatform`
-- `sourcePlatformID`
-- `sourceURL`
-- `isrc`
-- `platformLinks`
+### ParsedInput
 
-设计原则：
+统一表示输入解析结果，支持：
 
-- `Track` 不等于任一平台原始响应
-- 平台 provider / resolver 负责映射
-- `platformLinks` 是唯一平台按钮来源
+- link
+- plain text
 
-## 当前平台策略
+### ParsedSource
 
-- 源平台永远显示
-- 非源平台只有命中真实链接时才显示
-- 不再返回“搜索页 fallback 按钮”
+统一表示来源平台已解析资源：
 
-## 当前已支持的平台主链路
+- source platform
+- source url
+- resource id
+- resource kind
 
-### Spotify 作为输入源
+### CanonicalTrack
 
-已支持：
+统一表示 resolver 输出的歌曲核心对象：
 
-- 链接识别
-- track id 提取
-- Spotify metadata 获取
-- canonical track 返回
-- Apple Music 真实链接映射
+- sourcePlatform
+- sourceID
+- sourceURL
+- title
+- artistName
+- albumTitle
+- durationMS
+- artworkURL
+- isrc
 
-### Apple Music 作为输入源
+### ResolverContext
 
-已支持：
+统一承载 resolver 运行上下文：
 
-- 链接识别
-- track id 提取
-- iTunes lookup 获取 metadata
-- canonical track 返回
-- Spotify 真实链接映射
+- preferredMarket
+- access tokens
+- cache stores
+- 第三方 client / credentials
 
-## 下一阶段架构目标
+## Resolver 分层
 
-### Phase 1：网易云音乐
+### 1. InputParser
 
-目标：
+统一处理：
 
-- 接入网易云作为第三个 source platform
-- 形成三平台双向连接：
-  - Spotify
-  - Apple Music
-  - 网易云音乐
+- Spotify / Apple / 网易云 / QQ 链接
+- 纯文本
 
-当前计划：
+输出：
 
-- 优先走 resolver / backend
-- 优先验证网易云开放平台路径
-- 先打通：
-  - 链接解析
-  - song id 提取
-  - metadata 获取
-  - canonical track 返回
-- 再补跨平台映射
+- ParsedInput
 
-说明：
+### 2. Source Platform Adapters
 
-- 当前已看到第三方资料引用网易云开放平台接口路径：
-  - `/openapi/music/basic/search/song/get/v3`
-  - `/openapi/music/basic/song/detail/get/v2`
-- 这组路径后续接入前需要再次做官方来源核对
+每个平台 adapter 只负责：
 
-### Phase 2：QQ 音乐
+- 识别本平台输入
+- 解析 source link
+- 获取 source metadata
+- 生成 canonical candidate
 
-目标：
+当前与未来平台：
 
-- 扩展到四平台双向连接：
-  - Spotify
-  - Apple Music
-  - 网易云音乐
-  - QQ 音乐
+- Spotify source adapter
+- Apple Music source adapter
+- Netease source adapter
+- QQ source adapter
 
-策略：
+### 3. Target Platform Resolvers
 
-- 先保证网易云三平台链路稳定
-- 再进入 QQ 音乐 source path
+每个目标平台 resolver 只负责：
 
-## 当前不做
+- 接收 canonical track
+- 搜索候选
+- 返回真实链接或 `None`
 
-- 站内播放
-- 歌词主链路
-- 社区功能
-- 大规模推荐能力
-- 将复杂平台逻辑回灌到 SwiftUI View
+当前与未来目标：
+
+- Spotify target resolver
+- Apple Music target resolver
+- Netease target resolver
+- QQ target resolver
+
+### 4. Resolver Orchestrator
+
+统一执行：
+
+`InputParser -> source adapter -> canonical resolution -> target platform resolvers -> response assembly`
+
+职责：
+
+- 优先 Spotify canonical
+- fallback 原平台 canonical
+- 统一按钮顺序
+- 统一失败语义
+
+## Canonical 策略
+
+- Spotify 是 preferred canonical metadata source
+- 若 source 平台不是 Spotify，系统先尝试将输入稳定映射到 Spotify
+- 成功时 canonical source 使用 Spotify
+- 失败时 fallback 使用原平台 metadata
+
+这样做的目标是：
+
+- 让后续跨平台映射尽量围绕一个更稳定的 canonical source
+- 同时避免为强制 canonical 化而丢失可用 source metadata
+
+## API 设计方向
+
+统一由 backend 对外暴露 REST API。
+
+首批核心接口：
+
+- `POST /resolve-input`
+- `POST /resolve-link`
+- `POST /resolve-text`
+- `GET /health`
+
+未来业务域接口：
+
+- playlists
+- rooms
+- messages
+- users
+- auth
+
+## 失败与降级语义
+
+- 输入解析失败：不生成 canonical track
+- metadata 获取失败：不生成歌曲
+- 其他平台链接未命中：仍返回 canonical track，只是少按钮
+- source platform 永远显示
+- 非 source platform 只有真实命中才显示
+
+## 平台接入策略
+
+### Spotify
+
+- preferred canonical source
+- 官方 metadata 获取
+- 官方搜索与匹配
+
+### Apple Music
+
+- source metadata 走 iTunes lookup
+- target mapping 走 iTunes Search API + 本地 matcher
+
+### 网易云
+
+- 通过 `api-enhanced` 自部署服务接入
+- source adapter 与 target resolver 分离
+
+### QQ 音乐
+
+- 通过 `QQMusicApi` 自部署服务接入
+- source adapter 与 target resolver 分离
+
+### 第三方社区库约束
+
+所有第三方社区库只能出现在：
+
+- platform client
+- source adapter
+- target resolver
+
+不能出现在：
+
+- route
+- iOS 客户端
+- UI 层
+
+## 聊天、用户、歌单演进
+
+resolver 不是独立旁路，而是整个产品 backend 的基础能力。
+
+后续：
+
+- Home / Playlist
+- Chat / Room / Message
+- Minimal User / Auth
+
+都应建立在统一 backend 上，而不是继续在 iOS 本地 mock 中演化。
+
+### 聊天系统约束
+
+- 不做独立私信系统
+- 双人沟通通过双人聊天室实现
+- `Room` 是唯一消息容器，统一覆盖双人房和多人房
+
+### 歌单系统约束
+
+- 首页是歌单系统主入口
+- 默认歌单为“已收藏”
+- 首页支持直接粘贴外部链接并加入歌单
+- 聊天与详情页中的歌曲都可再次收藏到歌单
+
+### 用户系统约束
+
+- 仅保留极简账号体系
+- 通过填写对方账号创建聊天室
+- 不做好友关系
+- 不做邀请 / 同意流程
+
+## 部署目标
+
+backend 最终应支持：
+
+- VPS / 云服务器部署
+- 自定义域名
+- HTTPS
+- 可独立运行的 resolver / API 服务

@@ -1,228 +1,186 @@
-# Side B PRD（MVP）
+# Side B PRD
 
-## 一句话描述
+## 产品定位
 
-一个帮助朋友之间跨平台分享歌曲的轻量级 iOS App。
+Side B 是一个以跨平台歌曲分享为核心的产品。
 
----
+目标不是播放器，而是把任意输入形式的歌曲内容转换成一个可被不同平台用户消费的统一歌曲对象，并围绕这个对象构建聊天室、极简用户与歌单能力。
 
-## 背景问题
+当前正式产品方向：
 
-当朋友使用不同音乐平台时，分享歌曲体验很差。
+- Spotify 作为 preferred canonical metadata source
+- 多平台 resolver 作为核心能力
+- iOS 客户端作为轻客户端
+- backend 作为统一业务核心
 
-典型问题：
+## 核心目标
 
-- 用户贴出的是 Spotify 链接，但接收方主要使用 Apple Music / QQ 音乐 / 网易云音乐
-- 接收方往往只能看到一个自己不方便消费的链接
-- 如果没有统一歌曲信息和可跳转目标，用户只能手动记住歌名再去其他平台搜索
+Side B 需要从原型升级为可部署上线的完整产品，具备：
 
-这会导致：
-
-- 分享链路断裂
-- 内容消费成本高
-- 歌曲分享体验明显弱于图片、短视频、网页链接分享
-
----
-
-## 产品目标
-
-让“不同平台之间的歌曲分享”变得轻量、顺滑、可消费。
-
-更具体地说，Side B 要做的不是播放，而是把“一个平台的歌曲链接”转换成“一个可被不同平台用户消费的统一歌曲对象”。
-
----
+- Spotify / Apple Music / 网易云 / QQ 的统一输入解析
+- canonical track 构建与多平台映射
+- 聊天室与消息流
+- 极简用户系统
+- 歌单系统
+- 可部署 backend、域名与 HTTPS
 
 ## 核心用户
 
-- 3-10 人左右的小群体朋友
-- 经常互相分享音乐的人
-- 不同平台混用用户
+- 经常互相分享音乐的小群体用户
+- 同时使用不同音乐平台的用户
+- 需要把“平台专属链接”转化为“可消费歌曲对象”的用户
 
----
+## 产品原则
 
-## 核心场景
+- 先把 resolver 体系做对，再扩展业务系统
+- 客户端只负责输入、展示、跳转
+- 平台解析、metadata 获取、候选搜索、映射打分全部放到 backend
+- 链接命中必须保守，不能返回错误目标
 
-### 场景 1：私信分享
+## 核心能力
 
-用户把一首歌的 Spotify 链接发给朋友。
+### 1. Input Parsing
 
-朋友在 Side B 中打开后，应能看到：
-
-- 封面
-- 歌名
-- 艺人
-- 专辑
-- 来源平台
-- 可跳转的平台按钮
-
-如果系统已完成平台映射，朋友还应能直接跳转到自己常用的平台。
-
-### 场景 2：房间分享
-
-用户把歌曲发到一个小房间中，房间成员可以查看歌曲卡片、基础信息和平台跳转入口。
-
-### 场景 3：跨平台消费
-
-用户粘贴的是 Spotify 单曲链接，但接收方最终可能点击 Apple Music / QQ 音乐 / 网易云音乐按钮完成消费。
-
-这条“Spotify 输入 -> 多平台输出”的链路，现已提升为 Side B MVP 的正式主线之一。
-
----
-
-## MVP 核心流程
-
-### 基础分享流程
-
-粘贴歌曲链接
-→ 识别来源平台
-→ 解析歌曲基础信息
-→ 生成统一歌曲卡片
-→ 发给好友 / 发到房间
-→ 对方查看详情
-→ 点击跳转到自己常用音乐 App
-
-### Spotify 主链路
-
-粘贴 Spotify 单曲链接
-→ 识别为 Spotify track
-→ 提取 Spotify track ID
-→ 拉取 Spotify 官方 metadata
-→ 标准化为 Side B 统一歌曲对象
-→ 尝试映射 Apple Music / QQ 音乐 / 网易云音乐链接
-→ iOS 客户端展示统一歌曲信息和多平台按钮
-
----
-
-## MVP 核心能力
-
-### 1. Rooms
-
-- 房间列表
-- 房间详情页
-- 简单消息流
-- 文本消息
-- 粘贴链接发歌
-
-### 2. Share / Resolve
-
-- 粘贴歌曲链接
-- 识别来源平台
-- 解析为统一歌曲对象
-- 支持最小失败态和 fallback
-
-### 3. Canonical Track
-
-统一歌曲对象至少应支持：
-
-- 封面
-- 歌名
-- 艺人
-- 专辑
-- 时长
-- 来源平台
-- 来源平台原始链接
-- 标准标识（优先 ISRC，如可得）
-- 多平台链接集合
-
-### 4. Track Detail
-
-歌曲详情页当前 MVP 聚焦：
-
-- 封面
-- 歌名
-- 艺人
-- 专辑
-- 来源平台
-- 四个平台按钮
-
-说明：
-
-- 歌词不再是当前 MVP 主线
-- 歌词能力后置，不阻塞 Spotify 主链路推进
-
-### 5. Platform Mapping
-
-在统一歌曲对象基础上，系统应尽可能返回：
+统一支持：
 
 - Spotify 链接
 - Apple Music 链接
+- 网易云音乐链接
 - QQ 音乐链接
-- 网易云音乐链接（如后续可行）
+- 纯文本输入
 
----
+通过 `InputParser` 统一入口，将所有输入转换为统一解析结果。
 
-## Spotify 主链路在 MVP 中的定位
+### 2. Canonical Track
 
-Spotify 单曲链接解析与跨平台映射，不再只是“未来增强项”，而是当前 MVP 中需要正式规划和逐步打通的一条主链路。
+所有可解析内容最终都应尽可能转换为 canonical track。
 
-原因：
+canonical track 至少包含：
 
-- Spotify 链接是高频真实输入源
-- Spotify track ID 结构稳定，适合作为第一条真实 resolver 链路
-- Spotify metadata 可作为 canonical track 的第一条真实来源
-- 有了 Spotify 主链路，后续 Apple Music / QQ / 网易云的映射和跳转才有真实验证对象
+- title
+- artistName
+- albumTitle
+- durationMS
+- artworkURL
+- sourcePlatform
+- sourcePlatformID
+- sourceURL
+- isrc
+- platformLinks
 
----
+### 3. Resolver
 
-## 阶段划分
+resolver 是 Side B 的产品核心能力。
 
-### 第一阶段：Mock / 占位阶段
+正式包含：
 
-目标：
+- SpotifyResolver
+- AppleResolver
+- NeteaseResolver
+- QQResolver
 
-- 先打通 iOS UI 主路径
-- 先完成链接识别、资源 id 提取、统一模型、平台按钮结构
-- 后端接口和 resolver 允许先用 mock / placeholder 驱动
+每个 resolver 负责：
 
-此阶段允许：
+- source link parsing
+- metadata 获取
+- 搜索候选
+- 链接与置信度返回
 
-- Mock metadata
-- Mock platform mapping
-- Mock resolver service
+### 4. Chat / Room
 
-但必须明确：
+用户可以：
 
-- 这不是最终目标
-- 不是长期手动填假数据
-- 最终目标是接通 Spotify 官方链路和后端 resolver
+- 在房间中发送文本消息
+- 粘贴链接发歌
+- 引用已有歌曲消息
+- 查看歌曲详情与平台按钮
 
-### 第二阶段：Spotify 真实接入阶段
+产品约束：
 
-目标：
+- 不做独立私信系统
+- 两个用户之间的一对一消息，也通过创建双人聊天室实现
+- Room 是唯一消息承载单元
 
-- 真实识别 Spotify track URL
-- 真实拉取 Spotify metadata
-- 真实返回 canonical track
-- 为跨平台映射提供稳定输入
+### 5. User System
 
-### 第三阶段：跨平台映射阶段
+后续产品必须支持：
 
-目标：
+- 用户模型
+- 登录/注册
+- 用户资料
 
-- 在 canonical track 基础上生成 Apple Music / QQ 音乐 / 网易云音乐可用链接
-- 客户端最终只消费统一结果，不承担平台推导逻辑
+并明确保持极简：
 
----
+- 通过填写其他用户账号创建聊天室
+- 不做好友系统
+- 不做邀请 / 同意流程
+- 不做复杂社交关系链
+
+### 6. Playlist
+
+后续产品必须支持：
+
+- 首页歌单入口
+- 默认歌单“已收藏”
+- 歌单创建、编辑、删除
+- 从首页直接粘贴外部链接并加入歌单
+- 从聊天或详情页加入歌单
+- 歌单内统一展示 canonical track
+
+该能力用于覆盖以下核心场景：
+
+- 用户只想解析并跳转，不想发给别人
+- 用户想收藏别人发给自己的歌
+- 用户想先收藏一首歌，之后再发给一个或多个聊天室
+
+## 数据源策略
+
+- Spotify 是 preferred canonical metadata source
+- 所有输入都先识别来源平台
+- 若可稳定转换为 Spotify，则 canonical source 统一落到 Spotify
+- 若无法稳定转换，则 fallback 原平台 metadata 作为 canonical source
+
+## 平台按钮策略
+
+- source platform 永远显示
+- 其他平台只有在真实命中可直达链接时才显示
+- 不返回搜索页 fallback
+
+## 当前范围与阶段
+
+### 当前已完成
+
+- iOS 聊天主路径
+- 粘贴链接发歌
+- Spotify source resolving
+- Apple Music source resolving
+- Spotify / Apple Music 双向映射基础链路
+
+### 当前主线
+
+1. InputParser 与统一 resolver service
+2. Spotify canonical 主链路稳定化
+3. 网易云接入
+4. QQ 接入
+5. backend 化聊天室、极简用户、歌单
 
 ## 非目标
 
-当前版本不做：
+当前不做：
 
 - 站内播放
-- 复杂歌词能力
-- 推荐算法
-- 公共内容广场
-- 复杂社区互动
-- 截图识别
-- 在 iOS 客户端内直接持有平台敏感凭证并完成完整平台 API 调用
+- 推荐系统首发版本
+- 重社区互动
+- 复杂歌词系统作为主线
+- 在 iOS 客户端中持有平台 secret
 
----
+## 成功标准
 
-## 用户价值总结
+产品进入可上线阶段时，应满足：
 
-Spotify 链接解析与跨平台映射这条链路的核心价值是：
-
-- 用户不再只是在分享一个“平台专属 URL”
-- 用户实际上是在分享一首“可被不同平台用户消费的歌曲对象”
-
-这正是 Side B 与普通聊天工具、复制粘贴链接分享的本质差异。
+- 多输入源统一生成 canonical track
+- 房间消息与歌曲详情可稳定消费 resolver 结果
+- backend 独立部署可用
+- 用户、聊天室、歌单具备最小闭环
+- 一对一沟通无需私信域即可通过双人聊天室完成
+- 多平台链接映射对错误命中保持保守
