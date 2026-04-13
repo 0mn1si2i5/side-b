@@ -1,80 +1,156 @@
 # Side B
 
-一个轻量级跨平台歌曲分享 iOS App。
+一个以多平台歌曲解析与跳转为核心的 iOS App。
+
+当前版本的核心体验不是播放，而是：
+
+- 粘贴链接
+- 解析歌曲
+- 展示歌曲卡片
+- 跳转到用户自己的音乐平台
 
 ## 当前状态
 
-当前仓库已经不是纯 mock UI。
+当前仓库已经不是纯 mock 原型，主链路已具备真实 resolver 能力。
 
-主链路现状：
+### iOS 侧
 
-- iOS 聊天主路径可用
-- 支持文本消息、粘贴链接发歌、引用歌曲消息
+- 聊天主路径可用
+- 支持文本消息、链接发歌、引用歌曲消息
 - 歌曲卡片可进入详情页
-- 详情页当前聚焦：
+- 详情页展示：
   - 封面
   - 歌名
   - 艺人
   - 专辑
   - 来源平台
   - 平台按钮
+- 平台按钮按平台独立加载，不再整块阻塞
 
-Resolver / backend 现状：
+### Backend / Resolver 侧
 
-- 已有本地 resolver 服务落点：`backend/spotify_resolver_server.py`
-- 已打通 `Spotify -> canonical track -> iOS detail UI`
-- 已打通 `Apple Music -> canonical track -> iOS detail UI`
-- 已支持：
-  - Spotify metadata 真实获取
-  - Apple Music metadata 真实获取
-  - Apple Music <-> Spotify 双向链接映射
-  - Apple Music artwork 高清 URL 返回
-  - 中文简繁归一化
+- 已有本地 resolver 服务：`backend/spotify_resolver_server.py`
+- 已支持源平台解析：
+  - Spotify
+  - Apple Music
+  - 网易云音乐
+  - QQ 音乐
+- 已支持目标平台映射：
+  - Spotify
+  - Apple Music
+  - 网易云音乐
+  - QQ 音乐
+- 已支持两阶段链路：
+  1. metadata-only 解析成功后立即创建卡片
+  2. 详情页异步补全其他平台链接
 
-当前平台策略：
+### 当前平台规则
 
 - 源平台永远显示
-- 其它平台只有命中真实链接时才显示
+- 其他平台只有命中真实链接时才显示
+- metadata 失败不生成歌曲卡片
+- 其他平台匹配失败不影响歌曲卡片创建
 
 ## 当前技术路线
 
-正式路线是：
+正式路线：
 
-`iOS client -> resolver service / backend -> canonical track -> platform links`
+`iOS Client -> Backend Resolver API -> Canonical Track -> Platform Links -> iOS Display`
 
 职责划分：
 
-- iOS 客户端负责输入、展示、跳转
-- resolver / backend 负责链接解析、metadata 获取、跨平台映射
+- iOS 负责输入、展示、交互、跳转
+- backend 负责链接解析、metadata 获取、跨平台匹配、失败语义与缓存
 
 当前不做：
 
 - 站内播放
-- 复杂歌词
-- 社区系统
+- 好友系统
+- 私信系统
+- 复杂社交关系
 - 在 SwiftUI View 中写平台解析逻辑
 
-## 下一阶段
+## 本地运行
 
-下一阶段优先顺序：
+### 1. 安装 backend 依赖
 
-1. 网易云音乐
-   - 先做网易云作为输入源
-   - 目标是三平台彼此双向连接：Spotify / Apple Music / 网易云音乐
-2. QQ 音乐
-   - 再扩到四平台彼此双向连接：Spotify / Apple Music / 网易云音乐 / QQ 音乐
+```bash
+pip install -r backend/requirements.txt
+```
 
-说明：
+### 2. 配置环境变量
 
-- 网易云音乐方向优先按开放平台 / resolver 思路推进
-- 当前已看到第三方资料引用网易云开放平台接口路径，例如：
-  - `/openapi/music/basic/search/song/get/v3`
-  - `/openapi/music/basic/song/detail/get/v2`
-- 这组接口路径本轮未直接在官方文档页完成验证，后续接入前需要再次核对
+在 `backend/.env` 中至少配置：
+
+```env
+SPOTIFY_CLIENT_ID=...
+SPOTIFY_CLIENT_SECRET=...
+PORT=8787
+HOST=0.0.0.0
+NETEASE_API_BASE_URL=http://127.0.0.1:3000
+```
+
+可选：
+
+```env
+APPLE_MUSIC_STOREFRONT=cn
+NETEASE_REQUEST_TIMEOUT=10
+```
+
+### 3. 启动网易云 api-enhanced
+
+当前网易云接入依赖独立运行的 `api-enhanced` 服务，例如：
+
+```bash
+# 你的网易云服务应运行在 .env 中配置的 NETEASE_API_BASE_URL
+http://127.0.0.1:3000
+```
+
+### 4. 启动 Side B resolver
+
+```bash
+python3 backend/spotify_resolver_server.py
+```
+
+默认监听：
+
+```text
+http://0.0.0.0:8787
+```
+
+### 5. iOS 端指向本地 resolver
+
+在 Xcode Scheme 的环境变量里设置：
+
+```text
+SIDEB_RESOLVER_BASE_URL=http://<你的Mac局域网IP>:8787
+```
+
+真机运行时不能使用 `127.0.0.1`，必须使用 Mac 在局域网中的可访问地址。
 
 ## 仓库结构
 
 - `Side B/`：iOS 客户端
-- `docs/`：产品、架构、任务文档
-- `backend/`：resolver / backend
+- `backend/`：resolver backend
+- `docs/`：产品、架构、路线文档
 - `prompts/`：提示词模板
+
+## 当前后端依赖策略
+
+- Spotify：直接请求官方 API
+- Apple Music：`iTunes lookup + iTunes Search API`
+- 网易云音乐：独立 `api-enhanced` 服务
+- QQ 音乐：直接集成 `QQMusicApi` Python 库
+
+注意：
+
+- `backend/vendor/` 已被忽略，不作为正式提交内容
+- 新开发者拉仓库后，需要先执行 `pip install -r backend/requirements.txt`
+
+## 下一步
+
+当前最合理的产品方向是：
+
+1. 首页歌单入口
+2. 平台链接补全缓存/持久化
+3. 极简用户系统与聊天室后端化

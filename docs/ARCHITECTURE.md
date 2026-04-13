@@ -1,54 +1,55 @@
 # Side B Architecture
 
-## 目标架构
+## 总体目标
 
-Side B 的正式目标架构是：
+Side B 的目标不是做播放器，而是做一套可部署的多平台歌曲解析与分享系统。
 
-`iOS Client -> Backend API -> InputParser -> Resolver Service -> Canonical Track -> Platform Links -> iOS Display`
+当前正式架构方向：
 
-产品整体采用：
+`iOS Client -> Backend API -> Source Parsing -> Canonical Track -> Target Link Resolution -> iOS Display`
+
+整体采用：
 
 - iOS 轻客户端
 - 模块化单体 backend
 - resolver-first 架构
 
-## 系统边界
+## 客户端与后端边界
 
 ### iOS Client
 
 负责：
 
 - 首页歌单 UI
-- Rooms / Chat UI
-- Link / text input
-- 歌曲卡片与详情页展示
+- 聊天室 UI
+- 输入歌曲链接
+- 展示歌曲卡片与详情页
 - 平台按钮渲染与跳转
-- 调用 backend API
+- 调用 resolver API
 
 不负责：
 
 - 平台链接推导
 - metadata 获取
-- resolver 候选打分
-- 平台 secret 管理
-- 业务持久化核心逻辑
+- 匹配策略与打分
+- 平台密钥管理
+- 第三方服务接入
 
 ### Backend
 
 负责：
 
 - 输入解析
-- 平台 source link parsing
+- 来源平台识别
 - metadata 获取
 - canonical track 构建
-- 跨平台映射
-- 极简用户、聊天室、歌单等产品域
-- API 暴露
-- 缓存与降级
+- 跨平台目标链接匹配
+- 缓存与超时控制
+- 后续用户、聊天室、歌单域能力
 
-## Backend 正式结构
+## 当前 backend 结构
 
-目标目录结构：
+当前仓库已按以下结构收口：
 
 - `backend/routes`
 - `backend/services`
@@ -57,238 +58,147 @@ Side B 的正式目标架构是：
 - `backend/platform_clients`
 - `backend/utils`
 
-当前已演进出的平台模块应逐步迁入上述结构，而不是继续堆在入口脚本中。
+约束：
+
+- route 只做 HTTP 协议与 response assembly
+- service 做 orchestration
+- resolver 处理平台级 source / target 逻辑
+- platform client 封装第三方服务或第三方库
 
 ## 关键内部模型
 
-### ParsedInput
-
-统一表示输入解析结果，支持：
-
-- link
-- plain text
-
 ### ParsedSource
 
-统一表示来源平台已解析资源：
+表示已识别的来源平台资源：
 
-- source platform
-- source url
-- resource id
-- resource kind
+- `platform`
+- `source_url`
+- `resource_id`
+- `resource_kind`
 
 ### CanonicalTrack
 
-统一表示 resolver 输出的歌曲核心对象：
+表示统一歌曲对象：
 
-- sourcePlatform
-- sourceID
-- sourceURL
-- title
-- artistName
-- albumTitle
-- durationMS
-- artworkURL
-- isrc
+- `source_platform`
+- `source_id`
+- `source_url`
+- `title`
+- `artist_name`
+- `album_title`
+- `duration_ms`
+- `artwork_url`
+- `isrc`
 
 ### ResolverContext
 
-统一承载 resolver 运行上下文：
+承载 resolver 运行上下文：
 
-- preferredMarket
-- access tokens
+- `preferred_market`
+- `spotify_access_token`
+- `netease_api_base_url`
 - cache stores
-- 第三方 client / credentials
 
 ## Resolver 分层
 
-### 1. InputParser
+### 1. Source Platform Adapters
 
-统一处理：
+每个平台 source adapter 只负责：
 
-- Spotify / Apple / 网易云 / QQ 链接
-- 纯文本
-
-输出：
-
-- ParsedInput
-
-### 2. Source Platform Adapters
-
-每个平台 adapter 只负责：
-
-- 识别本平台输入
-- 解析 source link
+- 判断能否处理输入
+- 从链接中提取资源 ID
 - 获取 source metadata
-- 生成 canonical candidate
+- 构建 canonical track
 
-当前与未来平台：
+当前已存在：
 
-- Spotify source adapter
-- Apple Music source adapter
-- Netease source adapter
-- QQ source adapter
+- `SpotifySourceAdapter`
+- `AppleMusicSourceAdapter`
+- `NeteaseSourceAdapter`
+- `QQMusicSourceAdapter`
 
-### 3. Target Platform Resolvers
+### 2. Target Platform Resolvers
 
-每个目标平台 resolver 只负责：
+每个平台 target resolver 只负责：
 
 - 接收 canonical track
-- 搜索候选
-- 返回真实链接或 `None`
+- 搜索目标平台候选
+- 返回真实歌曲链接或 `None`
 
-当前与未来目标：
+当前已存在：
 
-- Spotify target resolver
-- Apple Music target resolver
-- Netease target resolver
-- QQ target resolver
+- `SpotifyTargetResolver`
+- `AppleMusicTargetResolver`
+- `NeteaseTargetResolver`
+- `QQMusicTargetResolver`
 
-### 4. Resolver Orchestrator
+### 3. Route / Orchestration
 
-统一执行：
-
-`InputParser -> source adapter -> canonical resolution -> target platform resolvers -> response assembly`
-
-职责：
-
-- 优先 Spotify canonical
-- fallback 原平台 canonical
-- 统一按钮顺序
-- 统一失败语义
-
-## Canonical 策略
-
-- Spotify 是 preferred canonical metadata source
-- 若 source 平台不是 Spotify，系统先尝试将输入稳定映射到 Spotify
-- 成功时 canonical source 使用 Spotify
-- 失败时 fallback 使用原平台 metadata
-
-这样做的目标是：
-
-- 让后续跨平台映射尽量围绕一个更稳定的 canonical source
-- 同时避免为强制 canonical 化而丢失可用 source metadata
-
-## API 设计方向
-
-统一由 backend 对外暴露 REST API。
-
-首批核心接口：
-
-- `POST /resolve-input`
-- `POST /resolve-link`
-- `POST /resolve-text`
-- `GET /health`
-
-当前 resolver 已经采用“两阶段 + 单平台补全”的演进方向：
+当前 resolver 路径已采用两阶段模型：
 
 - `POST /resolve`
-  - 支持 metadata-only 模式
-  - metadata 成功后即可创建歌曲卡片
+  - 支持 metadata-only
+  - 解析成功即可创建歌曲卡片
 - `POST /resolve-platform-link`
-  - 单独解析某一个目标平台链接
-  - 用于详情页平台按钮按平台独立加载
+  - 单独解析某一个目标平台
 - `POST /resolve-platform-links`
-  - 仍可保留作为批量接口
-  - 但客户端不再依赖它阻塞详情页按钮首屏
+  - 批量解析接口，保留为后端能力
 
-未来业务域接口：
+## 当前客户端交互模型
 
-- playlists
-- rooms
-- messages
-- users
-- auth
+### 发歌阶段
 
-## 失败与降级语义
+- 只依赖 metadata 成功
+- 一旦 canonical track 构建成功，就立即创建歌曲卡片
+- 不等待所有平台按钮同步完成
 
-- 输入解析失败：不生成 canonical track
-- metadata 获取失败：不生成歌曲
-- 其他平台链接未命中：仍返回 canonical track，只是少按钮
-- source platform 永远显示
-- 非 source platform 只有真实命中才显示
+### 详情页阶段
 
-当前客户端消费策略进一步细化为：
+- 四个平台位置固定存在
+- 源平台立即可点击
+- 其他平台独立进入以下状态：
+  - `idle`
+  - `loading`
+  - `ready`
+  - `unavailable`
+  - `failed`
+- 某一个平台超时或失败，不影响其他平台继续补全
 
-- 发卡片阶段只依赖 source metadata
-- 详情页平台按钮固定占位
-- 每个平台独立进入 `idle / loading / ready / unavailable / failed`
-- 某一个平台超时或失败，不影响其他平台按钮继续补全
-
-## 平台接入策略
+## 平台接入方式
 
 ### Spotify
 
-- preferred canonical source
-- 官方 metadata 获取
-- 官方搜索与匹配
+- 官方 API
+- 用于 source metadata 与 target 匹配
+- 当前是 preferred canonical metadata source
 
 ### Apple Music
 
-- source metadata 走 iTunes lookup
-- target mapping 走 iTunes Search API + 本地 matcher
+- source metadata：`iTunes lookup`
+- target mapping：`iTunes Search API + 本地 matcher`
 
-### 网易云
+### 网易云音乐
 
-- 通过 `api-enhanced` 自部署服务接入
-- source adapter 与 target resolver 分离
+- 依赖独立 `api-enhanced` 服务
+- 通过 `NETEASE_API_BASE_URL` 接入
 
 ### QQ 音乐
 
-- 通过 `QQMusicApi` 自部署服务接入
-- source adapter 与 target resolver 分离
+- 直接集成 `QQMusicApi` Python 库
+- 不额外起独立 HTTP 服务
+- share 短链由 resolver 内部解析
 
-### 第三方社区库约束
+## 当前失败语义
 
-所有第三方社区库只能出现在：
+- 输入无法识别：不生成歌曲卡片
+- metadata 获取失败：不生成歌曲卡片
+- 某目标平台匹配失败：只是不显示该按钮
+- 源平台按钮永远显示
+- 非源平台只有真实命中才显示
 
-- platform client
-- source adapter
-- target resolver
+## 下一阶段架构重点
 
-不能出现在：
-
-- route
-- iOS 客户端
-- UI 层
-
-## 聊天、用户、歌单演进
-
-resolver 不是独立旁路，而是整个产品 backend 的基础能力。
-
-后续：
-
-- Home / Playlist
-- Chat / Room / Message
-- Minimal User / Auth
-
-都应建立在统一 backend 上，而不是继续在 iOS 本地 mock 中演化。
-
-### 聊天系统约束
-
-- 不做独立私信系统
-- 双人沟通通过双人聊天室实现
-- `Room` 是唯一消息容器，统一覆盖双人房和多人房
-
-### 歌单系统约束
-
-- 首页是歌单系统主入口
-- 默认歌单为“已收藏”
-- 首页支持直接粘贴外部链接并加入歌单
-- 聊天与详情页中的歌曲都可再次收藏到歌单
-
-### 用户系统约束
-
-- 仅保留极简账号体系
-- 通过填写对方账号创建聊天室
-- 不做好友关系
-- 不做邀请 / 同意流程
-
-## 部署目标
-
-backend 最终应支持：
-
-- VPS / 云服务器部署
-- 自定义域名
-- HTTPS
-- 可独立运行的 resolver / API 服务
+1. 引入正式 `InputParser`
+2. 做平台链接结果缓存/持久化
+3. 首页歌单系统
+4. 用户、聊天室、歌单域后端化

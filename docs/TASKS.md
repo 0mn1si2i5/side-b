@@ -9,11 +9,11 @@
 
 ## Phase 1：基础架构重构
 
-- [ ] 新增 InputParser 统一入口
-- [x] 定义 ParsedInput / ParsedSource / CanonicalTrack / ResolverContext
-- [x] 收口 backend 为 routes / services / resolvers / models / platform_clients / utils
+- [ ] 新增正式 `InputParser` 统一入口
+- [x] 定义 `ParsedSource / CanonicalTrack / ResolverContext`
+- [x] 收口 backend 为 `routes / services / resolvers / models / platform_clients / utils`
 - [x] 将入口脚本瘦身为 app entry / route bootstrap
-- [ ] 建立 `/resolve-input` / `/resolve-link` / `/resolve-text` / `/health`
+- [ ] 建立正式 `POST /resolve-input` / `POST /resolve-link` / `POST /resolve-text`
 - [x] 固化失败与降级语义
 - [x] 建立 metadata-only 与平台链接异步补全两阶段主链路
 - [x] 建立详情页按平台独立加载的按钮状态模型
@@ -29,30 +29,33 @@
 
 - [x] 固化 Apple source adapter
 - [x] 固化 Apple target resolver
-- [x] 稳定 iTunes lookup + Search matcher
+- [x] 稳定 `iTunes lookup + Search matcher`
 - [x] 验证 Apple source -> Spotify link
 
 ## Phase 4：网易云 Resolver
 
-- [x] 接入 api-enhanced 自部署服务
+- [x] 接入 `api-enhanced` 自部署服务
 - [x] 实现 Netease source adapter
 - [x] 实现 Netease target resolver
 - [x] 打通 Spotify / Apple / 网易云三平台链路
+- [x] 支持网易云短链解析
 
 ## Phase 5：QQ Resolver
 
-- [ ] 接入 QQMusicApi 自部署服务
-- [ ] 实现 QQ source adapter
-- [ ] 实现 QQ target resolver
-- [ ] 打通四平台链路
+- [x] 接入 `QQMusicApi` Python 库
+- [x] 实现 QQ source adapter
+- [x] 实现 QQ target resolver
+- [x] 修复 QQ 分享短链解析
+- [x] 打通四平台链路
 
 ## Phase 6：统一 Resolver Service
 
-- [ ] 新建统一 orchestration service
+- [ ] 新建正式 `ResolverService` 编排层
 - [ ] 实现 canonical source 优先级策略
-- [ ] 实现平台按钮统一编排
-- [ ] 实现置信度与 diagnostics 内部结构
+- [x] 实现平台按钮统一编排与独立加载
+- [ ] 实现 diagnostics / confidence 内部结构
 - [ ] 补 source adapter / target resolver / orchestration 测试
+- [ ] 做平台链接结果缓存/持久化
 
 ## Phase 7：歌单系统
 
@@ -61,13 +64,13 @@
 - [ ] 歌单模型与存储
 - [ ] 支持首页直接粘贴外部链接加入歌单
 - [ ] 支持新增、删除、编辑自定义歌单
-- [ ] 从聊天/详情加入歌单
+- [ ] 支持从聊天/详情加入歌单
 
 ## Phase 8：聊天室系统
 
 - [ ] Room / Message 后端模型
 - [ ] 双人聊天室与多人聊天室统一模型
-- [ ] 明确不引入私信域
+- [x] 明确不引入私信域
 - [ ] 房间消息 API
 - [ ] 持久化与同步策略
 
@@ -76,14 +79,14 @@
 - [ ] 极简用户模型
 - [ ] 登录 / 注册
 - [ ] 按账号创建聊天室
-- [ ] 明确不引入好友系统
-- [ ] 明确不引入邀请 / 同意流程
+- [x] 明确不引入好友系统
+- [x] 明确不引入邀请 / 同意流程
 
 ## Phase 10：客户端完善
 
 - [ ] iOS 接入正式 backend API
 - [ ] 完善加载态、错误态、重试
-- [ ] 完善歌曲详情与平台按钮体验
+- [x] 完善歌曲详情与平台按钮体验
 - [ ] 推进客户端脱离本地 mock
 
 ## Phase 11：部署与上线
