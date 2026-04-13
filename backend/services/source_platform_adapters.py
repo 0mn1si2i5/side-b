@@ -1,10 +1,12 @@
 from models.resolver_models import CanonicalTrack, ParsedSource, ResolverContext, SourcePlatformAdapter
+from platform_clients.netease_client import fetch_track_detail
 from resolvers.apple_music_platform import (
     apple_music_storefront,
     fetch_itunes_track,
     parse_apple_music_track_id,
     upgrade_apple_music_artwork_url,
 )
+from resolvers.netease_platform import build_netease_track_url, parse_netease_track_id
 from resolvers.spotify_platform import fetch_spotify_track, parse_spotify_track_id
 
 
@@ -98,8 +100,62 @@ class AppleMusicSourceAdapter:
         )
 
 
+class NeteaseSourceAdapter:
+    platform = "网易云音乐"
+
+    def can_handle(self, raw_link: str) -> bool:
+        normalized_link = normalize_link(raw_link)
+        return (
+            "music.163.com" in normalized_link
+            or "y.music.163.com" in normalized_link
+            or "163cn.tv" in normalized_link
+        )
+
+    def parse_source_link(self, raw_link: str) -> ParsedSource | None:
+        track_id = parse_netease_track_id(raw_link)
+        if not track_id:
+            return None
+
+        return ParsedSource(
+            raw_link=raw_link,
+            normalized_link=normalize_link(raw_link),
+            platform=self.platform,
+            source_url=build_netease_track_url(track_id),
+            resource_id=track_id,
+        )
+
+    def fetch_canonical_track(self, parsed_source: ParsedSource, context: ResolverContext) -> CanonicalTrack:
+        if not context.netease_api_base_url:
+            raise ValueError("Missing NETEASE_API_BASE_URL")
+
+        track_payload = fetch_track_detail(
+            context.netease_api_base_url,
+            parsed_source.resource_id,
+            context.netease_request_timeout,
+        )
+        album_payload = track_payload.get("al", {})
+        artist_payloads = track_payload.get("ar", [])
+        artwork_url = album_payload.get("picUrl") if isinstance(album_payload, dict) else None
+
+        return CanonicalTrack(
+            source_platform=self.platform,
+            source_id=parsed_source.resource_id,
+            source_url=build_netease_track_url(parsed_source.resource_id),
+            title=track_payload.get("name"),
+            artist_name=", ".join(
+                artist.get("name", "")
+                for artist in artist_payloads
+                if isinstance(artist, dict) and artist.get("name")
+            ),
+            album_title=album_payload.get("name") if isinstance(album_payload, dict) else None,
+            duration_ms=track_payload.get("dt"),
+            artwork_url=artwork_url if isinstance(artwork_url, str) else None,
+            isrc=None,
+        )
+
+
 def default_source_adapters() -> list[SourcePlatformAdapter]:
-    return [SpotifySourceAdapter(), AppleMusicSourceAdapter()]
+    return [SpotifySourceAdapter(), AppleMusicSourceAdapter(), NeteaseSourceAdapter()]
 
 
 def select_source_adapter(raw_link: str, adapters: list[SourcePlatformAdapter] | None = None) -> SourcePlatformAdapter | None:

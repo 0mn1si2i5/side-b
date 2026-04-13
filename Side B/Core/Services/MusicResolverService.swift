@@ -2,6 +2,9 @@ import Foundation
 
 protocol MusicResolverService {
     func resolve(request: ResolverRequest) -> ResolverResponse
+    func resolveMetadata(request: ResolverRequest) -> ResolverResponse
+    func resolvePlatformLinks(for track: Track) -> PlatformLinksResolutionResponse
+    func resolvePlatformLink(for track: Track, targetPlatform: MusicPlatform) -> SinglePlatformLinkResolutionResponse
     func resolvePayload(from link: String) -> ResolvedTrackPayload
     func resolveTrack(from link: String) -> Track
 }
@@ -95,6 +98,21 @@ struct ResolverResponse {
     let diagnosticMessage: String?
 }
 
+struct PlatformLinksResolutionResponse {
+    let platformLinks: [PlatformLink]
+    let status: PlatformLinksStatus
+    let resolverVersion: String
+    let diagnosticMessage: String?
+}
+
+struct SinglePlatformLinkResolutionResponse {
+    let platform: MusicPlatform
+    let platformLink: PlatformLink?
+    let state: PlatformLinkLoadState
+    let resolverVersion: String
+    let diagnosticMessage: String?
+}
+
 enum ResolverResponseSource {
     case remote
     case fallbackMock
@@ -174,6 +192,9 @@ protocol SpotifyTrackCatalogProviding {
 
 protocol ResolverAPIClient {
     func resolve(request: ResolverRequest) throws -> ResolverResponse
+    func resolveMetadata(request: ResolverRequest) throws -> ResolverResponse
+    func resolvePlatformLinks(for track: Track) throws -> PlatformLinksResolutionResponse
+    func resolvePlatformLink(for track: Track, targetPlatform: MusicPlatform) throws -> SinglePlatformLinkResolutionResponse
 }
 
 protocol ResolverTransporting {
@@ -184,7 +205,7 @@ struct ResolverHTTPConfiguration {
     let baseURL: URL
     let timeoutInterval: TimeInterval
 
-    init(baseURL: URL, timeoutInterval: TimeInterval = 10) {
+    init(baseURL: URL, timeoutInterval: TimeInterval = 20) {
         self.baseURL = baseURL
         self.timeoutInterval = timeoutInterval
     }
@@ -242,6 +263,60 @@ struct RemoteMusicResolverService: MusicResolverService {
                 metadataStatus: .fallbackMock,
                 resolverVersion: fallbackResponse.resolverVersion,
                 resolutionSource: .fallbackMock,
+                diagnosticMessage: error.localizedDescription
+            )
+        }
+    }
+
+    func resolveMetadata(request: ResolverRequest) -> ResolverResponse {
+        do {
+            let response = try apiClient.resolveMetadata(request: request)
+            return ResolverResponse(
+                resolvedTrack: response.resolvedTrack,
+                parsingResult: response.parsingResult,
+                metadataStatus: response.metadataStatus,
+                resolverVersion: response.resolverVersion,
+                resolutionSource: .remote,
+                diagnosticMessage: response.diagnosticMessage
+            )
+        } catch {
+            print("RemoteMusicResolverService metadata fallback to mock:", error)
+            let fallbackResponse = fallbackService.resolveMetadata(request: request)
+            return ResolverResponse(
+                resolvedTrack: fallbackResponse.resolvedTrack,
+                parsingResult: fallbackResponse.parsingResult,
+                metadataStatus: .fallbackMock,
+                resolverVersion: fallbackResponse.resolverVersion,
+                resolutionSource: .fallbackMock,
+                diagnosticMessage: error.localizedDescription
+            )
+        }
+    }
+
+    func resolvePlatformLinks(for track: Track) -> PlatformLinksResolutionResponse {
+        do {
+            return try apiClient.resolvePlatformLinks(for: track)
+        } catch {
+            print("RemoteMusicResolverService platform links failed:", error)
+            return PlatformLinksResolutionResponse(
+                platformLinks: track.platformLinks,
+                status: .failed,
+                resolverVersion: "remote-platform-links/v1",
+                diagnosticMessage: error.localizedDescription
+            )
+        }
+    }
+
+    func resolvePlatformLink(for track: Track, targetPlatform: MusicPlatform) -> SinglePlatformLinkResolutionResponse {
+        do {
+            return try apiClient.resolvePlatformLink(for: track, targetPlatform: targetPlatform)
+        } catch {
+            print("RemoteMusicResolverService single platform link failed:", error)
+            return SinglePlatformLinkResolutionResponse(
+                platform: targetPlatform,
+                platformLink: nil,
+                state: .failed,
+                resolverVersion: "remote-platform-link/v1",
                 diagnosticMessage: error.localizedDescription
             )
         }
@@ -305,12 +380,59 @@ struct ResolverHTTPAPIClient: ResolverAPIClient {
     }
 
     func resolve(request: ResolverRequest) throws -> ResolverResponse {
+        try resolve(request: request, includePlatformLinks: true)
+    }
+
+    func resolveMetadata(request: ResolverRequest) throws -> ResolverResponse {
+        let response = try resolve(request: request, includePlatformLinks: false)
+        return response.withPlatformLinksStatus(.idle)
+    }
+
+    func resolvePlatformLinks(for track: Track) throws -> PlatformLinksResolutionResponse {
+        let endpointURL = configuration.baseURL.appending(path: "resolve-platform-links")
+        var urlRequest = URLRequest(url: endpointURL)
+        urlRequest.httpMethod = "POST"
+        urlRequest.timeoutInterval = configuration.timeoutInterval
+        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        urlRequest.httpBody = try encoder.encode(ResolverPlatformLinksRequestBody(track: track))
+
+        let (data, response) = try transport.send(urlRequest)
+        guard (200...299).contains(response.statusCode) else {
+            throw ResolverClientError.unsuccessfulStatusCode(response.statusCode)
+        }
+
+        let body = try decoder.decode(PlatformLinksResponseBody.self, from: data)
+        return try body.toDomain()
+    }
+
+    func resolvePlatformLink(for track: Track, targetPlatform: MusicPlatform) throws -> SinglePlatformLinkResolutionResponse {
+        let endpointURL = configuration.baseURL.appending(path: "resolve-platform-link")
+        var urlRequest = URLRequest(url: endpointURL)
+        urlRequest.httpMethod = "POST"
+        urlRequest.timeoutInterval = configuration.timeoutInterval
+        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        urlRequest.httpBody = try encoder.encode(
+            ResolverSinglePlatformLinkRequestBody(track: track, targetPlatform: targetPlatform)
+        )
+
+        let (data, response) = try transport.send(urlRequest)
+        guard (200...299).contains(response.statusCode) else {
+            throw ResolverClientError.unsuccessfulStatusCode(response.statusCode)
+        }
+
+        let body = try decoder.decode(SinglePlatformLinkResponseBody.self, from: data)
+        return try body.toDomain(targetPlatform: targetPlatform)
+    }
+
+    private func resolve(request: ResolverRequest, includePlatformLinks: Bool) throws -> ResolverResponse {
         let endpointURL = configuration.baseURL.appending(path: "resolve")
         var urlRequest = URLRequest(url: endpointURL)
         urlRequest.httpMethod = "POST"
         urlRequest.timeoutInterval = configuration.timeoutInterval
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        urlRequest.httpBody = try encoder.encode(ResolverAPIRequestBody(request: request))
+        urlRequest.httpBody = try encoder.encode(
+            ResolverAPIRequestBody(request: request, includePlatformLinks: includePlatformLinks)
+        )
 
         let (data, response) = try transport.send(urlRequest)
         guard (200...299).contains(response.statusCode) else {
@@ -425,6 +547,79 @@ struct MockMusicResolverService: MusicResolverService {
         )
     }
 
+    func resolveMetadata(request: ResolverRequest) -> ResolverResponse {
+        let rawLink = request.rawLink.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let parsingResult = parse(link: rawLink) else {
+            return resolve(request: request).withPlatformLinksStatus(.failed)
+        }
+
+        let payload: ResolvedTrackPayload
+        let metadataStatus: MetadataFetchStatus
+
+        switch parsingResult {
+        case .parsed(let parsedLink):
+            let metadataResult = fetchMetadata(for: parsedLink)
+                ?? TrackMetadataResult(
+                    track: fallbackTrackDTO(
+                        platform: parsedLink.platform,
+                        sourceURL: parsedLink.sourceURL,
+                        sourceResourceID: parsedLink.resourceID
+                    ),
+                    status: .fallbackMock,
+                    providerResourceID: parsedLink.resourceID,
+                    providerDebugSummary: "Metadata provider unavailable for \(parsedLink.platform.displayName)"
+                )
+
+            payload = assemblePayload(
+                from: metadataResult.track,
+                sourcePlatform: parsedLink.platform,
+                sourceURL: parsedLink.sourceURL,
+                sourceResourceID: metadataResult.providerResourceID ?? parsedLink.resourceID,
+                includePlatformLinks: false
+            )
+            metadataStatus = metadataResult.status
+        case .missingResourceID(let partialLink):
+            payload = fallbackPayload(
+                for: rawLink,
+                sourcePlatform: partialLink.platform,
+                sourceURL: partialLink.sourceURL
+            )
+            metadataStatus = .fallbackMock
+        case .unsupportedLink(let unresolvedLink):
+            payload = fallbackPayload(for: unresolvedLink)
+            metadataStatus = .fallbackMock
+        }
+
+        return ResolverResponse(
+            resolvedTrack: payload,
+            parsingResult: parsingResult,
+            metadataStatus: metadataStatus,
+            resolverVersion: "mock-resolver/v1",
+            resolutionSource: .mockLocal,
+            diagnosticMessage: nil
+        )
+    }
+
+    func resolvePlatformLinks(for track: Track) -> PlatformLinksResolutionResponse {
+        PlatformLinksResolutionResponse(
+            platformLinks: allPlatformLinks(for: track),
+            status: .loaded,
+            resolverVersion: "mock-resolver/v1",
+            diagnosticMessage: nil
+        )
+    }
+
+    func resolvePlatformLink(for track: Track, targetPlatform: MusicPlatform) -> SinglePlatformLinkResolutionResponse {
+        let platformLink = allPlatformLinks(for: track).first(where: { $0.platform == targetPlatform })
+        return SinglePlatformLinkResolutionResponse(
+            platform: targetPlatform,
+            platformLink: platformLink,
+            state: platformLink == nil ? .unavailable : .ready,
+            resolverVersion: "mock-resolver/v1",
+            diagnosticMessage: nil
+        )
+    }
+
     func resolvePayload(from link: String) -> ResolvedTrackPayload {
         resolve(request: ResolverRequest(rawLink: link)).resolvedTrack
     }
@@ -483,17 +678,39 @@ struct MockMusicResolverService: MusicResolverService {
         from trackDTO: ResolverTrackDTO,
         sourcePlatform: MusicPlatform,
         sourceURL: URL?,
-        sourceResourceID: String?
+        sourceResourceID: String?,
+        includePlatformLinks: Bool = true
     ) -> ResolvedTrackPayload {
-        let platformLinks = platformLinks(
-            for: trackDTO,
-            sourcePlatform: sourcePlatform,
-            sourceURL: sourceURL
+        let platformLinks = includePlatformLinks
+            ? allPlatformLinks(for: trackDTO, sourcePlatform: sourcePlatform, sourceURL: sourceURL)
+            : sourcePlatformLinks(for: trackDTO, sourcePlatform: sourcePlatform, sourceURL: sourceURL)
+        let resolvedTrack = trackDTO.asTrack(platformLinks: platformLinks).updatingPlatformLinks(
+            platformLinks,
+            status: includePlatformLinks ? .loaded : .idle
         )
-        let resolvedTrack = trackDTO.asTrack(platformLinks: platformLinks)
+        let finalizedTrack = includePlatformLinks
+            ? resolvedTrack
+            : Track(
+                id: resolvedTrack.id,
+                title: resolvedTrack.title,
+                artistName: resolvedTrack.artistName,
+                albumTitle: resolvedTrack.albumTitle,
+                durationMS: resolvedTrack.durationMS,
+                sourcePlatform: resolvedTrack.sourcePlatform,
+                sourcePlatformID: resolvedTrack.sourcePlatformID,
+                sourceURL: resolvedTrack.sourceURL,
+                isrc: resolvedTrack.isrc,
+                platformLinks: resolvedTrack.platformLinks,
+                platformLinksStatus: resolvedTrack.platformLinksStatus,
+                platformLinkStatuses: Track.deferredPlatformLinkStatuses(
+                    sourcePlatform: resolvedTrack.sourcePlatform,
+                    platformLinks: resolvedTrack.platformLinks
+                ),
+                artworkURL: resolvedTrack.artworkURL
+            )
 
         return ResolvedTrackPayload(
-            track: resolvedTrack,
+            track: finalizedTrack,
             sourcePlatform: sourcePlatform,
             sourceURL: sourceURL ?? trackDTO.sourceURL,
             sourceResourceID: sourceResourceID ?? trackDTO.sourcePlatformID,
@@ -520,7 +737,36 @@ struct MockMusicResolverService: MusicResolverService {
         )
     }
 
-    private func platformLinks(for track: ResolverTrackDTO, sourcePlatform: MusicPlatform, sourceURL: URL?) -> [PlatformLink] {
+    private func sourcePlatformLinks(for track: ResolverTrackDTO, sourcePlatform: MusicPlatform, sourceURL: URL?) -> [PlatformLink] {
+        guard let resolvedSourceURL = sourceURL ?? track.sourceURL else { return [] }
+        return [
+            PlatformLink(
+                platform: sourcePlatform,
+                destinationURL: resolvedSourceURL,
+                isSource: true
+            )
+        ]
+    }
+
+    private func allPlatformLinks(for track: Track) -> [PlatformLink] {
+        allPlatformLinks(
+            for: ResolverTrackDTO(
+                title: track.title,
+                artistName: track.artistName,
+                albumTitle: track.albumTitle,
+                durationMS: track.durationMS,
+                artworkURL: track.artworkURL,
+                sourcePlatform: track.sourcePlatform,
+                sourcePlatformID: track.sourcePlatformID,
+                sourceURL: track.sourceURL,
+                isrc: track.isrc
+            ),
+            sourcePlatform: track.sourcePlatform,
+            sourceURL: track.sourceURL
+        )
+    }
+
+    private func allPlatformLinks(for track: ResolverTrackDTO, sourcePlatform: MusicPlatform, sourceURL: URL?) -> [PlatformLink] {
         let canonicalTrack = track.asTrack(platformLinks: [])
 
         return MusicPlatform.allCases.compactMap { platform in
@@ -774,11 +1020,63 @@ private struct ResolverAPIRequestBody: Encodable {
     let rawLink: String
     let preferredSourcePlatform: String?
     let preferredMarket: String?
+    let includePlatformLinks: Bool
 
-    init(request: ResolverRequest) {
+    init(request: ResolverRequest, includePlatformLinks: Bool = true) {
         self.rawLink = request.rawLink
         self.preferredSourcePlatform = request.preferredSourcePlatform?.resolverWireValue
         self.preferredMarket = request.preferredMarket
+        self.includePlatformLinks = includePlatformLinks
+    }
+}
+
+private struct ResolverPlatformLinksRequestBody: Encodable {
+    let sourcePlatform: String
+    let sourcePlatformID: String?
+    let sourceURL: URL?
+    let title: String
+    let artistName: String
+    let albumTitle: String?
+    let durationMS: Int?
+    let artworkURL: URL?
+    let isrc: String?
+
+    init(track: Track) {
+        sourcePlatform = track.sourcePlatform.resolverWireValue
+        sourcePlatformID = track.sourcePlatformID
+        sourceURL = track.sourceURL
+        title = track.title
+        artistName = track.artistName
+        albumTitle = track.albumTitle
+        durationMS = track.durationMS
+        artworkURL = track.artworkURL
+        isrc = track.isrc
+    }
+}
+
+private struct ResolverSinglePlatformLinkRequestBody: Encodable {
+    let sourcePlatform: String
+    let sourcePlatformID: String?
+    let sourceURL: URL?
+    let title: String
+    let artistName: String
+    let albumTitle: String?
+    let durationMS: Int?
+    let artworkURL: URL?
+    let isrc: String?
+    let targetPlatform: String
+
+    init(track: Track, targetPlatform: MusicPlatform) {
+        sourcePlatform = track.sourcePlatform.resolverWireValue
+        sourcePlatformID = track.sourcePlatformID
+        sourceURL = track.sourceURL
+        title = track.title
+        artistName = track.artistName
+        albumTitle = track.albumTitle
+        durationMS = track.durationMS
+        artworkURL = track.artworkURL
+        isrc = track.isrc
+        self.targetPlatform = targetPlatform.resolverWireValue
     }
 }
 
@@ -918,6 +1216,62 @@ private struct ParsedMusicLinkBody: Decodable {
             sourceURL: sourceURL,
             resourceID: resourceID,
             resourceKind: resourceKind
+        )
+    }
+}
+
+private struct PlatformLinksResponseBody: Decodable {
+    let platformLinks: [PlatformLinkBody]
+    let resolverVersion: String
+
+    func toDomain() throws -> PlatformLinksResolutionResponse {
+        PlatformLinksResolutionResponse(
+            platformLinks: try platformLinks.map { try $0.toDomain() },
+            status: .loaded,
+            resolverVersion: resolverVersion,
+            diagnosticMessage: nil
+        )
+    }
+}
+
+private struct SinglePlatformLinkResponseBody: Decodable {
+    let targetPlatform: String
+    let platformLink: PlatformLinkBody?
+    let resolverVersion: String
+
+    func toDomain(targetPlatform fallbackPlatform: MusicPlatform) throws -> SinglePlatformLinkResolutionResponse {
+        let platform = MusicPlatform(resolverWireValue: targetPlatform) ?? fallbackPlatform
+        let link = try platformLink?.toDomain()
+        return SinglePlatformLinkResolutionResponse(
+            platform: platform,
+            platformLink: link,
+            state: link == nil ? .unavailable : .ready,
+            resolverVersion: resolverVersion,
+            diagnosticMessage: nil
+        )
+    }
+}
+
+private extension ResolverResponse {
+    func withPlatformLinksStatus(_ status: PlatformLinksStatus) -> ResolverResponse {
+        let updatedTrack = status == .idle
+            ? resolvedTrack.track.markingDeferredPlatformLinksIdle()
+            : resolvedTrack.track.updatingPlatformLinks(resolvedTrack.platformLinks, status: status)
+        let updatedPayload = ResolvedTrackPayload(
+            track: updatedTrack,
+            sourcePlatform: resolvedTrack.sourcePlatform,
+            sourceURL: resolvedTrack.sourceURL,
+            sourceResourceID: resolvedTrack.sourceResourceID,
+            platformLinks: resolvedTrack.platformLinks
+        )
+
+        return ResolverResponse(
+            resolvedTrack: updatedPayload,
+            parsingResult: parsingResult,
+            metadataStatus: metadataStatus,
+            resolverVersion: resolverVersion,
+            resolutionSource: resolutionSource,
+            diagnosticMessage: diagnosticMessage
         )
     }
 }

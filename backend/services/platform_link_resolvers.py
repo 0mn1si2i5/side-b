@@ -4,9 +4,19 @@ import re
 from urllib import parse, request
 
 from models.resolver_models import CanonicalTrack, ResolverContext, TargetPlatformResolver
+from platform_clients.netease_client import check_music, fetch_song_url, search_tracks
 from resolvers.apple_music_platform import fetch_apple_music_track_url
+from resolvers.netease_platform import build_netease_track_url
 from resolvers.spotify_platform import fetch_spotify_track_url
 from utils.resolver_common import CACHE_MISS, cache_key_for_url, normalize_preferred_market, read_cached_value, write_cached_value
+from utils.resolver_common import (
+    COMPILATION_KEYWORDS,
+    TITLE_VERSION_KEYWORDS,
+    base_title_variants,
+    contains_keyword,
+    normalize_text,
+    text_variants,
+)
 
 
 SONGLINK_LINKS_URL = "https://api.song.link/v1-alpha.1/links"
@@ -131,6 +141,180 @@ class SpotifyTargetResolver:
         )
 
 
+def build_netease_search_terms(title: str, artist_name: str, album_title: str | None) -> list[str]:
+    terms: list[str] = []
+    title_variants = [variant for base_variant in base_title_variants(title) for variant in text_variants(base_variant)]
+    artist_variants = text_variants(artist_name) or [artist_name]
+    album_variants = text_variants(album_title) if album_title else []
+
+    for title_variant in title_variants:
+        for artist_variant in artist_variants:
+            terms.append(f"{title_variant} {artist_variant}".strip())
+        for album_variant in album_variants:
+            terms.append(f"{title_variant} {album_variant}".strip())
+        terms.append(title_variant)
+
+    deduplicated: list[str] = []
+    seen: set[str] = set()
+    for term in terms:
+        normalized = normalize_text(term)
+        if normalized and normalized not in seen:
+            seen.add(normalized)
+            deduplicated.append(term)
+
+    return deduplicated
+
+
+def netease_candidate_score(
+    candidate: dict,
+    *,
+    title: str,
+    artist_name: str,
+    album_title: str | None,
+    duration_ms: int | None,
+    query_rank: int,
+) -> int:
+    score = 0
+
+    source_title = normalize_text(title)
+    source_title_variants = [normalize_text(value) for value in base_title_variants(title)]
+    source_artist = normalize_text(artist_name)
+    source_album = normalize_text(album_title)
+
+    candidate_title = normalize_text(candidate.get("name"))
+    candidate_artist = normalize_text(
+        ", ".join(
+            artist.get("name", "")
+            for artist in candidate.get("ar", [])
+            if isinstance(artist, dict)
+        )
+    )
+    candidate_album = normalize_text(candidate.get("al", {}).get("name"))
+
+    if candidate_title in source_title_variants:
+        score += 60
+    elif source_title and candidate_title and (source_title in candidate_title or candidate_title in source_title):
+        score += 32
+
+    if source_artist and candidate_artist == source_artist:
+        score += 32
+    elif source_artist and candidate_artist and (source_artist in candidate_artist or candidate_artist in source_artist):
+        score += 14
+
+    if source_album and candidate_album == source_album:
+        score += 24
+    elif source_album and candidate_album and (source_album in candidate_album or candidate_album in source_album):
+        score += 12
+
+    candidate_duration = candidate.get("dt")
+    duration_delta = None
+    if duration_ms and isinstance(candidate_duration, int):
+        duration_delta = abs(candidate_duration - duration_ms)
+        if duration_delta <= 2_000:
+            score += 28
+        elif duration_delta <= 5_000:
+            score += 18
+        elif duration_delta <= 10_000:
+            score += 8
+
+    if query_rank < 10:
+        score += max(0, 18 - query_rank * 2)
+
+    candidate_has_version = contains_keyword(candidate_title, TITLE_VERSION_KEYWORDS)
+    source_has_version = contains_keyword(source_title, TITLE_VERSION_KEYWORDS)
+    if candidate_has_version and not source_has_version:
+        score -= 20
+
+    if contains_keyword(candidate_album, COMPILATION_KEYWORDS):
+        score -= 20
+
+    if query_rank == 0 and duration_delta is not None and duration_delta <= 2_000 and not candidate_has_version:
+        score += 22
+
+    return score
+
+
+class NeteaseTargetResolver:
+    platform = "网易云音乐"
+
+    def resolve_link(self, canonical_track: CanonicalTrack, context: ResolverContext) -> str | None:
+        if canonical_track.source_platform == self.platform or not context.netease_api_base_url:
+            return None
+
+        cache_store = context.cache_store("netease_links")
+        cached_url = read_cached_value(cache_store, cache_key_for_url(canonical_track.source_url, context.preferred_market))
+        if cached_url is not CACHE_MISS:
+            return cached_url if isinstance(cached_url, str) else None
+
+        best_candidate: dict | None = None
+        best_score = -10_000
+
+        for search_term in build_netease_search_terms(
+            canonical_track.title,
+            canonical_track.artist_name,
+            canonical_track.album_title,
+        ):
+            try:
+                candidates = search_tracks(
+                    context.netease_api_base_url,
+                    search_term,
+                    limit=10,
+                    timeout_seconds=context.netease_request_timeout,
+                )
+            except Exception as exc:
+                print("Netease search skipped:", exc)
+                continue
+
+            for query_rank, candidate in enumerate(candidates):
+                candidate_id = candidate.get("id")
+                if not isinstance(candidate_id, int):
+                    continue
+
+                candidate_score = netease_candidate_score(
+                    candidate,
+                    title=canonical_track.title,
+                    artist_name=canonical_track.artist_name,
+                    album_title=canonical_track.album_title,
+                    duration_ms=canonical_track.duration_ms,
+                    query_rank=query_rank,
+                )
+
+                try:
+                    playable = check_music(
+                        context.netease_api_base_url,
+                        str(candidate_id),
+                        context.netease_request_timeout,
+                    )
+                    if playable is True:
+                        candidate_score += 6
+                    elif playable is False:
+                        candidate_score -= 8
+                except Exception:
+                    pass
+
+                try:
+                    preview_url = fetch_song_url(
+                        context.netease_api_base_url,
+                        str(candidate_id),
+                        timeout_seconds=context.netease_request_timeout,
+                    )
+                    if preview_url:
+                        candidate_score += 4
+                except Exception:
+                    pass
+
+                if candidate_score > best_score:
+                    best_score = candidate_score
+                    best_candidate = candidate
+
+        resolved_url = None
+        if best_candidate is not None and best_score >= 64:
+            resolved_url = build_netease_track_url(str(best_candidate["id"]))
+
+        write_cached_value(cache_store, cache_key_for_url(canonical_track.source_url, context.preferred_market), resolved_url)
+        return resolved_url
+
+
 class AggregatedTargetResolver:
     def __init__(self, platform: str) -> None:
         self.platform = platform
@@ -152,9 +336,38 @@ def default_target_resolvers() -> list[TargetPlatformResolver]:
     return [
         AppleMusicTargetResolver(),
         SpotifyTargetResolver(),
+        NeteaseTargetResolver(),
         AggregatedTargetResolver("QQ 音乐"),
-        AggregatedTargetResolver("网易云音乐"),
     ]
+
+
+def resolve_platform_link(
+    canonical_track: CanonicalTrack,
+    context: ResolverContext,
+    target_platform: str,
+    resolvers: list[TargetPlatformResolver] | None = None,
+) -> dict | None:
+    if target_platform == canonical_track.source_platform:
+        return {
+            "platform": canonical_track.source_platform,
+            "destinationURL": canonical_track.source_url,
+            "isSource": True,
+        }
+
+    target_resolvers = resolvers or default_target_resolvers()
+    resolver = next((resolver for resolver in target_resolvers if resolver.platform == target_platform), None)
+    if resolver is None:
+        return None
+
+    resolved_url = resolver.resolve_link(canonical_track, context)
+    if not resolved_url:
+        return None
+
+    return {
+        "platform": target_platform,
+        "destinationURL": resolved_url,
+        "isSource": False,
+    }
 
 
 def resolve_platform_links(
@@ -166,7 +379,12 @@ def resolve_platform_links(
     resolved_urls: dict[str, str] = {}
 
     for resolver in target_resolvers:
-        resolved_url = resolver.resolve_link(canonical_track, context)
+        try:
+            resolved_url = resolver.resolve_link(canonical_track, context)
+        except Exception as exc:
+            print(f"{resolver.platform} mapping skipped:", exc)
+            continue
+
         if resolved_url:
             resolved_urls[resolver.platform] = resolved_url
 

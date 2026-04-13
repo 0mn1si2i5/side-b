@@ -49,10 +49,22 @@ struct RoomsListView: View {
 
 struct SongDetailView: View {
     private let navigationService: PlatformNavigationService = MockPlatformNavigationService()
-    let track: Track
+    private let resolver: any MusicResolverService
+    private let onTrackUpdated: ((Track) -> Void)?
+    @State private var displayTrack: Track
     @State private var platformFeedbackMessage = ""
     @State private var isShowingPlatformFeedback = false
     @Environment(\.openURL) private var openURL
+
+    init(
+        track: Track,
+        resolver: any MusicResolverService = ResolverServiceFactory.makeDefaultService(),
+        onTrackUpdated: ((Track) -> Void)? = nil
+    ) {
+        self.resolver = resolver
+        self.onTrackUpdated = onTrackUpdated
+        _displayTrack = State(initialValue: track)
+    }
 
     var body: some View {
         ScrollView {
@@ -60,21 +72,21 @@ struct SongDetailView: View {
                 artworkSection
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(track.title)
+                    Text(displayTrack.title)
                         .font(.title2)
                         .fontWeight(.bold)
 
-                    Text(track.artistName)
+                    Text(displayTrack.artistName)
                         .font(.title3)
                         .foregroundStyle(.secondary)
 
-                    if let albumTitle = track.albumTitle {
+                    if let albumTitle = displayTrack.albumTitle {
                         Text("Album: \(albumTitle)")
                             .font(.body)
                             .foregroundStyle(.secondary)
                     }
 
-                    Text("Source: \(track.sourcePlatformName)")
+                    Text("Source: \(displayTrack.sourcePlatformName)")
                         .font(.body)
                         .foregroundStyle(.secondary)
                 }
@@ -83,11 +95,15 @@ struct SongDetailView: View {
                     Text("Open In")
                         .font(.headline)
 
-                    ForEach(platformButtonRows, id: \.self) { row in
+                    ForEach(platformSlotRows, id: \.self) { row in
                         HStack(spacing: 12) {
-                            ForEach(row, id: \.self) { platformLink in
-                                PlatformJumpButton(title: platformLink.platformName) {
-                                    showPlatformFeedback(for: platformLink)
+                            ForEach(row, id: \.platform) { slot in
+                                PlatformJumpButton(
+                                    title: slot.title,
+                                    isEnabled: slot.isEnabled,
+                                    isLoading: slot.isLoading
+                                ) {
+                                    handlePlatformSlotTap(slot)
                                 }
                             }
                         }
@@ -96,12 +112,15 @@ struct SongDetailView: View {
             }
             .padding()
         }
-        .navigationTitle(track.title)
+        .navigationTitle(displayTrack.title)
         .navigationBarTitleDisplayMode(.inline)
         .alert("Coming Soon", isPresented: $isShowingPlatformFeedback) {
             Button("OK", role: .cancel) {}
         } message: {
             Text(platformFeedbackMessage)
+        }
+        .task(id: displayTrack.id) {
+            resolvePendingPlatformLinksIfNeeded()
         }
     }
 
@@ -110,7 +129,7 @@ struct SongDetailView: View {
             RoundedRectangle(cornerRadius: 24)
                 .fill(Color.secondary.opacity(0.15))
 
-            if let artworkURL = track.artworkURL {
+            if let artworkURL = displayTrack.artworkURL {
                 AsyncImage(url: artworkURL) { image in
                     image
                         .resizable()
@@ -134,7 +153,7 @@ struct SongDetailView: View {
     private func showPlatformFeedback(for platformLink: PlatformLink) {
         let destinationURL = platformLink.destinationURL
 
-        guard navigationService.destinationURL(for: platformLink.platform, track: track) != nil || platformLink.isSource else {
+        guard navigationService.destinationURL(for: platformLink.platform, track: displayTrack) != nil || platformLink.isSource else {
             platformFeedbackMessage = "A destination for \(platformLink.platformName) is not available in this mock build."
             isShowingPlatformFeedback = true
             return
@@ -148,35 +167,132 @@ struct SongDetailView: View {
         }
     }
 
-    private var orderedPlatformLinks: [PlatformLink] {
-        let linkByPlatform = Dictionary(uniqueKeysWithValues: track.platformLinks.map { ($0.platform, $0) })
-
-        return MusicPlatform.allCases.compactMap { platform in
-            linkByPlatform[platform]
+    private var platformSlots: [PlatformSlot] {
+        MusicPlatform.allCases.map { platform in
+            let state = displayTrack.platformLinkState(for: platform)
+            let link = displayTrack.platformLink(for: platform)
+            return PlatformSlot(platform: platform, state: state, link: link)
         }
     }
 
-    private var platformButtonRows: [[PlatformLink]] {
-        stride(from: 0, to: orderedPlatformLinks.count, by: 2).map { index in
-            Array(orderedPlatformLinks[index..<min(index + 2, orderedPlatformLinks.count)])
+    private var platformSlotRows: [[PlatformSlot]] {
+        stride(from: 0, to: platformSlots.count, by: 2).map { index in
+            Array(platformSlots[index..<min(index + 2, platformSlots.count)])
         }
+    }
+
+    private func resolvePendingPlatformLinksIfNeeded() {
+        let pendingPlatforms = MusicPlatform.allCases.filter { platform in
+            platform != displayTrack.sourcePlatform && shouldResolvePlatformLink(for: platform)
+        }
+
+        guard !pendingPlatforms.isEmpty else { return }
+
+        let track = displayTrack
+        for platform in pendingPlatforms {
+            displayTrack = displayTrack.updatingPlatformLinkState(.loading, for: platform)
+        }
+
+        for platform in pendingPlatforms {
+            requestPlatformLink(for: platform, using: track)
+        }
+    }
+
+    private func shouldResolvePlatformLink(for platform: MusicPlatform) -> Bool {
+        let state = displayTrack.platformLinkState(for: platform)
+        return state == .idle || state == .failed
+    }
+
+    private func handlePlatformSlotTap(_ slot: PlatformSlot) {
+        switch slot.state {
+        case .ready:
+            guard let link = slot.link else { return }
+            showPlatformFeedback(for: link)
+        case .failed:
+            retryPlatformLinkResolution(for: slot.platform)
+        case .idle:
+            retryPlatformLinkResolution(for: slot.platform)
+        case .loading, .unavailable:
+            break
+        }
+    }
+
+    private func retryPlatformLinkResolution(for platform: MusicPlatform) {
+        guard platform != displayTrack.sourcePlatform else { return }
+        displayTrack = displayTrack.updatingPlatformLinkState(.loading, for: platform)
+        requestPlatformLink(for: platform, using: displayTrack)
+    }
+
+    private func requestPlatformLink(for platform: MusicPlatform, using track: Track) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = resolver.resolvePlatformLink(for: track, targetPlatform: platform)
+
+            DispatchQueue.main.async {
+                let updatedTrack = displayTrack.updatingPlatformLink(
+                    result.platformLink,
+                    state: result.state,
+                    for: platform
+                )
+                displayTrack = updatedTrack
+                onTrackUpdated?(updatedTrack)
+            }
+        }
+    }
+}
+
+private struct PlatformSlot: Hashable {
+    let platform: MusicPlatform
+    let state: PlatformLinkLoadState
+    let link: PlatformLink?
+
+    var title: String {
+        switch state {
+        case .ready:
+            return platform.displayName
+        case .loading:
+            return "\(platform.displayName) 匹配中"
+        case .unavailable:
+            return "\(platform.displayName) 暂未匹配"
+        case .failed:
+            return "\(platform.displayName) 重试"
+        case .idle:
+            return "\(platform.displayName) 待获取"
+        }
+    }
+
+    var isEnabled: Bool {
+        state == .ready || state == .failed || state == .idle
+    }
+
+    var isLoading: Bool {
+        state == .loading
     }
 }
 
 struct PlatformJumpButton: View {
     let title: String
+    let isEnabled: Bool
+    let isLoading: Bool
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Text(title)
-                .font(.subheadline)
-                .fontWeight(.medium)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
+            HStack(spacing: 8) {
+                if isLoading {
+                    ProgressView()
+                        .controlSize(.small)
+                }
+
+                Text(title)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
         }
-        .buttonStyle(.borderedProminent)
-        .tint(.gray)
+        .buttonStyle(.bordered)
+        .tint(isEnabled ? .gray : .secondary)
+        .disabled(!isEnabled || isLoading)
     }
 }
 

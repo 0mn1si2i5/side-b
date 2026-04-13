@@ -180,6 +180,18 @@ Side B 的正式目标架构是：
 - `POST /resolve-text`
 - `GET /health`
 
+当前 resolver 已经采用“两阶段 + 单平台补全”的演进方向：
+
+- `POST /resolve`
+  - 支持 metadata-only 模式
+  - metadata 成功后即可创建歌曲卡片
+- `POST /resolve-platform-link`
+  - 单独解析某一个目标平台链接
+  - 用于详情页平台按钮按平台独立加载
+- `POST /resolve-platform-links`
+  - 仍可保留作为批量接口
+  - 但客户端不再依赖它阻塞详情页按钮首屏
+
 未来业务域接口：
 
 - playlists
@@ -195,6 +207,13 @@ Side B 的正式目标架构是：
 - 其他平台链接未命中：仍返回 canonical track，只是少按钮
 - source platform 永远显示
 - 非 source platform 只有真实命中才显示
+
+当前客户端消费策略进一步细化为：
+
+- 发卡片阶段只依赖 source metadata
+- 详情页平台按钮固定占位
+- 每个平台独立进入 `idle / loading / ready / unavailable / failed`
+- 某一个平台超时或失败，不影响其他平台按钮继续补全
 
 ## 平台接入策略
 

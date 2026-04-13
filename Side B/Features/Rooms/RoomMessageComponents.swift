@@ -4,6 +4,7 @@ struct MessageRowView: View {
     let message: Message
     let showsMetadata: Bool
     let isGroupedWithNextMessage: Bool
+    let onTrackUpdated: (Track) -> Void
     let onQuoteTrack: (Track) -> Void
 
     private var isCurrentUser: Bool {
@@ -50,7 +51,10 @@ struct MessageRowView: View {
                 if let track = message.track {
                     VStack(alignment: .leading, spacing: 8) {
                         NavigationLink {
-                            SongDetailView(track: track)
+                            SongDetailView(
+                                track: track,
+                                onTrackUpdated: onTrackUpdated
+                            )
                         } label: {
                             CompactSongAttachmentView(track: track, isCurrentUser: isCurrentUser)
                         }
@@ -129,12 +133,15 @@ struct CompactSongAttachmentView: View {
                 .fill(isCurrentUser ? Color.white.opacity(0.18) : Color.secondary.opacity(0.12))
 
             if let artworkURL = track.artworkURL {
-                AsyncImage(url: artworkURL) { image in
-                    image
-                        .resizable()
-                        .scaledToFill()
-                } placeholder: {
-                    placeholderArtwork
+                AsyncImage(url: artworkURL) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    default:
+                        placeholderArtwork
+                    }
                 }
             } else {
                 placeholderArtwork

@@ -20,5 +20,14 @@ struct Message: Identifiable, Hashable {
         self.track = track
         self.sentAt = sentAt
     }
-}
 
+    func updatingTrack(_ track: Track?) -> Message {
+        Message(
+            id: id,
+            senderName: senderName,
+            text: text,
+            track: track,
+            sentAt: sentAt
+        )
+    }
+}

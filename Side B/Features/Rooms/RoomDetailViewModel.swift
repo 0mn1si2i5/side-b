@@ -40,7 +40,7 @@ final class RoomDetailViewModel: ObservableObject {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self else { return }
 
-            let response = self.resolver.resolve(request: ResolverRequest(rawLink: normalizedLink))
+            let response = self.resolver.resolveMetadata(request: ResolverRequest(rawLink: normalizedLink))
 
             DispatchQueue.main.async {
                 self.finishResolvedTrackMessage(response: response, senderName: senderName)
@@ -75,6 +75,11 @@ final class RoomDetailViewModel: ObservableObject {
         quotedTrack = nil
     }
 
+    func updateTrack(_ track: Track, forMessageID messageID: UUID) {
+        guard let index = messages.firstIndex(where: { $0.id == messageID }) else { return }
+        messages[index] = messages[index].updatingTrack(track)
+    }
+
     func clearLinkResolutionFeedback() {
         linkResolutionState = .idle
         linkResolutionMessage = nil
@@ -104,7 +109,7 @@ final class RoomDetailViewModel: ObservableObject {
         switch response.parsingResult {
         case .unsupportedLink:
             linkResolutionState = .failed
-            linkResolutionMessage = "This link is not supported yet. Paste a Spotify or Apple Music track link."
+            linkResolutionMessage = "This link is not supported yet. Paste a Spotify, Apple Music, or 网易云音乐 track link."
             return
         case .missingResourceID:
             linkResolutionState = .failed

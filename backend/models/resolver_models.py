@@ -29,6 +29,8 @@ class CanonicalTrack:
 class ResolverContext:
     preferred_market: str | None
     spotify_access_token: str | None = None
+    netease_api_base_url: str | None = None
+    netease_request_timeout: float = 10.0
     cache_stores: dict[str, dict] = field(default_factory=dict)
 
     def cache_store(self, name: str) -> dict:

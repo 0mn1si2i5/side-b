@@ -22,6 +22,9 @@ struct RoomDetailView: View {
                             message: message,
                             showsMetadata: shouldShowMetadata(for: index),
                             isGroupedWithNextMessage: isGroupedWithNextMessage(for: index),
+                            onTrackUpdated: { track in
+                                viewModel.updateTrack(track, forMessageID: message.id)
+                            },
                             onQuoteTrack: { track in
                                 viewModel.startQuoting(track: track)
                             }

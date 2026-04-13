@@ -2,40 +2,42 @@
 
 ## Phase 0：现状分析与重构规划
 
-- [ ] 完成 Master Plan 文档
-- [ ] 统一 PRD / ARCHITECTURE / TASKS 文档口径
-- [ ] 盘点当前 iOS 与 backend 结构的保留/修改/删除项
-- [ ] 明确 backend 模块化单体目录结构
+- [x] 完成 Master Plan 文档
+- [x] 统一 PRD / ARCHITECTURE / TASKS 文档口径
+- [x] 盘点当前 iOS 与 backend 结构的保留/修改/删除项
+- [x] 明确 backend 模块化单体目录结构
 
 ## Phase 1：基础架构重构
 
 - [ ] 新增 InputParser 统一入口
-- [ ] 定义 ParsedInput / ParsedSource / CanonicalTrack / ResolverContext
-- [ ] 收口 backend 为 routes / services / resolvers / models / platform_clients / utils
-- [ ] 将入口脚本瘦身为 app entry / route bootstrap
+- [x] 定义 ParsedInput / ParsedSource / CanonicalTrack / ResolverContext
+- [x] 收口 backend 为 routes / services / resolvers / models / platform_clients / utils
+- [x] 将入口脚本瘦身为 app entry / route bootstrap
 - [ ] 建立 `/resolve-input` / `/resolve-link` / `/resolve-text` / `/health`
-- [ ] 固化失败与降级语义
+- [x] 固化失败与降级语义
+- [x] 建立 metadata-only 与平台链接异步补全两阶段主链路
+- [x] 建立详情页按平台独立加载的按钮状态模型
 
 ## Phase 2：Spotify 主链路
 
 - [ ] 固化 Spotify preferred canonical 策略
-- [ ] 完善 Spotify metadata 获取与 canonical 构建
-- [ ] 完善 Spotify search / matching / cache / market fallback
-- [ ] 回归验证 Spotify source path
+- [x] 完善 Spotify metadata 获取与 canonical 构建
+- [x] 完善 Spotify search / matching / cache / market fallback
+- [x] 回归验证 Spotify source path
 
 ## Phase 3：Apple Resolver
 
-- [ ] 固化 Apple source adapter
-- [ ] 固化 Apple target resolver
-- [ ] 稳定 iTunes lookup + Search matcher
-- [ ] 验证 Apple source -> Spotify link
+- [x] 固化 Apple source adapter
+- [x] 固化 Apple target resolver
+- [x] 稳定 iTunes lookup + Search matcher
+- [x] 验证 Apple source -> Spotify link
 
 ## Phase 4：网易云 Resolver
 
-- [ ] 接入 api-enhanced 自部署服务
-- [ ] 实现 Netease source adapter
-- [ ] 实现 Netease target resolver
-- [ ] 打通 Spotify / Apple / 网易云三平台链路
+- [x] 接入 api-enhanced 自部署服务
+- [x] 实现 Netease source adapter
+- [x] 实现 Netease target resolver
+- [x] 打通 Spotify / Apple / 网易云三平台链路
 
 ## Phase 5：QQ Resolver
 

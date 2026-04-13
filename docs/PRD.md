@@ -154,7 +154,12 @@ resolver 是 Side B 的产品核心能力。
 - 粘贴链接发歌
 - Spotify source resolving
 - Apple Music source resolving
-- Spotify / Apple Music 双向映射基础链路
+- 网易云 source resolving 与基础映射链路
+- Spotify / Apple Music / 网易云三平台基础解析链路
+- 解析与平台匹配拆阶段
+  - 发卡片只依赖 metadata 成功
+  - 其他平台链接在详情页异步补全
+  - 详情页平台按钮按平台独立加载、独立失败、独立回写
 
 ### 当前主线
 

@@ -187,6 +187,11 @@ Side B 将从当前的 iOS 原型升级为一个可部署上线的模块化单�
   - parsing result
   - metadata status
   - diagnostics / confidence
+- 在客户端交互层采用两阶段消费策略：
+  - 阶段 1：metadata-only，成功即创建歌曲卡片
+  - 阶段 2：详情页按目标平台独立补全链接
+  - 每个平台独立维护 `idle / loading / ready / unavailable / failed`
+  - 单个平台超时不再拖累整个详情页按钮区
 
 ## Phase 7：歌单系统
 
