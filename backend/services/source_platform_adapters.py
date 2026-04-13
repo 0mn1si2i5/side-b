@@ -1,5 +1,6 @@
 from models.resolver_models import CanonicalTrack, ParsedSource, ResolverContext, SourcePlatformAdapter
 from platform_clients.netease_client import fetch_track_detail
+from platform_clients.qq_music_client import fetch_track_detail as fetch_qq_track_detail
 from resolvers.apple_music_platform import (
     apple_music_storefront,
     fetch_itunes_track,
@@ -7,6 +8,7 @@ from resolvers.apple_music_platform import (
     upgrade_apple_music_artwork_url,
 )
 from resolvers.netease_platform import build_netease_track_url, parse_netease_track_id
+from resolvers.qq_music_platform import build_qq_music_track_url, parse_qq_music_track_id
 from resolvers.spotify_platform import fetch_spotify_track, parse_spotify_track_id
 
 
@@ -154,8 +156,49 @@ class NeteaseSourceAdapter:
         )
 
 
+class QQMusicSourceAdapter:
+    platform = "QQ 音乐"
+
+    def can_handle(self, raw_link: str) -> bool:
+        normalized_link = normalize_link(raw_link)
+        return (
+            "y.qq.com" in normalized_link
+            or "qqmusic.qq.com" in normalized_link
+            or "c6.y.qq.com" in normalized_link
+            or "ryqq" in normalized_link
+        )
+
+    def parse_source_link(self, raw_link: str) -> ParsedSource | None:
+        track_mid = parse_qq_music_track_id(raw_link)
+        if not track_mid:
+            return None
+
+        return ParsedSource(
+            raw_link=raw_link,
+            normalized_link=normalize_link(raw_link),
+            platform=self.platform,
+            source_url=build_qq_music_track_url(track_mid),
+            resource_id=track_mid,
+        )
+
+    def fetch_canonical_track(self, parsed_source: ParsedSource, context: ResolverContext) -> CanonicalTrack:
+        track_payload = fetch_qq_track_detail(parsed_source.resource_id)
+
+        return CanonicalTrack(
+            source_platform=self.platform,
+            source_id=parsed_source.resource_id,
+            source_url=build_qq_music_track_url(parsed_source.resource_id),
+            title=track_payload.get("title"),
+            artist_name=track_payload.get("artist_name"),
+            album_title=track_payload.get("album_title"),
+            duration_ms=track_payload.get("duration_ms"),
+            artwork_url=track_payload.get("artwork_url"),
+            isrc=track_payload.get("isrc"),
+        )
+
+
 def default_source_adapters() -> list[SourcePlatformAdapter]:
-    return [SpotifySourceAdapter(), AppleMusicSourceAdapter(), NeteaseSourceAdapter()]
+    return [SpotifySourceAdapter(), AppleMusicSourceAdapter(), NeteaseSourceAdapter(), QQMusicSourceAdapter()]
 
 
 def select_source_adapter(raw_link: str, adapters: list[SourcePlatformAdapter] | None = None) -> SourcePlatformAdapter | None:

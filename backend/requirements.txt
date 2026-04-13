@@ -1,1 +1,2 @@
 opencc-purepy==1.2.0
+qqmusic-api-python==0.5.1

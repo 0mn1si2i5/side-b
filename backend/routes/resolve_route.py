@@ -13,7 +13,7 @@ from resolvers.spotify_platform import fetch_spotify_access_token
 
 ENV_FILE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
 RESOLVER_VERSION = "music-resolver/v1"
-SUPPORTED_LINK_ERROR = "Only Spotify, Apple Music, and 网易云音乐 track links are supported in this resolver"
+SUPPORTED_LINK_ERROR = "Only Spotify, Apple Music, 网易云音乐, and QQ 音乐 track links are supported in this resolver"
 SPOTIFY_TOKEN_CACHE_TTL_SECONDS = 50 * 60
 _spotify_token_cache: dict[str, str | float | None] = {"token": None, "fetched_at": None}
 

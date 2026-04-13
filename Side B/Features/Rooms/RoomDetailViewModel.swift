@@ -109,7 +109,7 @@ final class RoomDetailViewModel: ObservableObject {
         switch response.parsingResult {
         case .unsupportedLink:
             linkResolutionState = .failed
-            linkResolutionMessage = "This link is not supported yet. Paste a Spotify, Apple Music, or 网易云音乐 track link."
+            linkResolutionMessage = "This link is not supported yet. Paste a Spotify, Apple Music, 网易云音乐, or QQ 音乐 track link."
             return
         case .missingResourceID:
             linkResolutionState = .failed

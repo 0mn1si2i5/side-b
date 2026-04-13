@@ -5,8 +5,10 @@ from urllib import parse, request
 
 from models.resolver_models import CanonicalTrack, ResolverContext, TargetPlatformResolver
 from platform_clients.netease_client import check_music, fetch_song_url, search_tracks
+from platform_clients.qq_music_client import search_tracks as search_qq_tracks
 from resolvers.apple_music_platform import fetch_apple_music_track_url
 from resolvers.netease_platform import build_netease_track_url
+from resolvers.qq_music_platform import build_qq_music_track_url
 from resolvers.spotify_platform import fetch_spotify_track_url
 from utils.resolver_common import CACHE_MISS, cache_key_for_url, normalize_preferred_market, read_cached_value, write_cached_value
 from utils.resolver_common import (
@@ -165,6 +167,10 @@ def build_netease_search_terms(title: str, artist_name: str, album_title: str | 
     return deduplicated
 
 
+def build_platform_search_terms(title: str, artist_name: str, album_title: str | None) -> list[str]:
+    return build_netease_search_terms(title, artist_name, album_title)
+
+
 def netease_candidate_score(
     candidate: dict,
     *,
@@ -315,6 +321,121 @@ class NeteaseTargetResolver:
         return resolved_url
 
 
+def qq_candidate_score(
+    candidate: dict,
+    *,
+    title: str,
+    artist_name: str,
+    album_title: str | None,
+    duration_ms: int | None,
+    query_rank: int,
+) -> int:
+    score = 0
+
+    source_title = normalize_text(title)
+    source_title_variants = [normalize_text(value) for value in base_title_variants(title)]
+    source_artist = normalize_text(artist_name)
+    source_album = normalize_text(album_title)
+
+    candidate_title = normalize_text(candidate.get("title"))
+    candidate_artist = normalize_text(candidate.get("artist_name"))
+    candidate_album = normalize_text(candidate.get("album_title"))
+
+    if candidate_title in source_title_variants:
+        score += 60
+    elif source_title and candidate_title and (source_title in candidate_title or candidate_title in source_title):
+        score += 32
+
+    if source_artist and candidate_artist == source_artist:
+        score += 32
+    elif source_artist and candidate_artist and (source_artist in candidate_artist or candidate_artist in source_artist):
+        score += 14
+
+    if source_album and candidate_album == source_album:
+        score += 24
+    elif source_album and candidate_album and (source_album in candidate_album or candidate_album in source_album):
+        score += 12
+
+    candidate_duration = candidate.get("duration_ms")
+    duration_delta = None
+    if duration_ms and isinstance(candidate_duration, int):
+        duration_delta = abs(candidate_duration - duration_ms)
+        if duration_delta <= 2_000:
+            score += 28
+        elif duration_delta <= 5_000:
+            score += 18
+        elif duration_delta <= 10_000:
+            score += 8
+
+    if query_rank < 10:
+        score += max(0, 18 - query_rank * 2)
+
+    candidate_has_version = contains_keyword(candidate_title, TITLE_VERSION_KEYWORDS)
+    source_has_version = contains_keyword(source_title, TITLE_VERSION_KEYWORDS)
+    if candidate_has_version and not source_has_version:
+        score -= 20
+
+    if contains_keyword(candidate_album, COMPILATION_KEYWORDS):
+        score -= 20
+
+    if query_rank == 0 and duration_delta is not None and duration_delta <= 2_000 and not candidate_has_version:
+        score += 22
+
+    return score
+
+
+class QQMusicTargetResolver:
+    platform = "QQ 音乐"
+
+    def resolve_link(self, canonical_track: CanonicalTrack, context: ResolverContext) -> str | None:
+        if canonical_track.source_platform == self.platform:
+            return None
+
+        cache_store = context.cache_store("qq_music_links")
+        cached_url = read_cached_value(cache_store, cache_key_for_url(canonical_track.source_url, context.preferred_market))
+        if cached_url is not CACHE_MISS:
+            return cached_url if isinstance(cached_url, str) else None
+
+        best_candidate: dict | None = None
+        best_score = -10_000
+
+        for search_term in build_platform_search_terms(
+            canonical_track.title,
+            canonical_track.artist_name,
+            canonical_track.album_title,
+        ):
+            try:
+                candidates = search_qq_tracks(search_term, limit=10)
+            except Exception as exc:
+                print("QQ Music search skipped:", exc)
+                continue
+
+            for query_rank, candidate in enumerate(candidates):
+                candidate_mid = candidate.get("mid")
+                if not isinstance(candidate_mid, str) or not candidate_mid:
+                    continue
+
+                candidate_score = qq_candidate_score(
+                    candidate,
+                    title=canonical_track.title,
+                    artist_name=canonical_track.artist_name,
+                    album_title=canonical_track.album_title,
+                    duration_ms=canonical_track.duration_ms,
+                    query_rank=query_rank,
+                )
+
+                if candidate_score > best_score:
+                    best_score = candidate_score
+                    best_candidate = candidate
+
+        resolved_url = None
+        if best_candidate is not None and best_score >= 64:
+            resolved_url = build_qq_music_track_url(best_candidate["mid"])
+
+        write_cached_value(cache_store, cache_key_for_url(canonical_track.source_url, context.preferred_market), resolved_url)
+        return resolved_url
+
+
 class AggregatedTargetResolver:
     def __init__(self, platform: str) -> None:
         self.platform = platform
@@ -337,7 +458,7 @@ def default_target_resolvers() -> list[TargetPlatformResolver]:
         AppleMusicTargetResolver(),
         SpotifyTargetResolver(),
         NeteaseTargetResolver(),
-        AggregatedTargetResolver("QQ 音乐"),
+        QQMusicTargetResolver(),
     ]
 
 
