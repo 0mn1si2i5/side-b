@@ -1085,6 +1085,7 @@ private struct ResolverAPIResponseBody: Decodable {
     let parsingResult: ParsingResultBody
     let metadataStatus: String
     let resolverVersion: String
+    let diagnosticMessage: String?
 
     func toDomain() throws -> ResolverResponse {
         ResolverResponse(
@@ -1093,7 +1094,7 @@ private struct ResolverAPIResponseBody: Decodable {
             metadataStatus: MetadataFetchStatus(apiValue: metadataStatus),
             resolverVersion: resolverVersion,
             resolutionSource: .remote,
-            diagnosticMessage: nil
+            diagnosticMessage: diagnosticMessage
         )
     }
 }
@@ -1223,13 +1224,14 @@ private struct ParsedMusicLinkBody: Decodable {
 private struct PlatformLinksResponseBody: Decodable {
     let platformLinks: [PlatformLinkBody]
     let resolverVersion: String
+    let diagnosticMessage: String?
 
     func toDomain() throws -> PlatformLinksResolutionResponse {
         PlatformLinksResolutionResponse(
             platformLinks: try platformLinks.map { try $0.toDomain() },
             status: .loaded,
             resolverVersion: resolverVersion,
-            diagnosticMessage: nil
+            diagnosticMessage: diagnosticMessage
         )
     }
 }
@@ -1238,6 +1240,7 @@ private struct SinglePlatformLinkResponseBody: Decodable {
     let targetPlatform: String
     let platformLink: PlatformLinkBody?
     let resolverVersion: String
+    let diagnosticMessage: String?
 
     func toDomain(targetPlatform fallbackPlatform: MusicPlatform) throws -> SinglePlatformLinkResolutionResponse {
         let platform = MusicPlatform(resolverWireValue: targetPlatform) ?? fallbackPlatform
@@ -1247,7 +1250,7 @@ private struct SinglePlatformLinkResponseBody: Decodable {
             platformLink: link,
             state: link == nil ? .unavailable : .ready,
             resolverVersion: resolverVersion,
-            diagnosticMessage: nil
+            diagnosticMessage: diagnosticMessage
         )
     }
 }

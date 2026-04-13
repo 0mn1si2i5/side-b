@@ -147,6 +147,43 @@ struct Track: Identifiable, Hashable {
         )
     }
 
+    var persistenceIdentity: String? {
+        if let sourcePlatformID, !sourcePlatformID.isEmpty {
+            return "\(sourcePlatform.rawValue)::\(sourcePlatformID)"
+        }
+
+        if let sourceURL {
+            return sourceURL.absoluteString
+        }
+
+        return nil
+    }
+
+    func restoringPersistedPlatformLinks(
+        _ platformLinks: [PlatformLink],
+        statuses persistedStatuses: [PlatformLinkStatusEntry]
+    ) -> Track {
+        let availablePlatforms = Set(platformLinks.map(\.platform))
+        let mergedStatuses = MusicPlatform.allCases.map { platform in
+            if platform == sourcePlatform || availablePlatforms.contains(platform) {
+                return PlatformLinkStatusEntry(platform: platform, state: .ready)
+            }
+
+            if let persistedStatus = persistedStatuses.first(where: { $0.platform == platform }) {
+                return persistedStatus
+            }
+
+            return PlatformLinkStatusEntry(platform: platform, state: .idle)
+        }
+
+        let resolvedStatus: PlatformLinksStatus = mergedStatuses.contains(where: { $0.state == .failed }) ? .failed : .loaded
+        return copy(
+            platformLinks: platformLinks,
+            platformLinksStatus: resolvedStatus,
+            platformLinkStatuses: mergedStatuses
+        )
+    }
+
     private static func defaultPlatformLinkStatuses(
         sourcePlatform: MusicPlatform,
         platformLinks: [PlatformLink],

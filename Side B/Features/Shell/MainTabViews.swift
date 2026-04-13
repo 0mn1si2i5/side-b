@@ -50,6 +50,7 @@ struct RoomsListView: View {
 struct SongDetailView: View {
     private let navigationService: PlatformNavigationService = MockPlatformNavigationService()
     private let resolver: any MusicResolverService
+    private let persistenceStore: PlatformLinkPersistenceStore
     private let onTrackUpdated: ((Track) -> Void)?
     @State private var displayTrack: Track
     @State private var platformFeedbackMessage = ""
@@ -59,9 +60,11 @@ struct SongDetailView: View {
     init(
         track: Track,
         resolver: any MusicResolverService = ResolverServiceFactory.makeDefaultService(),
+        persistenceStore: PlatformLinkPersistenceStore = .shared,
         onTrackUpdated: ((Track) -> Void)? = nil
     ) {
         self.resolver = resolver
+        self.persistenceStore = persistenceStore
         self.onTrackUpdated = onTrackUpdated
         _displayTrack = State(initialValue: track)
     }
@@ -120,6 +123,7 @@ struct SongDetailView: View {
             Text(platformFeedbackMessage)
         }
         .task(id: displayTrack.id) {
+            hydrateDisplayTrackFromPersistence()
             resolvePendingPlatformLinksIfNeeded()
         }
     }
@@ -234,9 +238,16 @@ struct SongDetailView: View {
                     for: platform
                 )
                 displayTrack = updatedTrack
+                persistenceStore.save(track: updatedTrack)
                 onTrackUpdated?(updatedTrack)
             }
         }
+    }
+
+    private func hydrateDisplayTrackFromPersistence() {
+        guard let persistedTrack = persistenceStore.restore(track: displayTrack) else { return }
+        displayTrack = persistedTrack
+        onTrackUpdated?(persistedTrack)
     }
 }
 

@@ -25,6 +25,21 @@ class CanonicalTrack:
     isrc: str | None
 
 
+@dataclass(frozen=True)
+class LinkResolutionAttempt:
+    platform: str
+    outcome: str
+    confidence: float | None = None
+    detail: str | None = None
+
+
+@dataclass(frozen=True)
+class ResolverDiagnostic:
+    code: str
+    message: str
+    attempts: list[LinkResolutionAttempt] = field(default_factory=list)
+
+
 @dataclass
 class ResolverContext:
     preferred_market: str | None

@@ -20,12 +20,22 @@ final class RoomDetailViewModel: ObservableObject {
     @Published private(set) var linkResolutionMessage: String?
 
     private let resolver: MusicResolverService
+    private let persistenceStore: PlatformLinkPersistenceStore
 
     init(
         initialMessages: [Message],
+        persistenceStore: PlatformLinkPersistenceStore = .shared,
         resolver: MusicResolverService = ResolverServiceFactory.makeDefaultService()
     ) {
-        self.messages = initialMessages.sorted { $0.sentAt < $1.sentAt }
+        self.persistenceStore = persistenceStore
+        self.messages = initialMessages
+            .sorted { $0.sentAt < $1.sentAt }
+            .map { message in
+                guard let track = message.track, let restoredTrack = persistenceStore.restore(track: track) else {
+                    return message
+                }
+                return message.updatingTrack(restoredTrack)
+            }
         self.resolver = resolver
     }
 
@@ -78,6 +88,7 @@ final class RoomDetailViewModel: ObservableObject {
     func updateTrack(_ track: Track, forMessageID messageID: UUID) {
         guard let index = messages.firstIndex(where: { $0.id == messageID }) else { return }
         messages[index] = messages[index].updatingTrack(track)
+        persistenceStore.save(track: track)
     }
 
     func clearLinkResolutionFeedback() {
@@ -129,14 +140,16 @@ final class RoomDetailViewModel: ObservableObject {
             return
         }
 
+        let resolvedTrack = persistenceStore.restore(track: response.resolvedTrack.track) ?? response.resolvedTrack.track
         let newMessage = Message(
             senderName: senderName,
             text: "Shared a song link",
-            track: response.resolvedTrack.track,
+            track: resolvedTrack,
             sentAt: Date()
         )
 
         messages.append(newMessage)
+        persistenceStore.save(track: resolvedTrack)
         linkInput = ""
         isShowingLinkInput = false
         quotedTrack = nil

@@ -9,18 +9,17 @@
 
 ## Phase 1：基础架构重构
 
-- [ ] 新增正式 `InputParser` 统一入口
+- [x] 新增正式 `InputParser` 统一入口
 - [x] 定义 `ParsedSource / CanonicalTrack / ResolverContext`
 - [x] 收口 backend 为 `routes / services / resolvers / models / platform_clients / utils`
 - [x] 将入口脚本瘦身为 app entry / route bootstrap
-- [ ] 建立正式 `POST /resolve-input` / `POST /resolve-link` / `POST /resolve-text`
 - [x] 固化失败与降级语义
 - [x] 建立 metadata-only 与平台链接异步补全两阶段主链路
 - [x] 建立详情页按平台独立加载的按钮状态模型
 
 ## Phase 2：Spotify 主链路
 
-- [ ] 固化 Spotify preferred canonical 策略
+- [x] 固化 Spotify preferred canonical 策略
 - [x] 完善 Spotify metadata 获取与 canonical 构建
 - [x] 完善 Spotify search / matching / cache / market fallback
 - [x] 回归验证 Spotify source path
@@ -50,12 +49,11 @@
 
 ## Phase 6：统一 Resolver Service
 
-- [ ] 新建正式 `ResolverService` 编排层
-- [ ] 实现 canonical source 优先级策略
+- [x] 新建正式 `ResolverService` 编排层
 - [x] 实现平台按钮统一编排与独立加载
-- [ ] 实现 diagnostics / confidence 内部结构
-- [ ] 补 source adapter / target resolver / orchestration 测试
-- [ ] 做平台链接结果缓存/持久化
+- [x] 实现 diagnostics / confidence 内部结构
+- [x] 补 source parser / target resolver / orchestration 测试
+- [x] 做平台链接结果缓存/持久化
 
 ## Phase 7：歌单系统
 
