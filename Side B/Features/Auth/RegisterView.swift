@@ -6,8 +6,7 @@ struct RegisterView: View {
     @State private var username = ""
     @State private var password = ""
     @State private var displayName = ""
-
-    private let defaultAvatarName = "avatar_1"
+    @State private var selectedAvatar: String = "avatar_1"
 
     var body: some View {
         Form {
@@ -30,18 +29,7 @@ struct RegisterView: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
 
-                    // Placeholder for Task 16: avatar selection grid
-                    HStack(spacing: 16) {
-                        Image(systemName: "person.circle.fill")
-                            .font(.system(size: 48))
-                            .foregroundStyle(.secondary)
-
-                        Text("头像选择即将上线")
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.vertical, 12)
+                    AvatarSelectionView(selectedAvatar: $selectedAvatar)
                 }
             }
 
@@ -52,7 +40,7 @@ struct RegisterView: View {
                             username: username,
                             password: password,
                             displayName: displayName,
-                            avatarName: defaultAvatarName
+                            avatarName: selectedAvatar
                         )
                         if let user = viewModel.currentUser {
                             authState.handleAuthenticationSuccess(user: user)

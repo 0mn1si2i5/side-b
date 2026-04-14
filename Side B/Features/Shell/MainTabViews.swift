@@ -410,7 +410,7 @@ struct ProfileTabView: View {
 
                 Section {
                     Button(role: .destructive) {
-                        authState.logout()
+                        Task { await authState.logout() }
                     } label: {
                         HStack {
                             Spacer()

@@ -79,36 +79,6 @@ final class AuthViewModel {
         isLoading = false
     }
 
-    func logout() {
-        Task { @MainActor in
-            try? await authService.logout()
-        }
-        currentUser = nil
-        isAuthenticated = false
-        errorMessage = nil
-    }
-
-    func checkAuthStatus() async {
-        guard authService.isLoggedIn else {
-            isAuthenticated = false
-            currentUser = nil
-            return
-        }
-
-        isLoading = true
-
-        do {
-            let user = try await authService.getCurrentUser()
-            currentUser = user
-            isAuthenticated = true
-        } catch {
-            currentUser = nil
-            isAuthenticated = false
-        }
-
-        isLoading = false
-    }
-
     func clearError() {
         errorMessage = nil
     }

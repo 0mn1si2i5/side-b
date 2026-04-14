@@ -5,6 +5,7 @@ final class AuthState {
     var isAuthenticated = false
     var currentUser: User?
     var isLoading = false
+    var errorMessage: String?
 
     private let authService: any AuthServiceProtocol
 
@@ -28,6 +29,7 @@ final class AuthState {
         } catch {
             currentUser = nil
             isAuthenticated = false
+            errorMessage = "自动登录失败：\(error.localizedDescription)"
         }
 
         isLoading = false
@@ -38,11 +40,10 @@ final class AuthState {
         isAuthenticated = true
     }
 
-    func logout() {
-        Task { @MainActor in
-            try? await authService.logout()
-        }
+    func logout() async {
+        try? await authService.logout()
         currentUser = nil
         isAuthenticated = false
+        errorMessage = nil
     }
 }
