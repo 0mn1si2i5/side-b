@@ -23,9 +23,9 @@ struct EmojiReaction: Identifiable, Hashable, Codable {
 
     enum CodingKeys: String, CodingKey {
         case id
-        case messageId = "message_id"
-        case userId = "user_id"
+        case messageId
+        case userId
         case emoji
-        case createdAt = "created_at"
+        case createdAt
     }
 }

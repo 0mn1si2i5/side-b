@@ -10,6 +10,7 @@ struct Room: Identifiable, Hashable {
     let name: String
     let type: RoomType
     let memberIDs: [UUID]
+    let memberUsernames: [String]
     let createdBy: UUID
     let createdAt: Date
     let isActive: Bool
@@ -21,6 +22,7 @@ struct Room: Identifiable, Hashable {
         name: String,
         type: RoomType = .group,
         memberIDs: [UUID] = [],
+        memberUsernames: [String] = [],
         createdBy: UUID = UUID(),
         createdAt: Date = Date(),
         isActive: Bool = true,
@@ -31,6 +33,7 @@ struct Room: Identifiable, Hashable {
         self.name = name
         self.type = type
         self.memberIDs = memberIDs
+        self.memberUsernames = memberUsernames
         self.createdBy = createdBy
         self.createdAt = createdAt
         self.isActive = isActive

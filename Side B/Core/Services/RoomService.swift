@@ -169,6 +169,7 @@ private struct RoomDTO: Decodable {
     let createdBy: String
     let createdAt: String
     let isActive: Bool
+    let memberUsernames: [String]
 
     func toDomain() -> Room {
         Room(
@@ -176,6 +177,7 @@ private struct RoomDTO: Decodable {
             name: name ?? "Unnamed Room",
             type: RoomType(rawValue: type) ?? .group,
             memberIDs: [],
+            memberUsernames: memberUsernames,
             createdBy: UUID(uuidString: createdBy) ?? UUID(),
             createdAt: ISO8601DateFormatter().date(from: createdAt) ?? Date(),
             isActive: isActive
@@ -201,6 +203,7 @@ private struct MessageDTO: Decodable {
     let id: String
     let roomId: String
     let senderId: String
+    let senderName: String
     let contentType: String
     let textContent: String?
     let trackData: String?
@@ -218,7 +221,7 @@ private struct MessageDTO: Decodable {
 
         return Message(
             id: UUID(uuidString: id) ?? UUID(),
-            senderName: senderId,
+            senderName: senderName,
             senderID: UUID(uuidString: senderId),
             contentType: contentTypeEnum,
             text: text,

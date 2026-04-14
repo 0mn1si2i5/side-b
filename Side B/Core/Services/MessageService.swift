@@ -147,6 +147,7 @@ private struct MessageDTO: Decodable {
     let id: String
     let roomId: String
     let senderId: String
+    let senderName: String
     let contentType: String
     let textContent: String?
     let trackData: String?
@@ -164,7 +165,7 @@ private struct MessageDTO: Decodable {
 
         return Message(
             id: UUID(uuidString: id) ?? UUID(),
-            senderName: senderId,
+            senderName: senderName,
             senderID: UUID(uuidString: senderId),
             contentType: contentTypeEnum,
             text: text,

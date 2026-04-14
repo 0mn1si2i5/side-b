@@ -202,13 +202,13 @@ final class RemoteWebSocketService: WebSocketServiceProtocol {
 
         let id = UUID(uuidString: dataDict["id"] as? String ?? "") ?? UUID()
         let senderId = dataDict["senderId"] as? String ?? ""
+        let senderName = dataDict["senderName"] as? String ?? senderId
         let contentType = dataDict["contentType"] as? String ?? "text"
         let textContent = dataDict["textContent"] as? String
         let trackData = dataDict["trackData"] as? String
         let createdAtStr = dataDict["createdAt"] as? String ?? ""
 
         let track: Track? = trackData.flatMap { parseTrackData($0) }
-        let senderName = senderId
 
         let dateFormatter = ISO8601DateFormatter()
         dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -260,11 +260,13 @@ final class RemoteWebSocketService: WebSocketServiceProtocol {
         let type = RoomType(rawValue: dataDict["type"] as? String ?? "group") ?? .group
         let createdBy = UUID(uuidString: dataDict["createdBy"] as? String ?? "") ?? UUID()
         let isActive = dataDict["isActive"] as? Bool ?? true
+        let memberUsernames = dataDict["memberUsernames"] as? [String] ?? []
 
         let room = Room(
             id: id,
             name: name,
             type: type,
+            memberUsernames: memberUsernames,
             createdBy: createdBy,
             isActive: isActive
         )

@@ -118,6 +118,8 @@ final class RoomDetailViewModel: ObservableObject {
     private func handleIncomingMessage(_ message: Message) {
         guard !messages.contains(where: { $0.id == message.id }) else { return }
 
+        errorMessage = nil
+
         var messageToInsert = message
         if let track = message.track, let restoredTrack = persistenceStore.restore(track: track) {
             messageToInsert = message.updatingTrack(restoredTrack)

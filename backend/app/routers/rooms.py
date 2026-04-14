@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
-from app.services import room_service, message_service
+from app.services import room_service, message_service, user_service
 from app.services.ws_manager import manager as ws_manager
 
 router = APIRouter()
@@ -43,6 +43,7 @@ class RoomResponse(BaseModel):
     createdBy: str
     createdAt: str
     isActive: bool
+    memberUsernames: list[str]
 
     class Config:
         from_attributes = True
@@ -62,6 +63,7 @@ class MessageResponse(BaseModel):
     id: str
     roomId: str
     senderId: str
+    senderName: str
     contentType: str
     textContent: str | None
     trackData: str | None
@@ -83,7 +85,14 @@ class EmojiReactionResponse(BaseModel):
         from_attributes = True
 
 
-def _room_to_response(room) -> RoomResponse:
+def _room_to_response(room, db: Session) -> RoomResponse:
+    members = room_service.get_room_members(db, room.id)
+    member_user_ids = [m.user_id for m in members]
+    member_usernames: list[str] = []
+    for uid in member_user_ids:
+        u = user_service.get_user_by_id(db, uid)
+        if u:
+            member_usernames.append(u.username)
     return RoomResponse(
         id=room.id,
         name=room.name,
@@ -91,6 +100,7 @@ def _room_to_response(room) -> RoomResponse:
         createdBy=room.created_by,
         createdAt=room.created_at.isoformat(),
         isActive=room.is_active,
+        memberUsernames=member_usernames,
     )
 
 
@@ -103,11 +113,14 @@ def _member_to_response(member) -> MemberResponse:
     )
 
 
-def _message_to_response(msg) -> MessageResponse:
+def _message_to_response(msg, db: Session) -> MessageResponse:
+    sender = user_service.get_user_by_id(db, msg.sender_id)
+    sender_name = sender.display_name if sender else "Unknown"
     return MessageResponse(
         id=msg.id,
         roomId=msg.room_id,
         senderId=msg.sender_id,
+        senderName=sender_name,
         contentType=msg.content_type,
         textContent=msg.text_content,
         trackData=msg.track_data,
@@ -137,7 +150,7 @@ def _require_membership(db: Session, room_id: str, user_id: str):
 @router.get("", response_model=list[RoomResponse])
 def list_rooms(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     rooms = room_service.get_rooms_for_user(db, user.id)
-    return [_room_to_response(r) for r in rooms]
+    return [_room_to_response(r, db) for r in rooms]
 
 
 @router.post("", response_model=RoomResponse, status_code=status.HTTP_201_CREATED)
@@ -163,7 +176,7 @@ def create_room(
         created_by=user.id,
         member_usernames=req.memberUsernames,
     )
-    return _room_to_response(room)
+    return _room_to_response(room, db)
 
 
 @router.get("/{room_id}", response_model=RoomResponse)
@@ -178,7 +191,7 @@ def get_room(
             status_code=status.HTTP_404_NOT_FOUND, detail="Room not found"
         )
     _require_membership(db, room_id, user.id)
-    return _room_to_response(room)
+    return _room_to_response(room, db)
 
 
 @router.put("/{room_id}", response_model=RoomResponse)
@@ -195,7 +208,7 @@ def update_room(
         )
     _require_membership(db, room_id, user.id)
     updated = room_service.rename_room(db, room_id, req.name)
-    return _room_to_response(updated)
+    return _room_to_response(updated, db)
 
 
 @router.delete("/{room_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -270,7 +283,7 @@ def list_messages(
         )
     _require_membership(db, room_id, user.id)
     messages = message_service.get_messages(db, room_id, limit=limit, before=before)
-    return [_message_to_response(m) for m in messages]
+    return [_message_to_response(m, db) for m in messages]
 
 
 @router.post(
@@ -304,7 +317,7 @@ async def create_message(
         track_data=req.trackData,
         reply_to_id=req.replyToId,
     )
-    response = _message_to_response(msg)
+    response = _message_to_response(msg, db)
     await ws_manager.broadcast_to_room(
         room_id, {"type": "new_message", "data": response.model_dump()}
     )
