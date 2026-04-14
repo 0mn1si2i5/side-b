@@ -107,6 +107,12 @@ struct RoomDetailView: View {
                         },
                         onQuoteTrack: { track in
                             viewModel.startQuoting(track: track)
+                        },
+                        onReply: {
+                            viewModel.replyToMessage(message)
+                        },
+                        onEmojiReaction: { emoji in
+                            viewModel.addEmojiReaction(to: message.id, emoji: emoji)
                         }
                     )
                     .padding(.horizontal, 16)

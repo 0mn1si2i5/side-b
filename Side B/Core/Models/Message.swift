@@ -15,6 +15,7 @@ struct Message: Identifiable, Hashable {
     let track: Track?
     let replyToMessageID: UUID?
     let sentAt: Date
+    var emojiReactions: [EmojiReaction]
 
     init(
         id: UUID = UUID(),
@@ -24,7 +25,8 @@ struct Message: Identifiable, Hashable {
         text: String? = nil,
         track: Track? = nil,
         replyToMessageID: UUID? = nil,
-        sentAt: Date
+        sentAt: Date,
+        emojiReactions: [EmojiReaction] = []
     ) {
         self.id = id
         self.senderName = senderName
@@ -34,6 +36,7 @@ struct Message: Identifiable, Hashable {
         self.track = track
         self.replyToMessageID = replyToMessageID
         self.sentAt = sentAt
+        self.emojiReactions = emojiReactions
     }
 
     func updatingTrack(_ track: Track?) -> Message {
@@ -45,7 +48,8 @@ struct Message: Identifiable, Hashable {
             text: text,
             track: track,
             replyToMessageID: replyToMessageID,
-            sentAt: sentAt
+            sentAt: sentAt,
+            emojiReactions: emojiReactions
         )
     }
 }

@@ -21,6 +21,8 @@ final class RoomDetailViewModel: ObservableObject {
     @Published private(set) var linkResolutionMessage: String?
     @Published var isLoading = false
     @Published var errorMessage: String?
+    @Published var replyToMessageID: UUID?
+    @Published var replyToMessagePreview: String?
 
     private let roomId: UUID
     private let resolver: MusicResolverService
@@ -190,6 +192,38 @@ final class RoomDetailViewModel: ObservableObject {
         guard let index = messages.firstIndex(where: { $0.id == messageID }) else { return }
         messages[index] = messages[index].updatingTrack(track)
         persistenceStore.save(track: track)
+    }
+
+    func replyToMessage(_ message: Message) {
+        replyToMessageID = message.id
+        let preview: String
+        if let text = message.text, !text.isEmpty {
+            let firstLine = text.components(separatedBy: .newlines).first ?? text
+            preview = "\(message.senderName): \(firstLine)"
+        } else if let track = message.track {
+            preview = "\(message.senderName): 🎵 \(track.title)"
+        } else {
+            preview = message.senderName
+        }
+        replyToMessagePreview = preview
+    }
+
+    func cancelReply() {
+        replyToMessageID = nil
+        replyToMessagePreview = nil
+    }
+
+    func addEmojiReaction(to messageId: UUID, emoji: String) {
+        Task { @MainActor in
+            do {
+                let reaction = try await messageService.addEmojiReaction(roomId: roomId, messageId: messageId, emoji: emoji)
+                if let index = messages.firstIndex(where: { $0.id == messageId }) {
+                    messages[index].emojiReactions.append(reaction)
+                }
+            } catch {
+                // Silently ignore emoji reaction failures
+            }
+        }
     }
 
     func clearLinkResolutionFeedback() {

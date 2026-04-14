@@ -7,6 +7,8 @@ struct MessageRowView: View {
     let isCurrentUser: Bool
     let onTrackUpdated: (Track) -> Void
     let onQuoteTrack: (Track) -> Void
+    let onReply: () -> Void
+    let onEmojiReaction: (String) -> Void
 
     @State private var showingAddToPlaylistSheet = false
     @State private var selectedTrack: Track? = nil
@@ -105,6 +107,39 @@ struct MessageRowView: View {
             }
         }
         .toast(isPresented: $showAddSuccessToast, message: addSuccessMessage)
+        .contextMenu {
+            Button {
+                onReply()
+            } label: {
+                Label("引用回复", systemImage: "arrow.turn.up.left")
+            }
+
+            Divider()
+
+            Button {
+                onEmojiReaction("👍")
+            } label: {
+                Text("👍")
+            }
+
+            Button {
+                onEmojiReaction("❤️")
+            } label: {
+                Text("❤️")
+            }
+
+            Button {
+                onEmojiReaction("🎵")
+            } label: {
+                Text("🎵")
+            }
+
+            Button {
+                onEmojiReaction("🔥")
+            } label: {
+                Text("🔥")
+            }
+        }
     }
 }
 
