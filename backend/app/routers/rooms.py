@@ -6,6 +6,7 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
 from app.services import room_service, message_service
+from app.services.ws_manager import manager as ws_manager
 
 router = APIRouter()
 
@@ -21,7 +22,7 @@ class UpdateRoomRequest(BaseModel):
 
 
 class AddMemberRequest(BaseModel):
-    userId: str
+    username: str
 
 
 class CreateMessageRequest(BaseModel):
@@ -193,11 +194,6 @@ def update_room(
             status_code=status.HTTP_404_NOT_FOUND, detail="Room not found"
         )
     _require_membership(db, room_id, user.id)
-    if room.created_by != user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only the room creator can rename the room",
-        )
     updated = room_service.rename_room(db, room_id, req.name)
     return _room_to_response(updated)
 
@@ -213,11 +209,7 @@ def dissolve_room(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Room not found"
         )
-    if room.created_by != user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only the room creator can dissolve the room",
-        )
+    _require_membership(db, room_id, user.id)
     room_service.dissolve_room(db, room_id)
 
 
@@ -238,10 +230,11 @@ def add_member(
             status_code=status.HTTP_404_NOT_FOUND, detail="Room not found"
         )
     _require_membership(db, room_id, user.id)
-    member = room_service.add_member(db, room_id, req.userId)
+    member = room_service.add_member_by_username(db, room_id, req.username)
     if member is None:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Could not add member"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User not found or already a member",
         )
     return _member_to_response(member)
 
@@ -285,7 +278,7 @@ def list_messages(
     response_model=MessageResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def create_message(
+async def create_message(
     room_id: str,
     req: CreateMessageRequest,
     user: User = Depends(get_current_user),
@@ -311,7 +304,11 @@ def create_message(
         track_data=req.trackData,
         reply_to_id=req.replyToId,
     )
-    return _message_to_response(msg)
+    response = _message_to_response(msg)
+    await ws_manager.broadcast_to_room(
+        room_id, {"type": "new_message", "data": response.model_dump()}
+    )
+    return response
 
 
 @router.post(
@@ -319,7 +316,7 @@ def create_message(
     response_model=EmojiReactionResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def add_emoji_reaction(
+async def add_emoji_reaction(
     room_id: str,
     message_id: str,
     req: AddEmojiRequest,
@@ -333,4 +330,8 @@ def add_emoji_reaction(
         )
     _require_membership(db, room_id, user.id)
     reaction = message_service.add_emoji_reaction(db, message_id, user.id, req.emoji)
-    return _emoji_to_response(reaction)
+    response = _emoji_to_response(reaction)
+    await ws_manager.broadcast_to_room(
+        room_id, {"type": "emoji_reaction", "data": response.model_dump()}
+    )
+    return response

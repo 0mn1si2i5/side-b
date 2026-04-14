@@ -89,6 +89,15 @@ def add_member(db: Session, room_id: str, user_id: str) -> RoomMember | None:
     return member
 
 
+def add_member_by_username(
+    db: Session, room_id: str, username: str
+) -> RoomMember | None:
+    user = db.query(User).filter(User.username == username).first()
+    if user is None:
+        return None
+    return add_member(db, room_id, user.id)
+
+
 def get_room_members(db: Session, room_id: str) -> list[RoomMember]:
     return (
         db.query(RoomMember)
