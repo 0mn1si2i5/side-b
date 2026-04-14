@@ -4,3 +4,4 @@ backend/__pycache__/
 backend/vendor/
 *.pyc
 .sisyphus/
+backend/data/*.db
