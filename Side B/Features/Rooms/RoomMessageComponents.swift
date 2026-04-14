@@ -65,44 +65,22 @@ struct MessageRowView: View {
                 }
 
                 if let track = message.track {
-                    VStack(alignment: .leading, spacing: 8) {
-                        NavigationLink {
-                            SongDetailView(
-                                track: track,
-                                onTrackUpdated: onTrackUpdated
-                            )
-                        } label: {
-                            CompactSongAttachmentView(track: track, isCurrentUser: isCurrentUser)
-                        }
-                        .buttonStyle(.plain)
-
-                        if !isGroupedWithNextMessage {
-                            HStack {
-                                Button {
-                                    onQuoteTrack(track)
-                                } label: {
-                                    Label("引用歌曲", systemImage: "quote.bubble")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                .buttonStyle(.borderless)
-
-                                Button {
-                                    selectedTrack = track
-                                    showingAddToPlaylistSheet = true
-                                } label: {
-                                    Label("加入歌单", systemImage: "plus.circle")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                .buttonStyle(.borderless)
-
-                                Spacer(minLength: 0)
+                    NavigationLink {
+                        SongDetailView(
+                            track: track,
+                            onTrackUpdated: onTrackUpdated
+                        )
+                    } label: {
+                        CompactSongAttachmentView(
+                            track: track,
+                            isCurrentUser: isCurrentUser,
+                            onAddToPlaylist: {
+                                selectedTrack = track
+                                showingAddToPlaylistSheet = true
                             }
-                            .padding(.horizontal, 10)
-                            .padding(.top, -2)
-                        }
+                        )
                     }
+                    .buttonStyle(.plain)
                 }
 
                 if !message.emojiReactions.isEmpty {
@@ -253,6 +231,7 @@ struct EmojiReactionsView: View {
 struct CompactSongAttachmentView: View {
     let track: Track
     let isCurrentUser: Bool
+    var onAddToPlaylist: (() -> Void)? = nil
 
     var body: some View {
         HStack(spacing: 10) {
@@ -276,6 +255,19 @@ struct CompactSongAttachmentView: View {
             }
 
             Spacer(minLength: 0)
+
+            if let onAddToPlaylist {
+                Button {
+                    onAddToPlaylist()
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 30, height: 30)
+                        .background(Circle().fill(Color.blue))
+                }
+                .buttonStyle(.plain)
+            }
         }
         .padding(10)
         .background(isCurrentUser ? Color.accentColor.opacity(0.16) : Color.white.opacity(0.88))
