@@ -9,6 +9,8 @@ struct MessageRowView: View {
 
     @State private var showingAddToPlaylistSheet = false
     @State private var selectedTrack: Track? = nil
+    @State private var showAddSuccessToast = false
+    @State private var addSuccessMessage = ""
 
     private var isCurrentUser: Bool {
         message.senderName == "You"
@@ -99,12 +101,13 @@ struct MessageRowView: View {
         }
         .sheet(isPresented: $showingAddToPlaylistSheet) {
             if let track = selectedTrack {
-                AddToPlaylistView(
-                    track: track,
-                    isPresented: $showingAddToPlaylistSheet
-                )
+                AddToPlaylistView(track: track, isPresented: $showingAddToPlaylistSheet) { playlist in
+                    addSuccessMessage = "已添加到「\(playlist.name)」"
+                    showAddSuccessToast = true
+                }
             }
         }
+        .toast(isPresented: $showAddSuccessToast, message: addSuccessMessage)
     }
 }
 

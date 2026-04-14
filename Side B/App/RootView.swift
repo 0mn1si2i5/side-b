@@ -5,7 +5,7 @@ struct RootView: View {
         TabView {
             PlaylistListView()
                 .tabItem {
-                    Label("歌单", systemImage: "music.note.list")
+                    Label("歌曲", systemImage: "music.note.list")
                 }
 
             NavigationStack {

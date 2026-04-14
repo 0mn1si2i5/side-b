@@ -4,7 +4,18 @@ struct PlaylistDetailView: View {
     let playlist: Playlist
     @State private var trackEntries: [PlaylistTrackEntry] = []
     @State private var entryTracks: [String: Track] = [:]
+    @State private var isRefreshing = false
+    @State private var showingRenameSheet = false
+    @State private var renameText = ""
+    @State private var showingDeleteConfirmation = false
+    @State private var currentPlaylist: Playlist
     @Environment(\.dismiss) private var dismiss
+
+    init(playlist: Playlist) {
+        self.playlist = playlist
+        _currentPlaylist = State(initialValue: playlist)
+        _renameText = State(initialValue: playlist.name)
+    }
 
     var body: some View {
         List {
@@ -29,21 +40,66 @@ struct PlaylistDetailView: View {
                         Button(role: .destructive) {
                             deleteTrackEntry(entry)
                         } label: {
-                            Label("删除", systemImage: "trash")
+                            Label("移除", systemImage: "trash")
                         }
                     }
                 }
             }
         }
         .listStyle(.plain)
-        .navigationTitle(playlist.name)
+        .refreshable {
+            isRefreshing = true
+            loadTrackEntries()
+            isRefreshing = false
+        }
+        .navigationTitle(currentPlaylist.name)
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Text("\(trackEntries.count) 首歌曲")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Menu {
+                    Button {
+                        showingRenameSheet = true
+                    } label: {
+                        Label("重命名", systemImage: "pencil")
+                    }
+
+                    Divider()
+
+                    Button(role: .destructive) {
+                        showingDeleteConfirmation = true
+                    } label: {
+                        Label("移除歌单", systemImage: "trash")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
             }
+        }
+        .alert("重命名歌单", isPresented: $showingRenameSheet) {
+            TextField("歌单名称", text: $renameText)
+            Button("取消", role: .cancel) {
+                renameText = currentPlaylist.name
+            }
+            Button("确定") {
+                let trimmed = renameText.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty else { return }
+                if let updated = PlaylistStore.shared.renamePlaylist(currentPlaylist, to: trimmed) {
+                    currentPlaylist = updated
+                }
+            }
+        } message: {
+            Text("输入新的歌单名称")
+        }
+        .alert("移除歌单", isPresented: $showingDeleteConfirmation) {
+            Button("取消", role: .cancel) { }
+            Button("移除", role: .destructive) {
+                if !currentPlaylist.isDefault {
+                    _ = PlaylistStore.shared.deletePlaylist(currentPlaylist)
+                    dismiss()
+                }
+            }
+        } message: {
+            Text("确定要移除「\(currentPlaylist.name)」吗？移除后无法恢复。")
         }
         .onAppear {
             loadTrackEntries()
@@ -78,7 +134,7 @@ struct PlaylistDetailView: View {
     }
 
     private func loadTrackEntries() {
-        trackEntries = PlaylistStore.shared.getTrackEntries(for: playlist)
+        trackEntries = PlaylistStore.shared.getTrackEntries(for: currentPlaylist)
         resolveTracksForEntries()
     }
 
@@ -99,7 +155,7 @@ struct PlaylistDetailView: View {
     }
 
     private func deleteTrackEntry(_ entry: PlaylistTrackEntry) {
-        if PlaylistStore.shared.removeTrack(entry, from: playlist) {
+        if PlaylistStore.shared.removeTrack(entry, from: currentPlaylist) {
             loadTrackEntries()
         }
     }

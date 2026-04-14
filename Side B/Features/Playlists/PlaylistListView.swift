@@ -57,7 +57,7 @@ struct PlaylistListView: View {
                 }
             }
             .listStyle(.insetGrouped)
-            .navigationTitle("歌单")
+            .navigationTitle("歌曲")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {

@@ -56,6 +56,8 @@ struct SongDetailView: View {
     @State private var platformFeedbackMessage = ""
     @State private var isShowingPlatformFeedback = false
     @State private var showingAddToPlaylistSheet = false
+    @State private var showAddSuccessToast = false
+    @State private var addSuccessMessage = ""
     @Environment(\.openURL) private var openURL
 
     init(
@@ -143,8 +145,12 @@ struct SongDetailView: View {
             resolvePendingPlatformLinksIfNeeded()
         }
         .sheet(isPresented: $showingAddToPlaylistSheet) {
-            AddToPlaylistView(track: displayTrack, isPresented: $showingAddToPlaylistSheet)
+            AddToPlaylistView(track: displayTrack, isPresented: $showingAddToPlaylistSheet) { playlist in
+                addSuccessMessage = "已添加到「\(playlist.name)」"
+                showAddSuccessToast = true
+            }
         }
+        .toast(isPresented: $showAddSuccessToast, message: addSuccessMessage)
     }
 
     private var artworkSection: some View {
