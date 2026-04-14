@@ -132,8 +132,8 @@ enum MockData {
         Playlist(
             name: "Late Night Vibes",
             trackEntries: [
-                PlaylistTrackEntry(trackID: tracks[0].persistenceIdentity!),
-                PlaylistTrackEntry(trackID: tracks[1].persistenceIdentity!)
+                PlaylistTrackEntry(trackID: tracks[0].persistenceIdentity ?? tracks[0].id.uuidString),
+                PlaylistTrackEntry(trackID: tracks[1].persistenceIdentity ?? tracks[1].id.uuidString)
             ]
         )
     ]

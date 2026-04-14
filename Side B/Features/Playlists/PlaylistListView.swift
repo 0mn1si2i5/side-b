@@ -1,30 +1,18 @@
 import SwiftUI
 
 struct PlaylistListView: View {
-    @State private var playlists: [Playlist] = []
-    @State private var showingCreateSheet = false
-    @State private var linkInput = ""
-    @State private var isResolving = false
-    @State private var showErrorAlert = false
-    @State private var errorMessage = ""
-    @State private var recentlyResolved: [Track] = []
-    @State private var showAllRecentlyResolved = false
-    @State private var showingAddToPlaylistSheet = false
-    @State private var selectedTrackForPlaylist: Track?
-    @State private var showAddSuccessToast = false
-    @State private var addSuccessMessage = ""
-    private let resolver = ResolverServiceFactory.makeDefaultService()
+    @State private var viewModel = PlaylistListViewModel()
 
     private var displayRecentlyResolved: [Track] {
-        if showAllRecentlyResolved {
-            return recentlyResolved
+        if viewModel.showAllRecentlyResolved {
+            return viewModel.recentlyResolved
         } else {
-            return Array(recentlyResolved.prefix(3))
+            return Array(viewModel.recentlyResolved.prefix(3))
         }
     }
 
     private var hasMoreRecentlyResolved: Bool {
-        recentlyResolved.count > 3
+        viewModel.recentlyResolved.count > 3
     }
 
     var body: some View {
@@ -32,12 +20,12 @@ struct PlaylistListView: View {
             List {
                 linkInputSection
 
-                if !recentlyResolved.isEmpty {
+                if !viewModel.recentlyResolved.isEmpty {
                     recentlyResolvedSection
                 }
 
                 Section {
-                    ForEach(playlists) { playlist in
+                    ForEach(viewModel.playlists) { playlist in
                         NavigationLink {
                             PlaylistDetailView(playlist: playlist)
                         } label: {
@@ -51,7 +39,7 @@ struct PlaylistListView: View {
                             }
                         }
                     }
-                    .onDelete(perform: deletePlaylists)
+                    .onDelete(perform: viewModel.deletePlaylists)
                 } header: {
                     Text("我的歌单")
                 }
@@ -61,37 +49,37 @@ struct PlaylistListView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
-                        showingCreateSheet = true
+                        viewModel.showingCreateSheet = true
                     } label: {
                         Image(systemName: "plus")
                     }
                 }
             }
-            .sheet(isPresented: $showingCreateSheet, onDismiss: {
-                refreshPlaylists()
+            .sheet(isPresented: $viewModel.showingCreateSheet, onDismiss: {
+                viewModel.refreshPlaylists()
             }) {
                 CreatePlaylistView { _ in
-                    refreshPlaylists()
+                    viewModel.refreshPlaylists()
                 }
             }
-            .sheet(isPresented: $showingAddToPlaylistSheet) {
-                if let track = selectedTrackForPlaylist {
-                    AddToPlaylistView(track: track, isPresented: $showingAddToPlaylistSheet) { playlist in
-                        addSuccessMessage = "已添加到「\(playlist.name)」"
-                        showAddSuccessToast = true
-                        refreshPlaylists()
+            .sheet(isPresented: $viewModel.showingAddToPlaylistSheet) {
+                if let track = viewModel.selectedTrackForPlaylist {
+                    AddToPlaylistView(track: track, isPresented: $viewModel.showingAddToPlaylistSheet) { playlist in
+                        viewModel.addSuccessMessage = "已添加到「\(playlist.name)」"
+                        viewModel.showAddSuccessToast = true
+                        viewModel.refreshPlaylists()
                     }
                 }
             }
-            .alert("解析失败", isPresented: $showErrorAlert) {
+            .alert("解析失败", isPresented: $viewModel.showErrorAlert) {
                 Button("确定", role: .cancel) { }
             } message: {
-                Text(errorMessage)
+                Text(viewModel.errorMessage)
             }
-            .toast(isPresented: $showAddSuccessToast, message: addSuccessMessage)
+            .toast(isPresented: $viewModel.showAddSuccessToast, message: viewModel.addSuccessMessage)
             .onAppear {
-                refreshPlaylists()
-                loadRecentlyResolved()
+                viewModel.refreshPlaylists()
+                viewModel.loadRecentlyResolved()
             }
         }
     }
@@ -110,13 +98,13 @@ struct PlaylistListView: View {
                         Image(systemName: "link")
                             .foregroundStyle(.secondary)
 
-                        TextField("粘贴音乐链接", text: $linkInput)
+                        TextField("粘贴音乐链接", text: $viewModel.linkInput)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
-                            .disabled(isResolving)
+                            .disabled(viewModel.isResolving)
                             .submitLabel(.go)
                             .onSubmit {
-                                resolveLink()
+                                viewModel.resolveLink()
                             }
                     }
                     .padding(.horizontal, 12)
@@ -124,8 +112,8 @@ struct PlaylistListView: View {
                     .background(Color(.secondarySystemBackground))
                     .clipShape(RoundedRectangle(cornerRadius: 10))
 
-                    Button(action: resolveLink) {
-                        if isResolving {
+                    Button(action: viewModel.resolveLink) {
+                        if viewModel.isResolving {
                             ProgressView()
                                 .controlSize(.small)
                         } else {
@@ -134,7 +122,7 @@ struct PlaylistListView: View {
                         }
                     }
                     .buttonStyle(.borderedProminent)
-                    .disabled(linkInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isResolving)
+                    .disabled(viewModel.linkInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isResolving)
                 }
             }
             .padding(.vertical, 8)
@@ -149,17 +137,17 @@ struct PlaylistListView: View {
                 RecentlyResolvedRowView(
                     track: track,
                     onAddToPlaylist: {
-                        selectedTrackForPlaylist = track
-                        showingAddToPlaylistSheet = true
+                        viewModel.selectedTrackForPlaylist = track
+                        viewModel.showingAddToPlaylistSheet = true
                     },
                     onTrackUpdated: { updatedTrack in
-                        updateRecentlyResolvedTrack(updatedTrack)
+                        viewModel.updateRecentlyResolvedTrack(updatedTrack)
                     }
                 )
                 .swipeActions(edge: .leading, allowsFullSwipe: false) {
                     Button {
-                        selectedTrackForPlaylist = track
-                        showingAddToPlaylistSheet = true
+                        viewModel.selectedTrackForPlaylist = track
+                        viewModel.showingAddToPlaylistSheet = true
                     } label: {
                         Label("加入歌单", systemImage: "plus.circle")
                     }
@@ -167,7 +155,7 @@ struct PlaylistListView: View {
                 }
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                     Button(role: .destructive) {
-                        removeRecentlyResolved(track)
+                        viewModel.removeRecentlyResolved(track)
                     } label: {
                         Label("移除", systemImage: "trash")
                     }
@@ -177,10 +165,10 @@ struct PlaylistListView: View {
             if hasMoreRecentlyResolved {
                 Button {
                     withAnimation {
-                        showAllRecentlyResolved.toggle()
+                        viewModel.showAllRecentlyResolved.toggle()
                     }
                 } label: {
-                    Text(showAllRecentlyResolved ? "收起" : "查看全部 (\(recentlyResolved.count))")
+                    Text(viewModel.showAllRecentlyResolved ? "收起" : "查看全部 (\(viewModel.recentlyResolved.count))")
                         .font(.subheadline)
                         .foregroundStyle(.blue)
                 }
@@ -188,136 +176,6 @@ struct PlaylistListView: View {
         } header: {
             Text("最近解析")
         }
-    }
-
-    // MARK: - Actions
-
-    private func resolveLink() {
-        let trimmedLink = linkInput.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedLink.isEmpty else { return }
-
-        isResolving = true
-
-        Task { @MainActor in
-            do {
-                let response = try await resolver.resolveMetadata(request: ResolverRequest(rawLink: trimmedLink))
-
-                switch response.parsingResult {
-                case .unsupportedLink:
-                    errorMessage = "无法识别该链接，请粘贴 Spotify、Apple Music、网易云音乐或 QQ 音乐的歌曲链接"
-                    showErrorAlert = true
-                    isResolving = false
-                    return
-                case .missingResourceID:
-                    errorMessage = "无法从链接中提取歌曲 ID"
-                    showErrorAlert = true
-                    isResolving = false
-                    return
-                case .parsed:
-                    break
-                }
-
-                if response.metadataStatus == .fallbackMock {
-                    errorMessage = "无法解析该歌曲，请检查链接是否正确"
-                    showErrorAlert = true
-                    isResolving = false
-                    return
-                }
-
-                let track = response.resolvedTrack.track
-                if !track.title.isEmpty {
-                    TrackCache.shared.save(track: track)
-                    RecentlyResolvedStore.shared.add(track.persistenceIdentity ?? "")
-
-                    recentlyResolved.insert(track, at: 0)
-
-                    if recentlyResolved.count > 50 {
-                        recentlyResolved = Array(recentlyResolved.prefix(50))
-                    }
-
-                    linkInput = ""
-                    isResolving = false
-
-                    resolvePlatformLinksAsync(for: track)
-                } else {
-                    errorMessage = "无法解析该链接，请检查链接是否正确"
-                    showErrorAlert = true
-                    isResolving = false
-                }
-            } catch {
-                errorMessage = "解析失败：\(error.localizedDescription)"
-                showErrorAlert = true
-                isResolving = false
-            }
-        }
-    }
-
-    private func resolvePlatformLinksAsync(for track: Track) {
-        let nonSourcePlatforms = MusicPlatform.allCases.filter { $0 != track.sourcePlatform }
-        let pendingPlatforms = nonSourcePlatforms.filter { platform in
-            let state = track.platformLinkState(for: platform)
-            return state == .idle || state == .failed
-        }
-
-        guard !pendingPlatforms.isEmpty else { return }
-
-        for platform in pendingPlatforms {
-            Task { @MainActor in
-                let result = try? await resolver.resolvePlatformLink(for: track, targetPlatform: platform)
-                guard let result else { return }
-
-                if let index = recentlyResolved.firstIndex(where: { $0.id == track.id }) {
-                    let updatedTrack = recentlyResolved[index].updatingPlatformLink(
-                        result.platformLink,
-                        state: result.state,
-                        for: platform
-                    )
-                    recentlyResolved[index] = updatedTrack
-                    TrackCache.shared.save(track: updatedTrack)
-                }
-            }
-        }
-    }
-
-    private func loadRecentlyResolved() {
-        let identities = RecentlyResolvedStore.shared.allEntries()
-        var tracks: [Track] = []
-        for identity in identities {
-            if let track = TrackCache.shared.track(for: identity) {
-                tracks.append(track)
-            } else if let mockTrack = MockData.track(forTrackID: identity) {
-                tracks.append(mockTrack)
-            }
-        }
-        recentlyResolved = tracks
-    }
-
-    private func deletePlaylists(at offsets: IndexSet) {
-        for index in offsets {
-            let playlist = playlists[index]
-            if !playlist.isDefault {
-                _ = PlaylistStore.shared.deletePlaylist(playlist)
-            }
-        }
-        refreshPlaylists()
-    }
-
-    private func refreshPlaylists() {
-        playlists = PlaylistStore.shared.loadPlaylists()
-    }
-
-    private func removeRecentlyResolved(_ track: Track) {
-        recentlyResolved.removeAll { $0.id == track.id }
-        if let identity = track.persistenceIdentity {
-            RecentlyResolvedStore.shared.remove(identity: identity)
-        }
-    }
-
-    private func updateRecentlyResolvedTrack(_ updatedTrack: Track) {
-        if let index = recentlyResolved.firstIndex(where: { $0.id == updatedTrack.id }) {
-            recentlyResolved[index] = updatedTrack
-        }
-        TrackCache.shared.save(track: updatedTrack)
     }
 }
 

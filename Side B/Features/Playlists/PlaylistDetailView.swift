@@ -1,30 +1,21 @@
 import SwiftUI
 
 struct PlaylistDetailView: View {
-    let playlist: Playlist
-    @State private var trackEntries: [PlaylistTrackEntry] = []
-    @State private var entryTracks: [String: Track] = [:]
-    @State private var isRefreshing = false
-    @State private var showingRenameSheet = false
-    @State private var renameText = ""
-    @State private var showingDeleteConfirmation = false
-    @State private var currentPlaylist: Playlist
+    @State private var viewModel: PlaylistDetailViewModel
     @Environment(\.dismiss) private var dismiss
 
     init(playlist: Playlist) {
-        self.playlist = playlist
-        _currentPlaylist = State(initialValue: playlist)
-        _renameText = State(initialValue: playlist.name)
+        _viewModel = State(initialValue: PlaylistDetailViewModel(playlist: playlist))
     }
 
     var body: some View {
         List {
-            if trackEntries.isEmpty {
+            if viewModel.trackEntries.isEmpty {
                 emptyStateView
             } else {
-                ForEach(sortedTrackEntries) { entry in
+                ForEach(viewModel.sortedTrackEntries) { entry in
                     NavigationLink {
-                        SongDetailView(track: resolvedTrack(for: entry) ?? Track(
+                        SongDetailView(track: viewModel.resolvedTrack(for: entry) ?? Track(
                             title: "Unknown Song",
                             artistName: "Unknown Artist",
                             sourcePlatform: .spotify,
@@ -33,12 +24,12 @@ struct PlaylistDetailView: View {
                     } label: {
                         PlaylistSongRowView(
                             entry: entry,
-                            track: resolvedTrack(for: entry)
+                            track: viewModel.resolvedTrack(for: entry)
                         )
                     }
                     .swipeActions(edge: .trailing) {
                         Button(role: .destructive) {
-                            deleteTrackEntry(entry)
+                            viewModel.deleteTrackEntry(entry)
                         } label: {
                             Label("移除", systemImage: "trash")
                         }
@@ -48,17 +39,17 @@ struct PlaylistDetailView: View {
         }
         .listStyle(.plain)
         .refreshable {
-            isRefreshing = true
-            loadTrackEntries()
-            isRefreshing = false
+            viewModel.isRefreshing = true
+            viewModel.loadTrackEntries()
+            viewModel.isRefreshing = false
         }
-        .navigationTitle(currentPlaylist.name)
+        .navigationTitle(viewModel.currentPlaylist.name)
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Button {
-                        showingRenameSheet = true
+                        viewModel.showingRenameSheet = true
                     } label: {
                         Label("重命名", systemImage: "pencil")
                     }
@@ -66,7 +57,7 @@ struct PlaylistDetailView: View {
                     Divider()
 
                     Button(role: .destructive) {
-                        showingDeleteConfirmation = true
+                        viewModel.showingDeleteConfirmation = true
                     } label: {
                         Label("移除歌单", systemImage: "trash")
                     }
@@ -75,39 +66,30 @@ struct PlaylistDetailView: View {
                 }
             }
         }
-        .alert("重命名歌单", isPresented: $showingRenameSheet) {
-            TextField("歌单名称", text: $renameText)
+        .alert("重命名歌单", isPresented: $viewModel.showingRenameSheet) {
+            TextField("歌单名称", text: $viewModel.renameText)
             Button("取消", role: .cancel) {
-                renameText = currentPlaylist.name
+                viewModel.resetRenameText()
             }
             Button("确定") {
-                let trimmed = renameText.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !trimmed.isEmpty else { return }
-                if let updated = PlaylistStore.shared.renamePlaylist(currentPlaylist, to: trimmed) {
-                    currentPlaylist = updated
-                }
+                viewModel.renamePlaylist(to: viewModel.renameText)
             }
         } message: {
             Text("输入新的歌单名称")
         }
-        .alert("移除歌单", isPresented: $showingDeleteConfirmation) {
+        .alert("移除歌单", isPresented: $viewModel.showingDeleteConfirmation) {
             Button("取消", role: .cancel) { }
             Button("移除", role: .destructive) {
-                if !currentPlaylist.isDefault {
-                    _ = PlaylistStore.shared.deletePlaylist(currentPlaylist)
+                if viewModel.deletePlaylist() {
                     dismiss()
                 }
             }
         } message: {
-            Text("确定要移除「\(currentPlaylist.name)」吗？移除后无法恢复。")
+            Text("确定要移除「\(viewModel.currentPlaylist.name)」吗？移除后无法恢复。")
         }
         .onAppear {
-            loadTrackEntries()
+            viewModel.loadTrackEntries()
         }
-    }
-
-    private var sortedTrackEntries: [PlaylistTrackEntry] {
-        trackEntries.sorted { $0.addedAt > $1.addedAt }
     }
 
     private var emptyStateView: some View {
@@ -130,33 +112,6 @@ struct PlaylistDetailView: View {
             .padding(.vertical, 60)
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
-        }
-    }
-
-    private func loadTrackEntries() {
-        trackEntries = PlaylistStore.shared.getTrackEntries(for: currentPlaylist)
-        resolveTracksForEntries()
-    }
-
-    private func resolveTracksForEntries() {
-        var tracks: [String: Track] = [:]
-        for entry in trackEntries {
-            if let cachedTrack = TrackCache.shared.track(for: entry.trackID) {
-                tracks[entry.trackID] = cachedTrack
-            } else if let mockTrack = MockData.track(forTrackID: entry.trackID) {
-                tracks[entry.trackID] = mockTrack
-            }
-        }
-        entryTracks = tracks
-    }
-
-    private func resolvedTrack(for entry: PlaylistTrackEntry) -> Track? {
-        entryTracks[entry.trackID]
-    }
-
-    private func deleteTrackEntry(_ entry: PlaylistTrackEntry) {
-        if PlaylistStore.shared.removeTrack(entry, from: currentPlaylist) {
-            loadTrackEntries()
         }
     }
 }

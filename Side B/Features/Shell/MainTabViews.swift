@@ -153,16 +153,7 @@ struct RoomsListView: View {
 }
 
 struct SongDetailView: View {
-    private let navigationService: PlatformNavigationService = MockPlatformNavigationService()
-    private let resolver: any MusicResolverService
-    private let persistenceStore: PlatformLinkPersistenceStore
-    private let onTrackUpdated: ((Track) -> Void)?
-    @State private var displayTrack: Track
-    @State private var platformFeedbackMessage = ""
-    @State private var isShowingPlatformFeedback = false
-    @State private var showingAddToPlaylistSheet = false
-    @State private var showAddSuccessToast = false
-    @State private var addSuccessMessage = ""
+    @State private var viewModel: SongDetailViewModel
     @Environment(\.openURL) private var openURL
 
     init(
@@ -171,10 +162,12 @@ struct SongDetailView: View {
         persistenceStore: PlatformLinkPersistenceStore = .shared,
         onTrackUpdated: ((Track) -> Void)? = nil
     ) {
-        self.resolver = resolver
-        self.persistenceStore = persistenceStore
-        self.onTrackUpdated = onTrackUpdated
-        _displayTrack = State(initialValue: track)
+        _viewModel = State(initialValue: SongDetailViewModel(
+            track: track,
+            resolver: resolver,
+            persistenceStore: persistenceStore,
+            onTrackUpdated: onTrackUpdated
+        ))
     }
 
     var body: some View {
@@ -183,21 +176,21 @@ struct SongDetailView: View {
                 artworkSection
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(displayTrack.title)
+                    Text(viewModel.displayTrack.title)
                         .font(.title2)
                         .fontWeight(.bold)
 
-                    Text(displayTrack.artistName)
+                    Text(viewModel.displayTrack.artistName)
                         .font(.title3)
                         .foregroundStyle(.secondary)
 
-                    if let albumTitle = displayTrack.albumTitle {
+                    if let albumTitle = viewModel.displayTrack.albumTitle {
                         Text("专辑：\(albumTitle)")
                             .font(.body)
                             .foregroundStyle(.secondary)
                     }
 
-                    Text("来源：\(displayTrack.sourcePlatformName)")
+                    Text("来源：\(viewModel.displayTrack.sourcePlatformName)")
                         .font(.body)
                         .foregroundStyle(.secondary)
                 }
@@ -206,7 +199,7 @@ struct SongDetailView: View {
                     Text("打开方式")
                         .font(.headline)
 
-                    ForEach(platformSlotRows, id: \.self) { row in
+                    ForEach(viewModel.platformSlotRows, id: \.self) { row in
                         HStack(spacing: 12) {
                             ForEach(row, id: \.platform) { slot in
                                 PlatformJumpButton(
@@ -222,7 +215,7 @@ struct SongDetailView: View {
                 }
 
                 Button {
-                    showingAddToPlaylistSheet = true
+                    viewModel.showingAddToPlaylistSheet = true
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "plus.circle")
@@ -238,24 +231,24 @@ struct SongDetailView: View {
             }
             .padding()
         }
-        .navigationTitle(displayTrack.title)
+        .navigationTitle(viewModel.displayTrack.title)
         .navigationBarTitleDisplayMode(.inline)
-.alert("即将上线", isPresented: $isShowingPlatformFeedback) {
-                    Button("好的", role: .cancel) {}
+        .alert("即将上线", isPresented: $viewModel.isShowingPlatformFeedback) {
+            Button("好的", role: .cancel) {}
         } message: {
-            Text(platformFeedbackMessage)
+            Text(viewModel.platformFeedbackMessage)
         }
-        .task(id: displayTrack.id) {
-            hydrateDisplayTrackFromPersistence()
-            resolvePendingPlatformLinksIfNeeded()
+        .task(id: viewModel.displayTrack.id) {
+            viewModel.hydrateDisplayTrackFromPersistence()
+            viewModel.resolvePendingPlatformLinksIfNeeded()
         }
-        .sheet(isPresented: $showingAddToPlaylistSheet) {
-            AddToPlaylistView(track: displayTrack, isPresented: $showingAddToPlaylistSheet) { playlist in
-                addSuccessMessage = "已添加到「\(playlist.name)」"
-                showAddSuccessToast = true
+        .sheet(isPresented: $viewModel.showingAddToPlaylistSheet) {
+            AddToPlaylistView(track: viewModel.displayTrack, isPresented: $viewModel.showingAddToPlaylistSheet) { playlist in
+                viewModel.addSuccessMessage = "已添加到「\(playlist.name)」"
+                viewModel.showAddSuccessToast = true
             }
         }
-        .toast(isPresented: $showAddSuccessToast, message: addSuccessMessage)
+        .toast(isPresented: $viewModel.showAddSuccessToast, message: viewModel.addSuccessMessage)
     }
 
     private var artworkSection: some View {
@@ -263,7 +256,7 @@ struct SongDetailView: View {
             RoundedRectangle(cornerRadius: 24)
                 .fill(Color.secondary.opacity(0.15))
 
-            if let artworkURL = displayTrack.artworkURL {
+            if let artworkURL = viewModel.displayTrack.artworkURL {
                 AsyncImage(url: artworkURL) { image in
                     image
                         .resizable()
@@ -284,128 +277,24 @@ struct SongDetailView: View {
         .clipShape(RoundedRectangle(cornerRadius: 24))
     }
 
-    private func showPlatformFeedback(for platformLink: PlatformLink) {
-        let destinationURL = platformLink.destinationURL
-
-        guard navigationService.destinationURL(for: platformLink.platform, track: displayTrack) != nil || platformLink.isSource else {
-            platformFeedbackMessage = "\(platformLink.platformName) 暂不支持跳转"
-            isShowingPlatformFeedback = true
-            return
-        }
-
-        openURL(destinationURL) { accepted in
-            if !accepted {
-                platformFeedbackMessage = "无法打开\(platformLink.platformName)"
-                isShowingPlatformFeedback = true
-            }
-        }
-    }
-
-    private var platformSlots: [PlatformSlot] {
-        MusicPlatform.allCases.map { platform in
-            let state = displayTrack.platformLinkState(for: platform)
-            let link = displayTrack.platformLink(for: platform)
-            return PlatformSlot(platform: platform, state: state, link: link)
-        }
-    }
-
-    private var platformSlotRows: [[PlatformSlot]] {
-        stride(from: 0, to: platformSlots.count, by: 2).map { index in
-            Array(platformSlots[index..<min(index + 2, platformSlots.count)])
-        }
-    }
-
-    private func resolvePendingPlatformLinksIfNeeded() {
-        let pendingPlatforms = MusicPlatform.allCases.filter { platform in
-            platform != displayTrack.sourcePlatform && shouldResolvePlatformLink(for: platform)
-        }
-
-        guard !pendingPlatforms.isEmpty else { return }
-
-        let track = displayTrack
-        for platform in pendingPlatforms {
-            displayTrack = displayTrack.updatingPlatformLinkState(.loading, for: platform)
-        }
-
-        for platform in pendingPlatforms {
-            requestPlatformLink(for: platform, using: track)
-        }
-    }
-
-    private func shouldResolvePlatformLink(for platform: MusicPlatform) -> Bool {
-        let state = displayTrack.platformLinkState(for: platform)
-        return state == .idle || state == .failed
-    }
-
     private func handlePlatformSlotTap(_ slot: PlatformSlot) {
-        switch slot.state {
-        case .ready:
-            guard let link = slot.link else { return }
-            showPlatformFeedback(for: link)
-        case .failed:
-            retryPlatformLinkResolution(for: slot.platform)
-        case .idle:
-            retryPlatformLinkResolution(for: slot.platform)
-        case .loading, .unavailable:
+        let action = viewModel.handlePlatformSlotTap(slot)
+        switch action {
+        case .none:
             break
+        case .openURL(let url):
+            openURL(url) { accepted in
+                if !accepted {
+                    viewModel.platformFeedbackMessage = "无法打开\(slot.link?.platformName ?? "")"
+                    viewModel.isShowingPlatformFeedback = true
+                }
+            }
+        case .showFeedback(let message):
+            viewModel.platformFeedbackMessage = message
+            viewModel.isShowingPlatformFeedback = true
+        case .retry(let platform):
+            viewModel.retryPlatformLinkResolution(for: platform)
         }
-    }
-
-    private func retryPlatformLinkResolution(for platform: MusicPlatform) {
-        guard platform != displayTrack.sourcePlatform else { return }
-        displayTrack = displayTrack.updatingPlatformLinkState(.loading, for: platform)
-        requestPlatformLink(for: platform, using: displayTrack)
-    }
-
-    private func requestPlatformLink(for platform: MusicPlatform, using track: Track) {
-        displayTrack = displayTrack.updatingPlatformLinkState(.loading, for: platform)
-        Task { @MainActor in
-            let result = try? await resolver.resolvePlatformLink(for: track, targetPlatform: platform)
-            guard let result else { return }
-            let updatedTrack = displayTrack.updatingPlatformLink(
-                result.platformLink,
-                state: result.state,
-                for: platform
-            )
-            displayTrack = updatedTrack
-            persistenceStore.save(track: updatedTrack)
-            onTrackUpdated?(updatedTrack)
-        }
-    }
-
-    private func hydrateDisplayTrackFromPersistence() {
-        guard let persistedTrack = persistenceStore.restore(track: displayTrack) else { return }
-        displayTrack = persistedTrack
-        onTrackUpdated?(persistedTrack)
-    }
-}
-
-private struct PlatformSlot: Hashable {
-    let platform: MusicPlatform
-    let state: PlatformLinkLoadState
-    let link: PlatformLink?
-
-    var title: String {
-        switch state {
-        case .ready:
-            return platform.displayName
-        case .loading:
-            return "\(platform.displayName) 匹配中"
-        case .unavailable:
-            return "\(platform.displayName) 暂未匹配"
-        case .failed:
-            return "\(platform.displayName) 重试"
-        case .idle:
-            return "\(platform.displayName) 待获取"
-        }
-    }
-
-    var isEnabled: Bool {
-        state == .ready || state == .failed || state == .idle
-    }
-
-    var isLoading: Bool {
-        state == .loading
     }
 }
 
