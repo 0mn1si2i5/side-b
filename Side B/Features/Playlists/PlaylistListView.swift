@@ -151,6 +151,9 @@ struct PlaylistListView: View {
                     onAddToPlaylist: {
                         selectedTrackForPlaylist = track
                         showingAddToPlaylistSheet = true
+                    },
+                    onTrackUpdated: { updatedTrack in
+                        updateRecentlyResolvedTrack(updatedTrack)
                     }
                 )
                 .swipeActions(edge: .leading, allowsFullSwipe: false) {
@@ -303,6 +306,13 @@ struct PlaylistListView: View {
             RecentlyResolvedStore.shared.remove(identity: identity)
         }
     }
+
+    private func updateRecentlyResolvedTrack(_ updatedTrack: Track) {
+        if let index = recentlyResolved.firstIndex(where: { $0.id == updatedTrack.id }) {
+            recentlyResolved[index] = updatedTrack
+        }
+        TrackCache.shared.save(track: updatedTrack)
+    }
 }
 
 // MARK: - Recently Resolved Row View
@@ -310,10 +320,11 @@ struct PlaylistListView: View {
 private struct RecentlyResolvedRowView: View {
     let track: Track
     let onAddToPlaylist: () -> Void
+    let onTrackUpdated: (Track) -> Void
 
     var body: some View {
         NavigationLink {
-            SongDetailView(track: track)
+            SongDetailView(track: track, onTrackUpdated: onTrackUpdated)
         } label: {
             HStack(spacing: 12) {
                 ZStack {
@@ -363,10 +374,6 @@ private struct RecentlyResolvedRowView: View {
                 }
 
                 Spacer(minLength: 0)
-
-                Image(systemName: "chevron.right")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
             .padding(.vertical, 4)
         }

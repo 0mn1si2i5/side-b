@@ -145,7 +145,8 @@ struct RoomDetailView: View {
 
                 Group {
                     if viewModel.isShowingLinkInput {
-                        TextField("粘贴音乐链接", text: $viewModel.linkInput)
+                        TextField("粘贴音乐链接", text: $viewModel.linkInput, axis: .vertical)
+                            .lineLimit(1...5)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
                             .textFieldStyle(.roundedBorder)
@@ -155,7 +156,8 @@ struct RoomDetailView: View {
                                 submitComposer()
                             }
                     } else {
-                        TextField("发送消息", text: $viewModel.draftText)
+                        TextField("发送消息", text: $viewModel.draftText, axis: .vertical)
+                            .lineLimit(1...5)
                             .textFieldStyle(.roundedBorder)
                             .disabled(viewModel.isSending)
                             .submitLabel(.send)
@@ -172,18 +174,9 @@ struct RoomDetailView: View {
                 .disabled(activeComposerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isSending)
                 .overlay {
                     if viewModel.isSending {
-                        HStack(spacing: 6) {
-                            ProgressView()
-                                .controlSize(.small)
-
-                            Text(viewModel.isShowingLinkInput ? "Sharing" : "Sending")
-                                .font(.footnote)
-                                .fontWeight(.medium)
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(Color.accentColor)
-                        .clipShape(Capsule())
+                        ProgressView()
+                            .controlSize(.small)
+                            .tint(.white)
                     }
                 }
             }

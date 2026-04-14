@@ -45,7 +45,7 @@ final class RoomDetailViewModel: ObservableObject {
 
         isSending = true
         linkResolutionState = .resolving
-        linkResolutionMessage = "Resolving song link..."
+        linkResolutionMessage = "正在解析歌曲链接..."
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self else { return }
@@ -143,7 +143,7 @@ final class RoomDetailViewModel: ObservableObject {
         let resolvedTrack = persistenceStore.restore(track: response.resolvedTrack.track) ?? response.resolvedTrack.track
         let newMessage = Message(
             senderName: senderName,
-            text: "Shared a song link",
+            text: nil as String?,
             track: resolvedTrack,
             sentAt: Date()
         )
