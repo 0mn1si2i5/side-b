@@ -158,14 +158,18 @@ private struct MessageDTO: Decodable {
         dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         let date = dateFormatter.date(from: createdAt) ?? Date()
 
-        let text: String? = contentType == "text" ? textContent : nil
-        let track: Track? = contentType == "song" ? parseTrackData() : nil
+        let contentTypeEnum = MessageType(rawValue: contentType) ?? .text
+        let text: String? = contentTypeEnum == .text ? textContent : nil
+        let track: Track? = contentTypeEnum == .song ? parseTrackData() : nil
 
         return Message(
             id: UUID(uuidString: id) ?? UUID(),
             senderName: senderId,
+            senderID: UUID(uuidString: senderId),
+            contentType: contentTypeEnum,
             text: text,
             track: track,
+            replyToMessageID: replyToId.flatMap { UUID(uuidString: $0) },
             sentAt: date
         )
     }

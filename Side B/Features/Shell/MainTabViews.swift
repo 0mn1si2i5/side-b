@@ -1,5 +1,36 @@
 import SwiftUI
 
+enum RoomsListState {
+    case loading
+    case loaded
+    case failed
+}
+
+@Observable
+final class RoomsListViewModel {
+    var rooms: [Room] = []
+    var state: RoomsListState = .loading
+
+    private let service: any RoomServiceProtocol
+
+    init(service: any RoomServiceProtocol = RoomServiceFactory.makeDefaultService()) {
+        self.service = service
+    }
+
+    func loadRooms() {
+        state = .loading
+        Task { @MainActor in
+            do {
+                rooms = try await service.fetchRooms()
+                state = .loaded
+            } catch {
+                rooms = MockData.rooms
+                state = rooms.isEmpty ? .failed : .loaded
+            }
+        }
+    }
+}
+
 struct HomeTabView: View {
     var body: some View {
         VStack(spacing: 16) {
@@ -17,16 +48,53 @@ struct HomeTabView: View {
 }
 
 struct RoomsListView: View {
-    let rooms = MockData.rooms
+    @State private var viewModel = RoomsListViewModel()
 
     var body: some View {
-        List(rooms) { room in
+        Group {
+            switch viewModel.state {
+            case .loading:
+                ProgressView("加载中...")
+            case .failed:
+                VStack(spacing: 12) {
+                    Text("加载失败")
+                        .foregroundStyle(.secondary)
+                    Button("重试") {
+                        viewModel.loadRooms()
+                    }
+                    .buttonStyle(.bordered)
+                }
+            case .loaded:
+                roomsList
+            }
+        }
+        .task {
+            viewModel.loadRooms()
+        }
+        .navigationTitle("聊天室")
+    }
+
+    private var roomsList: some View {
+        List(viewModel.rooms) { room in
             NavigationLink {
                 RoomDetailView(room: room)
             } label: {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(room.name)
-                        .font(.headline)
+                    HStack {
+                        Text(room.name)
+                            .font(.headline)
+
+                        if room.type == .direct {
+                            Text("私聊")
+                                .font(.caption2)
+                                .fontWeight(.medium)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.blue.opacity(0.15))
+                                .foregroundStyle(.blue)
+                                .clipShape(Capsule())
+                        }
+                    }
 
                     if let latestTrack = room.latestTrack {
                         Text("\(latestTrack.title) · \(latestTrack.artistName)")
@@ -43,7 +111,6 @@ struct RoomsListView: View {
                 }
             }
         }
-        .navigationTitle("聊天室")
     }
 }
 

@@ -214,10 +214,13 @@ final class RemoteWebSocketService: WebSocketServiceProtocol {
         dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         let sentAt = dateFormatter.date(from: createdAtStr) ?? Date()
 
+        let contentTypeEnum = MessageType(rawValue: contentType) ?? .text
         let message = Message(
             id: id,
             senderName: senderName,
-            text: contentType == "text" ? textContent : nil,
+            senderID: UUID(uuidString: senderId),
+            contentType: contentTypeEnum,
+            text: contentTypeEnum == .text ? textContent : nil,
             track: track,
             sentAt: sentAt
         )
@@ -254,12 +257,16 @@ final class RemoteWebSocketService: WebSocketServiceProtocol {
 
         let id = UUID(uuidString: dataDict["id"] as? String ?? "") ?? UUID()
         let name = dataDict["name"] as? String ?? ""
+        let type = RoomType(rawValue: dataDict["type"] as? String ?? "group") ?? .group
+        let createdBy = UUID(uuidString: dataDict["createdBy"] as? String ?? "") ?? UUID()
+        let isActive = dataDict["isActive"] as? Bool ?? true
 
         let room = Room(
             id: id,
             name: name,
-            latestTrack: nil,
-            latestMessagePreview: nil
+            type: type,
+            createdBy: createdBy,
+            isActive: isActive
         )
 
         onRoomUpdated?(room)
