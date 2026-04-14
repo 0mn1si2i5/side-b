@@ -3,6 +3,7 @@ import SwiftUI
 struct RoomDetailView: View {
     let room: Room
     @StateObject private var viewModel: RoomDetailViewModel
+    @Environment(AuthState.self) private var authState
     @State private var pendingIncomingMessageCount = 0
     @State private var isAtBottom = true
 
@@ -15,37 +16,14 @@ struct RoomDetailView: View {
 
     var body: some View {
         ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    ForEach(Array(viewModel.messages.enumerated()), id: \.element.id) { index, message in
-                        MessageRowView(
-                            message: message,
-                            showsMetadata: shouldShowMetadata(for: index),
-                            isGroupedWithNextMessage: isGroupedWithNextMessage(for: index),
-                            onTrackUpdated: { track in
-                                viewModel.updateTrack(track, forMessageID: message.id)
-                            },
-                            onQuoteTrack: { track in
-                                viewModel.startQuoting(track: track)
-                            }
-                        )
-                        .padding(.horizontal, 16)
-                        .padding(.top, shouldShowMetadata(for: index) ? 10 : 3)
-                        .padding(.bottom, isGroupedWithNextMessage(for: index) ? 3 : 10)
-                    }
-
-                    Color.clear
-                        .frame(height: 1)
-                        .id("bottom-anchor")
-                        .onAppear {
-                            isAtBottom = true
-                            pendingIncomingMessageCount = 0
-                        }
-                        .onDisappear {
-                            isAtBottom = false
-                        }
+            ZStack {
+                if viewModel.isLoading && viewModel.messages.isEmpty {
+                    loadingView
+                } else if let errorMessage = viewModel.errorMessage, viewModel.messages.isEmpty {
+                    errorView(message: errorMessage)
+                } else {
+                    messageList(proxy: proxy)
                 }
-                .padding(.top, 8)
             }
             .navigationTitle(room.name)
             .navigationBarTitleDisplayMode(.inline)
@@ -72,23 +50,6 @@ struct RoomDetailView: View {
                     .padding(.bottom, 82)
                 }
             }
-            .onChange(of: viewModel.messages.count) { _, _ in
-                guard let latestMessage = viewModel.messages.last else { return }
-
-                if latestMessage.senderName == "You" {
-                    withAnimation {
-                        proxy.scrollTo("bottom-anchor", anchor: .bottom)
-                    }
-                    pendingIncomingMessageCount = 0
-                } else if isAtBottom {
-                    withAnimation {
-                        proxy.scrollTo("bottom-anchor", anchor: .bottom)
-                    }
-                    pendingIncomingMessageCount = 0
-                } else {
-                    pendingIncomingMessageCount += 1
-                }
-            }
             .onAppear {
                 proxy.scrollTo("bottom-anchor", anchor: .bottom)
                 pendingIncomingMessageCount = 0
@@ -98,6 +59,101 @@ struct RoomDetailView: View {
                 viewModel.onDisappear()
             }
         }
+    }
+
+    private var loadingView: some View {
+        VStack(spacing: 16) {
+            ProgressView()
+                .controlSize(.large)
+            Text("加载中...")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func errorView(message: String) -> some View {
+        VStack(spacing: 16) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.largeTitle)
+                .foregroundStyle(.secondary)
+
+            Text(message)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+
+            Button("重试") {
+                viewModel.errorMessage = nil
+                viewModel.onAppear()
+            }
+            .buttonStyle(.bordered)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func messageList(proxy: ScrollViewProxy) -> some View {
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                ForEach(Array(viewModel.messages.enumerated()), id: \.element.id) { index, message in
+                    MessageRowView(
+                        message: message,
+                        showsMetadata: shouldShowMetadata(for: index),
+                        isGroupedWithNextMessage: isGroupedWithNextMessage(for: index),
+                        isCurrentUser: isMessageFromCurrentUser(message),
+                        onTrackUpdated: { track in
+                            viewModel.updateTrack(track, forMessageID: message.id)
+                        },
+                        onQuoteTrack: { track in
+                            viewModel.startQuoting(track: track)
+                        }
+                    )
+                    .padding(.horizontal, 16)
+                    .padding(.top, shouldShowMetadata(for: index) ? 10 : 3)
+                    .padding(.bottom, isGroupedWithNextMessage(for: index) ? 3 : 10)
+                }
+
+                Color.clear
+                    .frame(height: 1)
+                    .id("bottom-anchor")
+                    .onAppear {
+                        isAtBottom = true
+                        pendingIncomingMessageCount = 0
+                    }
+                    .onDisappear {
+                        isAtBottom = false
+                    }
+            }
+            .padding(.top, 8)
+        }
+        .onChange(of: viewModel.messages.count) { _, _ in
+            guard let latestMessage = viewModel.messages.last else { return }
+
+            if isMessageFromCurrentUser(latestMessage) {
+                withAnimation {
+                    proxy.scrollTo("bottom-anchor", anchor: .bottom)
+                }
+                pendingIncomingMessageCount = 0
+            } else if isAtBottom {
+                withAnimation {
+                    proxy.scrollTo("bottom-anchor", anchor: .bottom)
+                }
+                pendingIncomingMessageCount = 0
+            } else {
+                pendingIncomingMessageCount += 1
+            }
+        }
+    }
+
+    private func isMessageFromCurrentUser(_ message: Message) -> Bool {
+        guard let currentUser = authState.currentUser else {
+            return message.senderName == "You"
+        }
+        if let senderID = message.senderID, senderID == currentUser.id {
+            return true
+        }
+        return message.senderName == currentUser.username || message.senderName == "You"
     }
 
     private var messageComposer: some View {
@@ -230,12 +286,16 @@ struct RoomDetailView: View {
 
     private func shouldShowMetadata(for index: Int) -> Bool {
         guard index > 0 else { return true }
-        return viewModel.messages[index - 1].senderName != viewModel.messages[index].senderName
+        let current = viewModel.messages[index]
+        let previous = viewModel.messages[index - 1]
+        return current.senderName != previous.senderName || isMessageFromCurrentUser(current) != isMessageFromCurrentUser(previous)
     }
 
     private func isGroupedWithNextMessage(for index: Int) -> Bool {
         guard index < viewModel.messages.count - 1 else { return false }
-        return viewModel.messages[index + 1].senderName == viewModel.messages[index].senderName
+        let current = viewModel.messages[index]
+        let next = viewModel.messages[index + 1]
+        return next.senderName == current.senderName && isMessageFromCurrentUser(current) == isMessageFromCurrentUser(next)
     }
 
     private func submitComposer() {

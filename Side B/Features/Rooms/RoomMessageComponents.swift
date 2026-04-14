@@ -4,6 +4,7 @@ struct MessageRowView: View {
     let message: Message
     let showsMetadata: Bool
     let isGroupedWithNextMessage: Bool
+    let isCurrentUser: Bool
     let onTrackUpdated: (Track) -> Void
     let onQuoteTrack: (Track) -> Void
 
@@ -11,10 +12,6 @@ struct MessageRowView: View {
     @State private var selectedTrack: Track? = nil
     @State private var showAddSuccessToast = false
     @State private var addSuccessMessage = ""
-
-    private var isCurrentUser: Bool {
-        message.senderName == "You"
-    }
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 0) {

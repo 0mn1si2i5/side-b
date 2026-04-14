@@ -19,6 +19,8 @@ final class RoomDetailViewModel: ObservableObject {
     @Published var connectionState: WebSocketConnectionState = .disconnected
     @Published private(set) var linkResolutionState: LinkResolutionState = .idle
     @Published private(set) var linkResolutionMessage: String?
+    @Published var isLoading = false
+    @Published var errorMessage: String?
 
     private let roomId: UUID
     private let resolver: MusicResolverService
@@ -67,6 +69,8 @@ final class RoomDetailViewModel: ObservableObject {
     }
 
     private func loadInitialMessages() async {
+        isLoading = true
+        errorMessage = nil
         do {
             let fetched = try await messageService.fetchMessages(roomId: roomId)
             messages = fetched
@@ -78,7 +82,9 @@ final class RoomDetailViewModel: ObservableObject {
                     return message.updatingTrack(restoredTrack)
                 }
         } catch {
+            errorMessage = "加载消息失败，请稍后重试"
         }
+        isLoading = false
     }
 
     private func setupWebSocketCallbacks() {
