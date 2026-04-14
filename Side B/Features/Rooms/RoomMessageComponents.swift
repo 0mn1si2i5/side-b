@@ -104,6 +104,14 @@ struct MessageRowView: View {
                         }
                     }
                 }
+
+                if !message.emojiReactions.isEmpty {
+                    EmojiReactionsView(
+                        reactions: message.emojiReactions,
+                        isCurrentUser: isCurrentUser
+                    )
+                    .padding(.top, 2)
+                }
             }
 
             if !isCurrentUser {
@@ -198,6 +206,47 @@ private func replyQuoteBlock(originalMessage: Message) -> some View {
         .padding(.vertical, 6)
         .background(isCurrentUser ? Color.white.opacity(0.15) : Color(.tertiarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+struct EmojiReactionsView: View {
+    let reactions: [EmojiReaction]
+    let isCurrentUser: Bool
+
+    private var groupedReactions: [(emoji: String, count: Int)] {
+        let counts = Dictionary(grouping: reactions, by: { $0.emoji })
+            .mapValues { $0.count }
+        return counts.map { (emoji: $0.key, count: $0.value) }.sorted { $0.emoji < $1.emoji }
+    }
+
+    var body: some View {
+        if !reactions.isEmpty {
+            HStack(spacing: 4) {
+                ForEach(groupedReactions, id: \.emoji) { group in
+                    HStack(spacing: 2) {
+                        Text(group.emoji)
+                            .font(.caption2)
+                        Text("\(group.count)")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(
+                        Capsule()
+                            .fill(isCurrentUser
+                                  ? Color.white.opacity(0.2)
+                                  : Color(.tertiarySystemBackground))
+                    )
+                    .overlay(
+                        Capsule()
+                            .stroke(isCurrentUser
+                                    ? Color.white.opacity(0.15)
+                                    : Color.black.opacity(0.06), lineWidth: 0.5)
+                    )
+                }
+            }
+        }
     }
 }
 

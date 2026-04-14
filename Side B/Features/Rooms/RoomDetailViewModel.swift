@@ -132,7 +132,8 @@ final class RoomDetailViewModel: ObservableObject {
     }
 
     private func handleIncomingEmojiReaction(_ reaction: EmojiReaction) {
-        guard let _ = messages.firstIndex(where: { $0.id == reaction.messageId }) else { return }
+        guard let index = messages.firstIndex(where: { $0.id == reaction.messageId }) else { return }
+        messages[index].emojiReactions.append(reaction)
     }
 
     func sendResolvedTrackMessage(senderName: String = "You") {
