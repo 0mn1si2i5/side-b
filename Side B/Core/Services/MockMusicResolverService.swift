@@ -15,7 +15,7 @@ struct MockMusicResolverService: MusicResolverService {
         self.navigationService = navigationService
     }
 
-    func resolve(request: ResolverRequest) -> ResolverResponse {
+    func resolve(request: ResolverRequest) async throws -> ResolverResponse {
         let rawLink = request.rawLink.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let parsingResult = parse(link: rawLink) else {
             let payload = fallbackPayload(for: rawLink)
@@ -75,10 +75,10 @@ struct MockMusicResolverService: MusicResolverService {
         )
     }
 
-    func resolveMetadata(request: ResolverRequest) -> ResolverResponse {
+    func resolveMetadata(request: ResolverRequest) async throws -> ResolverResponse {
         let rawLink = request.rawLink.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let parsingResult = parse(link: rawLink) else {
-            return resolve(request: request).withPlatformLinksStatus(.failed)
+            return try await resolve(request: request).withPlatformLinksStatus(.failed)
         }
 
         let payload: ResolvedTrackPayload
@@ -128,7 +128,7 @@ struct MockMusicResolverService: MusicResolverService {
         )
     }
 
-    func resolvePlatformLinks(for track: Track) -> PlatformLinksResolutionResponse {
+    func resolvePlatformLinks(for track: Track) async throws -> PlatformLinksResolutionResponse {
         PlatformLinksResolutionResponse(
             platformLinks: allPlatformLinks(for: track),
             status: .loaded,
@@ -137,7 +137,7 @@ struct MockMusicResolverService: MusicResolverService {
         )
     }
 
-    func resolvePlatformLink(for track: Track, targetPlatform: MusicPlatform) -> SinglePlatformLinkResolutionResponse {
+    func resolvePlatformLink(for track: Track, targetPlatform: MusicPlatform) async throws -> SinglePlatformLinkResolutionResponse {
         let platformLink = allPlatformLinks(for: track).first(where: { $0.platform == targetPlatform })
         return SinglePlatformLinkResolutionResponse(
             platform: targetPlatform,
@@ -148,12 +148,12 @@ struct MockMusicResolverService: MusicResolverService {
         )
     }
 
-    func resolvePayload(from link: String) -> ResolvedTrackPayload {
-        resolve(request: ResolverRequest(rawLink: link)).resolvedTrack
+    func resolvePayload(from link: String) async throws -> ResolvedTrackPayload {
+        try await resolve(request: ResolverRequest(rawLink: link)).resolvedTrack
     }
 
-    func resolveTrack(from link: String) -> Track {
-        resolvePayload(from: link).track
+    func resolveTrack(from link: String) async throws -> Track {
+        try await resolvePayload(from: link).track
     }
 
     private func parse(link: String) -> LinkParsingResult? {

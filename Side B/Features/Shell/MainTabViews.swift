@@ -253,19 +253,18 @@ struct SongDetailView: View {
     }
 
     private func requestPlatformLink(for platform: MusicPlatform, using track: Track) {
-        DispatchQueue.global(qos: .userInitiated).async {
-            let result = resolver.resolvePlatformLink(for: track, targetPlatform: platform)
-
-            DispatchQueue.main.async {
-                let updatedTrack = displayTrack.updatingPlatformLink(
-                    result.platformLink,
-                    state: result.state,
-                    for: platform
-                )
-                displayTrack = updatedTrack
-                persistenceStore.save(track: updatedTrack)
-                onTrackUpdated?(updatedTrack)
-            }
+        displayTrack = displayTrack.updatingPlatformLinkState(.loading, for: platform)
+        Task { @MainActor in
+            let result = try? await resolver.resolvePlatformLink(for: track, targetPlatform: platform)
+            guard let result else { return }
+            let updatedTrack = displayTrack.updatingPlatformLink(
+                result.platformLink,
+                state: result.state,
+                for: platform
+            )
+            displayTrack = updatedTrack
+            persistenceStore.save(track: updatedTrack)
+            onTrackUpdated?(updatedTrack)
         }
     }
 

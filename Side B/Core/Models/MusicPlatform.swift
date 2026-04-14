@@ -1,6 +1,6 @@
 import Foundation
 
-enum MusicPlatform: String, CaseIterable, Hashable {
+enum MusicPlatform: String, CaseIterable, Hashable, Codable {
     case appleMusic = "Apple Music"
     case spotify = "Spotify"
     case qqMusic = "QQ 音乐"

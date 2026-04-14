@@ -1,12 +1,12 @@
 import Foundation
 
 protocol MusicResolverService {
-    func resolve(request: ResolverRequest) -> ResolverResponse
-    func resolveMetadata(request: ResolverRequest) -> ResolverResponse
-    func resolvePlatformLinks(for track: Track) -> PlatformLinksResolutionResponse
-    func resolvePlatformLink(for track: Track, targetPlatform: MusicPlatform) -> SinglePlatformLinkResolutionResponse
-    func resolvePayload(from link: String) -> ResolvedTrackPayload
-    func resolveTrack(from link: String) -> Track
+    func resolve(request: ResolverRequest) async throws -> ResolverResponse
+    func resolveMetadata(request: ResolverRequest) async throws -> ResolverResponse
+    func resolvePlatformLinks(for track: Track) async throws -> PlatformLinksResolutionResponse
+    func resolvePlatformLink(for track: Track, targetPlatform: MusicPlatform) async throws -> SinglePlatformLinkResolutionResponse
+    func resolvePayload(from link: String) async throws -> ResolvedTrackPayload
+    func resolveTrack(from link: String) async throws -> Track
 }
 
 enum ResolverServiceFactory {

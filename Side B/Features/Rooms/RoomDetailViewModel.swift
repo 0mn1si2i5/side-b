@@ -47,13 +47,14 @@ final class RoomDetailViewModel: ObservableObject {
         linkResolutionState = .resolving
         linkResolutionMessage = "正在解析歌曲链接..."
 
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self else { return }
-
-            let response = self.resolver.resolveMetadata(request: ResolverRequest(rawLink: normalizedLink))
-
-            DispatchQueue.main.async {
-                self.finishResolvedTrackMessage(response: response, senderName: senderName)
+        Task { @MainActor in
+            do {
+                let response = try await resolver.resolveMetadata(request: ResolverRequest(rawLink: normalizedLink))
+                finishResolvedTrackMessage(response: response, senderName: senderName)
+            } catch {
+                linkResolutionState = .failed
+                linkResolutionMessage = "解析失败：\(error.localizedDescription)"
+                isSending = false
             }
         }
     }

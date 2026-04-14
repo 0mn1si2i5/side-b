@@ -12,9 +12,9 @@ struct RemoteMusicResolverService: MusicResolverService {
         self.fallbackService = fallbackService
     }
 
-    func resolve(request: ResolverRequest) -> ResolverResponse {
+    func resolve(request: ResolverRequest) async throws -> ResolverResponse {
         do {
-            let response = try apiClient.resolve(request: request)
+            let response = try await apiClient.resolve(request: request)
             return ResolverResponse(
                 resolvedTrack: response.resolvedTrack,
                 parsingResult: response.parsingResult,
@@ -25,7 +25,7 @@ struct RemoteMusicResolverService: MusicResolverService {
             )
         } catch {
             print("RemoteMusicResolverService fallback to mock:", error)
-            let fallbackResponse = fallbackService.resolve(request: request)
+            let fallbackResponse = try await fallbackService.resolve(request: request)
             return ResolverResponse(
                 resolvedTrack: fallbackResponse.resolvedTrack,
                 parsingResult: fallbackResponse.parsingResult,
@@ -37,9 +37,9 @@ struct RemoteMusicResolverService: MusicResolverService {
         }
     }
 
-    func resolveMetadata(request: ResolverRequest) -> ResolverResponse {
+    func resolveMetadata(request: ResolverRequest) async throws -> ResolverResponse {
         do {
-            let response = try apiClient.resolveMetadata(request: request)
+            let response = try await apiClient.resolveMetadata(request: request)
             return ResolverResponse(
                 resolvedTrack: response.resolvedTrack,
                 parsingResult: response.parsingResult,
@@ -50,7 +50,7 @@ struct RemoteMusicResolverService: MusicResolverService {
             )
         } catch {
             print("RemoteMusicResolverService metadata fallback to mock:", error)
-            let fallbackResponse = fallbackService.resolveMetadata(request: request)
+            let fallbackResponse = try await fallbackService.resolveMetadata(request: request)
             return ResolverResponse(
                 resolvedTrack: fallbackResponse.resolvedTrack,
                 parsingResult: fallbackResponse.parsingResult,
@@ -62,9 +62,9 @@ struct RemoteMusicResolverService: MusicResolverService {
         }
     }
 
-    func resolvePlatformLinks(for track: Track) -> PlatformLinksResolutionResponse {
+    func resolvePlatformLinks(for track: Track) async throws -> PlatformLinksResolutionResponse {
         do {
-            return try apiClient.resolvePlatformLinks(for: track)
+            return try await apiClient.resolvePlatformLinks(for: track)
         } catch {
             print("RemoteMusicResolverService platform links failed:", error)
             return PlatformLinksResolutionResponse(
@@ -76,9 +76,9 @@ struct RemoteMusicResolverService: MusicResolverService {
         }
     }
 
-    func resolvePlatformLink(for track: Track, targetPlatform: MusicPlatform) -> SinglePlatformLinkResolutionResponse {
+    func resolvePlatformLink(for track: Track, targetPlatform: MusicPlatform) async throws -> SinglePlatformLinkResolutionResponse {
         do {
-            return try apiClient.resolvePlatformLink(for: track, targetPlatform: targetPlatform)
+            return try await apiClient.resolvePlatformLink(for: track, targetPlatform: targetPlatform)
         } catch {
             print("RemoteMusicResolverService single platform link failed:", error)
             return SinglePlatformLinkResolutionResponse(
@@ -91,12 +91,12 @@ struct RemoteMusicResolverService: MusicResolverService {
         }
     }
 
-    func resolvePayload(from link: String) -> ResolvedTrackPayload {
-        resolve(request: ResolverRequest(rawLink: link)).resolvedTrack
+    func resolvePayload(from link: String) async throws -> ResolvedTrackPayload {
+        try await resolve(request: ResolverRequest(rawLink: link)).resolvedTrack
     }
 
-    func resolveTrack(from link: String) -> Track {
-        resolvePayload(from: link).track
+    func resolveTrack(from link: String) async throws -> Track {
+        try await resolvePayload(from: link).track
     }
 }
 
@@ -107,30 +107,14 @@ struct URLSessionResolverTransport: ResolverTransporting {
         self.session = session
     }
 
-    func send(_ request: URLRequest) throws -> (Data, HTTPURLResponse) {
-        let semaphore = DispatchSemaphore(value: 0)
-        var capturedData: Data?
-        var capturedResponse: URLResponse?
-        var capturedError: Error?
+    func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        let (data, response) = try await session.data(for: request)
 
-        session.dataTask(with: request) { data, response, error in
-            capturedData = data
-            capturedResponse = response
-            capturedError = error
-            semaphore.signal()
-        }.resume()
-
-        semaphore.wait()
-
-        if let capturedError {
-            throw capturedError
-        }
-
-        guard let httpResponse = capturedResponse as? HTTPURLResponse else {
+        guard let httpResponse = response as? HTTPURLResponse else {
             throw ResolverClientError.invalidHTTPResponse
         }
 
-        return (capturedData ?? Data(), httpResponse)
+        return (data, httpResponse)
     }
 }
 
@@ -148,16 +132,16 @@ struct ResolverHTTPAPIClient: ResolverAPIClient {
         self.transport = transport
     }
 
-    func resolve(request: ResolverRequest) throws -> ResolverResponse {
-        try resolve(request: request, includePlatformLinks: true)
+    func resolve(request: ResolverRequest) async throws -> ResolverResponse {
+        try await resolve(request: request, includePlatformLinks: true)
     }
 
-    func resolveMetadata(request: ResolverRequest) throws -> ResolverResponse {
-        let response = try resolve(request: request, includePlatformLinks: false)
+    func resolveMetadata(request: ResolverRequest) async throws -> ResolverResponse {
+        let response = try await resolve(request: request, includePlatformLinks: false)
         return response.withPlatformLinksStatus(.idle)
     }
 
-    func resolvePlatformLinks(for track: Track) throws -> PlatformLinksResolutionResponse {
+    func resolvePlatformLinks(for track: Track) async throws -> PlatformLinksResolutionResponse {
         let endpointURL = configuration.baseURL.appending(path: "resolve-platform-links")
         var urlRequest = URLRequest(url: endpointURL)
         urlRequest.httpMethod = "POST"
@@ -165,7 +149,7 @@ struct ResolverHTTPAPIClient: ResolverAPIClient {
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         urlRequest.httpBody = try encoder.encode(ResolverPlatformLinksRequestBody(track: track))
 
-        let (data, response) = try transport.send(urlRequest)
+        let (data, response) = try await transport.send(urlRequest)
         guard (200...299).contains(response.statusCode) else {
             throw ResolverClientError.unsuccessfulStatusCode(response.statusCode)
         }
@@ -174,7 +158,7 @@ struct ResolverHTTPAPIClient: ResolverAPIClient {
         return try body.toDomain()
     }
 
-    func resolvePlatformLink(for track: Track, targetPlatform: MusicPlatform) throws -> SinglePlatformLinkResolutionResponse {
+    func resolvePlatformLink(for track: Track, targetPlatform: MusicPlatform) async throws -> SinglePlatformLinkResolutionResponse {
         let endpointURL = configuration.baseURL.appending(path: "resolve-platform-link")
         var urlRequest = URLRequest(url: endpointURL)
         urlRequest.httpMethod = "POST"
@@ -184,7 +168,7 @@ struct ResolverHTTPAPIClient: ResolverAPIClient {
             ResolverSinglePlatformLinkRequestBody(track: track, targetPlatform: targetPlatform)
         )
 
-        let (data, response) = try transport.send(urlRequest)
+        let (data, response) = try await transport.send(urlRequest)
         guard (200...299).contains(response.statusCode) else {
             throw ResolverClientError.unsuccessfulStatusCode(response.statusCode)
         }
@@ -193,7 +177,7 @@ struct ResolverHTTPAPIClient: ResolverAPIClient {
         return try body.toDomain(targetPlatform: targetPlatform)
     }
 
-    private func resolve(request: ResolverRequest, includePlatformLinks: Bool) throws -> ResolverResponse {
+    private func resolve(request: ResolverRequest, includePlatformLinks: Bool) async throws -> ResolverResponse {
         let endpointURL = configuration.baseURL.appending(path: "resolve")
         var urlRequest = URLRequest(url: endpointURL)
         urlRequest.httpMethod = "POST"
@@ -203,7 +187,7 @@ struct ResolverHTTPAPIClient: ResolverAPIClient {
             ResolverAPIRequestBody(request: request, includePlatformLinks: includePlatformLinks)
         )
 
-        let (data, response) = try transport.send(urlRequest)
+        let (data, response) = try await transport.send(urlRequest)
         guard (200...299).contains(response.statusCode) else {
             throw ResolverClientError.unsuccessfulStatusCode(response.statusCode)
         }

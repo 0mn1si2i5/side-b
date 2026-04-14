@@ -210,14 +210,14 @@ protocol SpotifyTrackCatalogProviding {
 }
 
 protocol ResolverAPIClient {
-    func resolve(request: ResolverRequest) throws -> ResolverResponse
-    func resolveMetadata(request: ResolverRequest) throws -> ResolverResponse
-    func resolvePlatformLinks(for track: Track) throws -> PlatformLinksResolutionResponse
-    func resolvePlatformLink(for track: Track, targetPlatform: MusicPlatform) throws -> SinglePlatformLinkResolutionResponse
+    func resolve(request: ResolverRequest) async throws -> ResolverResponse
+    func resolveMetadata(request: ResolverRequest) async throws -> ResolverResponse
+    func resolvePlatformLinks(for track: Track) async throws -> PlatformLinksResolutionResponse
+    func resolvePlatformLink(for track: Track, targetPlatform: MusicPlatform) async throws -> SinglePlatformLinkResolutionResponse
 }
 
 protocol ResolverTransporting {
-    func send(_ request: URLRequest) throws -> (Data, HTTPURLResponse)
+    func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse)
 }
 
 struct ResolverHTTPConfiguration {

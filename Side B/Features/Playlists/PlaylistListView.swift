@@ -198,20 +198,20 @@ struct PlaylistListView: View {
 
         isResolving = true
 
-        DispatchQueue.global(qos: .userInitiated).async {
-            let response = resolver.resolveMetadata(request: ResolverRequest(rawLink: trimmedLink))
-
-            DispatchQueue.main.async {
-                isResolving = false
+        Task { @MainActor in
+            do {
+                let response = try await resolver.resolveMetadata(request: ResolverRequest(rawLink: trimmedLink))
 
                 switch response.parsingResult {
                 case .unsupportedLink:
                     errorMessage = "无法识别该链接，请粘贴 Spotify、Apple Music、网易云音乐或 QQ 音乐的歌曲链接"
                     showErrorAlert = true
+                    isResolving = false
                     return
                 case .missingResourceID:
                     errorMessage = "无法从链接中提取歌曲 ID"
                     showErrorAlert = true
+                    isResolving = false
                     return
                 case .parsed:
                     break
@@ -220,6 +220,7 @@ struct PlaylistListView: View {
                 if response.metadataStatus == .fallbackMock {
                     errorMessage = "无法解析该歌曲，请检查链接是否正确"
                     showErrorAlert = true
+                    isResolving = false
                     return
                 }
 
@@ -235,12 +236,18 @@ struct PlaylistListView: View {
                     }
 
                     linkInput = ""
+                    isResolving = false
 
                     resolvePlatformLinksAsync(for: track)
                 } else {
                     errorMessage = "无法解析该链接，请检查链接是否正确"
                     showErrorAlert = true
+                    isResolving = false
                 }
+            } catch {
+                errorMessage = "解析失败：\(error.localizedDescription)"
+                showErrorAlert = true
+                isResolving = false
             }
         }
     }
@@ -255,19 +262,18 @@ struct PlaylistListView: View {
         guard !pendingPlatforms.isEmpty else { return }
 
         for platform in pendingPlatforms {
-            DispatchQueue.global(qos: .utility).async {
-                let result = resolver.resolvePlatformLink(for: track, targetPlatform: platform)
+            Task { @MainActor in
+                let result = try? await resolver.resolvePlatformLink(for: track, targetPlatform: platform)
+                guard let result else { return }
 
-                DispatchQueue.main.async {
-                    if let index = recentlyResolved.firstIndex(where: { $0.id == track.id }) {
-                        let updatedTrack = recentlyResolved[index].updatingPlatformLink(
-                            result.platformLink,
-                            state: result.state,
-                            for: platform
-                        )
-                        recentlyResolved[index] = updatedTrack
-                        TrackCache.shared.save(track: updatedTrack)
-                    }
+                if let index = recentlyResolved.firstIndex(where: { $0.id == track.id }) {
+                    let updatedTrack = recentlyResolved[index].updatingPlatformLink(
+                        result.platformLink,
+                        state: result.state,
+                        for: platform
+                    )
+                    recentlyResolved[index] = updatedTrack
+                    TrackCache.shared.save(track: updatedTrack)
                 }
             }
         }
