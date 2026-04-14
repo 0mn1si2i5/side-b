@@ -84,29 +84,30 @@ final class AuthViewModel {
     }
 
     private func localizedErrorMessage(_ error: Error) -> String {
-        if let authError = error as? AuthServiceError {
-            switch authError {
-            case .notAuthenticated:
-                return "未登录或登录已过期"
-            case .invalidHTTPResponse:
-                return "服务器响应异常"
-            case .unsuccessfulStatusCode(let code):
-                switch code {
-                case 401:
-                    return "用户名或密码错误"
-                case 409:
-                    return "该用户名已被注册"
+        let category = classifyError(error)
+        switch category {
+        case .networkUnavailable:
+            return "网络不可用，请检查网络连接"
+        case .serverError:
+            return "服务器错误，请稍后重试"
+        case .authError:
+            return "登录已过期，请重新登录"
+        case .notFound:
+            return "未找到请求的资源"
+        case .unknown:
+            if let authError = error as? AuthServiceError {
+                switch authError {
+                case .malformedPayload:
+                    return "服务器数据格式异常"
+                case .tokenStorageFailed:
+                    return "本地存储失败，请重试"
+                case .invalidBaseURL:
+                    return "服务器地址配置错误"
                 default:
-                    return "请求失败（\(code)）"
+                    break
                 }
-            case .malformedPayload:
-                return "服务器数据格式异常"
-            case .tokenStorageFailed:
-                return "本地存储失败，请重试"
-            case .invalidBaseURL:
-                return "服务器地址配置错误"
             }
+            return error.localizedDescription
         }
-        return error.localizedDescription
     }
 }

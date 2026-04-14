@@ -84,7 +84,7 @@ final class RoomDetailViewModel: ObservableObject {
                     return message.updatingTrack(restoredTrack)
                 }
         } catch {
-            errorMessage = "加载消息失败，请稍后重试"
+            errorMessage = localizedErrorMessage(for: error)
         }
         isLoading = false
     }
@@ -150,7 +150,7 @@ final class RoomDetailViewModel: ObservableObject {
                 finishResolvedTrackMessage(response: response, senderName: senderName)
             } catch {
                 linkResolutionState = .failed
-                linkResolutionMessage = "解析失败：\(error.localizedDescription)"
+                linkResolutionMessage = localizedErrorMessage(for: error)
                 isSending = false
             }
         }

@@ -1,15 +1,15 @@
 import SwiftUI
 
 enum RoomsListState {
+    case idle
     case loading
-    case loaded
-    case failed
+    case loaded([Room])
+    case failed(String)
 }
 
 @Observable
 final class RoomsListViewModel {
-    var rooms: [Room] = []
-    var state: RoomsListState = .loading
+    var state: RoomsListState = .idle
 
     private let service: any RoomServiceProtocol
 
@@ -21,10 +21,10 @@ final class RoomsListViewModel {
         state = .loading
         Task { @MainActor in
             do {
-                rooms = try await service.fetchRooms()
-                state = .loaded
+                let rooms = try await service.fetchRooms()
+                state = .loaded(rooms)
             } catch {
-                state = .failed
+                state = .failed(localizedErrorMessage(for: error))
             }
         }
     }
@@ -53,23 +53,43 @@ struct RoomsListView: View {
     var body: some View {
         Group {
             switch viewModel.state {
-            case .loading:
+            case .idle, .loading:
                 ProgressView("加载中...")
-            case .failed:
+            case .failed(let message):
                 VStack(spacing: 12) {
-                    Text("加载失败")
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.title2)
                         .foregroundStyle(.secondary)
+                    Text(message)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
                     Button("重试") {
                         viewModel.loadRooms()
                     }
                     .buttonStyle(.bordered)
                 }
-            case .loaded:
-                roomsList
+                .padding()
+            case .loaded(let rooms):
+                if rooms.isEmpty {
+                    VStack(spacing: 12) {
+                        Image(systemName: "bubble.left")
+                            .font(.title2)
+                            .foregroundStyle(.secondary)
+                        Text("暂无房间")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    roomsList(rooms: rooms)
+                }
             }
         }
         .task {
-            viewModel.loadRooms()
+            if case .idle = viewModel.state {
+                viewModel.loadRooms()
+            }
         }
         .navigationTitle("聊天室")
         .toolbar {
@@ -81,15 +101,19 @@ struct RoomsListView: View {
                 }
             }
         }
-        .sheet(isPresented: $showingCreateRoom) {
+        .sheet(isPresented: $showingCreateRoom, onDismiss: {
+            if case .loaded = viewModel.state {
+                viewModel.loadRooms()
+            }
+        }) {
             NavigationStack {
                 CreateRoomView()
             }
         }
     }
 
-    private var roomsList: some View {
-        List(viewModel.rooms) { room in
+    private func roomsList(rooms: [Room]) -> some View {
+        List(rooms) { room in
             NavigationLink {
                 RoomDetailView(room: room)
             } label: {

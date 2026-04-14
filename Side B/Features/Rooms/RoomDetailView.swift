@@ -27,6 +27,9 @@ struct RoomDetailView: View {
             }
             .navigationTitle(room.name)
             .navigationBarTitleDisplayMode(.inline)
+            .safeAreaInset(edge: .top) {
+                connectionBanner
+            }
             .safeAreaInset(edge: .bottom) {
                 messageComposer
             }
@@ -91,6 +94,38 @@ struct RoomDetailView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    @ViewBuilder
+    private var connectionBanner: some View {
+        switch viewModel.connectionState {
+        case .connecting:
+            HStack(spacing: 6) {
+                ProgressView()
+                    .controlSize(.small)
+                Text("连接中...")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.vertical, 6)
+            .frame(maxWidth: .infinity)
+            .background(Color(.systemBackground))
+        case .disconnected:
+            if !viewModel.isLoading {
+                HStack(spacing: 6) {
+                    Image(systemName: "wifi.slash")
+                        .font(.caption)
+                    Text("连接断开")
+                        .font(.caption)
+                }
+                .foregroundStyle(.red)
+                .padding(.vertical, 6)
+                .frame(maxWidth: .infinity)
+                .background(Color(.systemBackground))
+            }
+        case .connected:
+            EmptyView()
+        }
     }
 
     private func messageList(proxy: ScrollViewProxy) -> some View {

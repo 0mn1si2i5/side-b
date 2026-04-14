@@ -51,7 +51,7 @@ final class CreateRoomViewModel {
                 )
                 createdRoom = room
             } catch {
-                errorMessage = "创建失败：\(error.localizedDescription)"
+                errorMessage = localizedErrorMessage(for: error)
             }
             isLoading = false
         }
@@ -70,6 +70,7 @@ struct CreateRoomView: View {
         Form {
             roomTypeSection
             detailsSection
+            createButtonSection
         }
         .navigationTitle("新建聊天")
         .navigationBarTitleDisplayMode(.inline)
@@ -90,6 +91,25 @@ struct CreateRoomView: View {
             if viewModel.createdRoom != nil {
                 dismiss()
             }
+        }
+    }
+
+    private var createButtonSection: some View {
+        Section {
+            Button {
+                viewModel.createRoom()
+            } label: {
+                HStack {
+                    Text("创建")
+                        .fontWeight(.semibold)
+                    if viewModel.isLoading {
+                        Spacer()
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+                }
+            }
+            .disabled(!viewModel.canCreate)
         }
     }
 
