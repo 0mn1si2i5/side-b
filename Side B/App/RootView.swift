@@ -3,18 +3,16 @@ import SwiftUI
 struct RootView: View {
     var body: some View {
         TabView {
-            NavigationStack {
-                HomeTabView()
-            }
-            .tabItem {
-                Label("Home", systemImage: "house")
-            }
+            PlaylistListView()
+                .tabItem {
+                    Label("Playlist", systemImage: "music.note.list")
+                }
 
             NavigationStack {
                 RoomsListView()
             }
             .tabItem {
-                Label("Rooms", systemImage: "music.note.list")
+                Label("Rooms", systemImage: "bubble.left.and.bubble.right.fill")
             }
 
             NavigationStack {

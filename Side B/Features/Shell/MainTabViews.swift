@@ -55,6 +55,7 @@ struct SongDetailView: View {
     @State private var displayTrack: Track
     @State private var platformFeedbackMessage = ""
     @State private var isShowingPlatformFeedback = false
+    @State private var showingAddToPlaylistSheet = false
     @Environment(\.openURL) private var openURL
 
     init(
@@ -112,6 +113,21 @@ struct SongDetailView: View {
                         }
                     }
                 }
+
+                Button {
+                    showingAddToPlaylistSheet = true
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "plus.circle")
+                        Text("添加到歌单")
+                    }
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.blue)
             }
             .padding()
         }
@@ -125,6 +141,9 @@ struct SongDetailView: View {
         .task(id: displayTrack.id) {
             hydrateDisplayTrackFromPersistence()
             resolvePendingPlatformLinksIfNeeded()
+        }
+        .sheet(isPresented: $showingAddToPlaylistSheet) {
+            AddToPlaylistView(track: displayTrack, isPresented: $showingAddToPlaylistSheet)
         }
     }
 

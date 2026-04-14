@@ -7,6 +7,9 @@ struct MessageRowView: View {
     let onTrackUpdated: (Track) -> Void
     let onQuoteTrack: (Track) -> Void
 
+    @State private var showingAddToPlaylistSheet = false
+    @State private var selectedTrack: Track? = nil
+
     private var isCurrentUser: Bool {
         message.senderName == "You"
     }
@@ -71,6 +74,16 @@ struct MessageRowView: View {
                                 }
                                 .buttonStyle(.borderless)
 
+                                Button {
+                                    selectedTrack = track
+                                    showingAddToPlaylistSheet = true
+                                } label: {
+                                    Label("Add to Playlist", systemImage: "plus.circle")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                .buttonStyle(.borderless)
+
                                 Spacer(minLength: 0)
                             }
                             .padding(.horizontal, 10)
@@ -82,6 +95,14 @@ struct MessageRowView: View {
 
             if !isCurrentUser {
                 Spacer(minLength: 44)
+            }
+        }
+        .sheet(isPresented: $showingAddToPlaylistSheet) {
+            if let track = selectedTrack {
+                AddToPlaylistView(
+                    track: track,
+                    isPresented: $showingAddToPlaylistSheet
+                )
             }
         }
     }

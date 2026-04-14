@@ -124,6 +124,20 @@ enum MockData {
         )
     ]
 
+    static let playlists: [Playlist] = [
+        Playlist(
+            name: "已收藏",
+            isDefault: true
+        ),
+        Playlist(
+            name: "Late Night Vibes",
+            trackEntries: [
+                PlaylistTrackEntry(trackID: tracks[0].persistenceIdentity!),
+                PlaylistTrackEntry(trackID: tracks[1].persistenceIdentity!)
+            ]
+        )
+    ]
+
     static func track(for platform: MusicPlatform, platformLinks: [PlatformLink] = []) -> Track {
         let baseTrack = tracksByPlatform[platform] ?? tracks[0]
         let resolvedPlatformLinks = platformLinks.isEmpty ? baseTrack.platformLinks : platformLinks
@@ -141,6 +155,10 @@ enum MockData {
             platformLinks: resolvedPlatformLinks,
             artworkURL: baseTrack.artworkURL
         )
+    }
+
+    static func track(forTrackID trackID: String) -> Track? {
+        tracks.first { $0.persistenceIdentity == trackID }
     }
 
     private static func defaultPlatformLinks(for sourcePlatform: MusicPlatform) -> [PlatformLink] {
