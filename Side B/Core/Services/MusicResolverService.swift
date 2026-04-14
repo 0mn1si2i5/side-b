@@ -10,13 +10,13 @@ protocol MusicResolverService {
 }
 
 enum ResolverServiceFactory {
-    private static let environmentBaseURLKey = "SIDEB_RESOLVER_BASE_URL"
+    private static let apiBaseURLKey = "SIDEB_API_BASE_URL"
+    private static let legacyResolverURLKey = "SIDEB_RESOLVER_BASE_URL"
 
     static func makeDefaultService() -> any MusicResolverService {
-        guard
-            let baseURLString = ProcessInfo.processInfo.environment[environmentBaseURLKey],
-            let baseURL = URL(string: baseURLString)
-        else {
+        let baseURL = resolverBaseURL
+
+        guard let baseURL else {
             return MockMusicResolverService()
         }
 
@@ -26,5 +26,21 @@ enum ResolverServiceFactory {
             apiClient: apiClient,
             fallbackService: MockMusicResolverService()
         )
+    }
+
+    // SIDEB_API_BASE_URL routes are at /api/resolve, so /api must be appended.
+    // SIDEB_RESOLVER_BASE_URL routes are at /resolve directly (no prefix needed).
+    private static var resolverBaseURL: URL? {
+        let env = ProcessInfo.processInfo.environment
+
+        if let apiBase = env[apiBaseURLKey], let url = URL(string: apiBase) {
+            return url.appendingPathComponent("api")
+        }
+
+        if let legacyBase = env[legacyResolverURLKey], let url = URL(string: legacyBase) {
+            return url
+        }
+
+        return nil
     }
 }

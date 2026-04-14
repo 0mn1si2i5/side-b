@@ -28,9 +28,10 @@ async def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-from app.routers import auth, rooms, users, ws
+from app.routers import auth, resolve, rooms, users, ws
 
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
+app.include_router(resolve.router, prefix="/api", tags=["resolve"])
 app.include_router(rooms.router, prefix="/api/rooms", tags=["rooms"])
 app.include_router(users.router, prefix="/api/users", tags=["users"])
 app.include_router(ws.router, prefix="/ws", tags=["websocket"])
