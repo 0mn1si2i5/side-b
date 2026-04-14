@@ -84,6 +84,18 @@ final class AuthViewModel {
     }
 
     private func localizedErrorMessage(_ error: Error) -> String {
+        if let authError = error as? AuthServiceError {
+            switch authError {
+            case .malformedPayload:
+                return "服务器数据格式异常"
+            case .tokenStorageFailed:
+                return "本地存储失败，请重试"
+            case .invalidBaseURL:
+                return "服务器地址配置错误"
+            default:
+                break
+            }
+        }
         let category = classifyError(error)
         switch category {
         case .networkUnavailable:
@@ -95,18 +107,6 @@ final class AuthViewModel {
         case .notFound:
             return "未找到请求的资源"
         case .unknown:
-            if let authError = error as? AuthServiceError {
-                switch authError {
-                case .malformedPayload:
-                    return "服务器数据格式异常"
-                case .tokenStorageFailed:
-                    return "本地存储失败，请重试"
-                case .invalidBaseURL:
-                    return "服务器地址配置错误"
-                default:
-                    break
-                }
-            }
             return error.localizedDescription
         }
     }
