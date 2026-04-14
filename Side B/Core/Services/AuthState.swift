@@ -1,0 +1,48 @@
+import Foundation
+
+@Observable
+final class AuthState {
+    var isAuthenticated = false
+    var currentUser: User?
+    var isLoading = false
+
+    private let authService: any AuthServiceProtocol
+
+    init(authService: any AuthServiceProtocol = AuthServiceFactory.makeDefaultService()) {
+        self.authService = authService
+    }
+
+    func checkAuthStatus() async {
+        guard authService.isLoggedIn else {
+            isAuthenticated = false
+            currentUser = nil
+            return
+        }
+
+        isLoading = true
+
+        do {
+            let user = try await authService.getCurrentUser()
+            currentUser = user
+            isAuthenticated = true
+        } catch {
+            currentUser = nil
+            isAuthenticated = false
+        }
+
+        isLoading = false
+    }
+
+    func handleAuthenticationSuccess(user: User) {
+        currentUser = user
+        isAuthenticated = true
+    }
+
+    func logout() {
+        Task { @MainActor in
+            try? await authService.logout()
+        }
+        currentUser = nil
+        isAuthenticated = false
+    }
+}

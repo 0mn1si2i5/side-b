@@ -374,19 +374,52 @@ struct SongCardView: View {
 }
 
 struct ProfileTabView: View {
+    @Environment(AuthState.self) private var authState
+
     var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "person.crop.circle.fill")
-                .font(.system(size: 64))
+        List {
+            if let user = authState.currentUser {
+                Section {
+                    HStack(spacing: 16) {
+                        let avatarConfig = AvatarService.config(for: user.avatarName)
+                        Image(systemName: avatarConfig.symbolName)
+                            .font(.system(size: 48))
+                            .foregroundStyle(avatarConfig.backgroundColor)
+                            .frame(width: 64, height: 64)
+                            .background(avatarConfig.backgroundColor.opacity(0.15))
+                            .clipShape(Circle())
 
-            Text("我的")
-                .font(.title2)
-                .fontWeight(.semibold)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(user.displayName)
+                                .font(.title3)
+                                .fontWeight(.semibold)
 
-            Text("分享的歌曲、收藏的曲目和听歌动态将在这里显示。")
-                .multilineTextAlignment(.center)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal)
+                            Text("@\(user.username)")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+
+                            if let platform = user.preferredPlatform {
+                                Text("常用平台：\(platform.displayName)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+
+                Section {
+                    Button(role: .destructive) {
+                        authState.logout()
+                    } label: {
+                        HStack {
+                            Spacer()
+                            Text("退出登录")
+                            Spacer()
+                        }
+                    }
+                }
+            }
         }
         .navigationTitle("我的")
     }

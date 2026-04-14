@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct LoginView: View {
+    @Environment(AuthState.self) private var authState
     @Bindable var viewModel: AuthViewModel
     @State private var username = ""
     @State private var password = ""
@@ -21,6 +22,9 @@ struct LoginView: View {
                 Button {
                     Task {
                         await viewModel.login(username: username, password: password)
+                        if let user = viewModel.currentUser {
+                            authState.handleAuthenticationSuccess(user: user)
+                        }
                     }
                 } label: {
                     HStack {

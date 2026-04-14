@@ -1,6 +1,26 @@
 import SwiftUI
 
 struct RootView: View {
+    @State private var authState = AuthState()
+
+    var body: some View {
+        Group {
+            if authState.isAuthenticated {
+                MainTabView()
+            } else {
+                NavigationStack {
+                    LoginView(viewModel: AuthViewModel())
+                }
+            }
+        }
+        .environment(authState)
+        .task {
+            await authState.checkAuthStatus()
+        }
+    }
+}
+
+struct MainTabView: View {
     var body: some View {
         TabView {
             PlaylistListView()
