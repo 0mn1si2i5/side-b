@@ -124,13 +124,6 @@ private struct RegisterRequestBody: Encodable {
     let password: String
     let displayName: String
     let avatarName: String
-
-    enum CodingKeys: String, CodingKey {
-        case username
-        case password
-        case displayName = "display_name"
-        case avatarName = "avatar_name"
-    }
 }
 
 private struct LoginRequestBody: Encodable {
@@ -149,28 +142,14 @@ private struct UserResponseBody: Decodable {
     let displayName: String
     let avatarName: String
     let preferredPlatform: String?
-    let createdAt: String
-
-    enum CodingKeys: String, CodingKey {
-        case id
-        case username
-        case displayName = "display_name"
-        case avatarName = "avatar_name"
-        case preferredPlatform = "preferred_platform"
-        case createdAt = "created_at"
-    }
 
     func toDomain() -> User {
-        let dateFormatter = ISO8601DateFormatter()
-        dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let date = dateFormatter.date(from: createdAt) ?? Date()
-        return User(
+        User(
             id: UUID(uuidString: id) ?? UUID(),
             username: username,
             displayName: displayName,
             avatarName: avatarName,
-            preferredPlatform: preferredPlatform.flatMap { MusicPlatform(rawValue: $0) },
-            createdAt: date
+            preferredPlatform: preferredPlatform.flatMap { MusicPlatform(rawValue: $0) }
         )
     }
 }

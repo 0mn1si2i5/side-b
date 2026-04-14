@@ -170,15 +170,6 @@ private struct RoomDTO: Decodable {
     let createdAt: String
     let isActive: Bool
 
-    enum CodingKeys: String, CodingKey {
-        case id
-        case name
-        case type
-        case createdBy = "created_by"
-        case createdAt = "created_at"
-        case isActive = "is_active"
-    }
-
     func toDomain() -> Room {
         Room(
             id: UUID(uuidString: id) ?? UUID(),
@@ -191,12 +182,6 @@ private struct CreateRoomBody: Encodable {
     let name: String
     let type: String
     let memberUsernames: [String]
-
-    enum CodingKeys: String, CodingKey {
-        case name
-        case type
-        case memberUsernames = "member_usernames"
-    }
 }
 
 private struct RenameRoomBody: Encodable {
@@ -216,17 +201,6 @@ private struct MessageDTO: Decodable {
     let trackData: String?
     let replyToId: String?
     let createdAt: String
-
-    enum CodingKeys: String, CodingKey {
-        case id
-        case roomId = "room_id"
-        case senderId = "sender_id"
-        case contentType = "content_type"
-        case textContent = "text_content"
-        case trackData = "track_data"
-        case replyToId = "reply_to_id"
-        case createdAt = "created_at"
-    }
 
     func toDomain() -> Message? {
         let dateFormatter = ISO8601DateFormatter()

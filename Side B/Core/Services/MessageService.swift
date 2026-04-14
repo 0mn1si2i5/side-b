@@ -153,17 +153,6 @@ private struct MessageDTO: Decodable {
     let replyToId: String?
     let createdAt: String
 
-    enum CodingKeys: String, CodingKey {
-        case id
-        case roomId = "room_id"
-        case senderId = "sender_id"
-        case contentType = "content_type"
-        case textContent = "text_content"
-        case trackData = "track_data"
-        case replyToId = "reply_to_id"
-        case createdAt = "created_at"
-    }
-
     func toDomain() -> Message? {
         let dateFormatter = ISO8601DateFormatter()
         dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -242,12 +231,6 @@ private struct CreateMessageBody: Encodable {
     let contentType: String
     let textContent: String?
     let trackData: String?
-
-    enum CodingKeys: String, CodingKey {
-        case contentType = "content_type"
-        case textContent = "text_content"
-        case trackData = "track_data"
-    }
 }
 
 private struct AddEmojiBody: Encodable {
