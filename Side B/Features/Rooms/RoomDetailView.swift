@@ -9,7 +9,7 @@ struct RoomDetailView: View {
     init(room: Room) {
         self.room = room
         _viewModel = StateObject(
-            wrappedValue: RoomDetailViewModel(initialMessages: MockData.messages)
+            wrappedValue: RoomDetailViewModel(roomId: room.id)
         )
     }
 
@@ -92,6 +92,10 @@ struct RoomDetailView: View {
             .onAppear {
                 proxy.scrollTo("bottom-anchor", anchor: .bottom)
                 pendingIncomingMessageCount = 0
+                viewModel.onAppear()
+            }
+            .onDisappear {
+                viewModel.onDisappear()
             }
         }
     }

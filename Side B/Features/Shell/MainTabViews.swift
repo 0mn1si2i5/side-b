@@ -49,6 +49,7 @@ struct HomeTabView: View {
 
 struct RoomsListView: View {
     @State private var viewModel = RoomsListViewModel()
+    @State private var showingCreateRoom = false
 
     var body: some View {
         Group {
@@ -72,6 +73,20 @@ struct RoomsListView: View {
             viewModel.loadRooms()
         }
         .navigationTitle("聊天室")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    showingCreateRoom = true
+                } label: {
+                    Image(systemName: "plus")
+                }
+            }
+        }
+        .sheet(isPresented: $showingCreateRoom) {
+            NavigationStack {
+                CreateRoomView()
+            }
+        }
     }
 
     private var roomsList: some View {
