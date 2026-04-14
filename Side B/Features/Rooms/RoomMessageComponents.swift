@@ -9,6 +9,7 @@ struct MessageRowView: View {
     let onQuoteTrack: (Track) -> Void
     let onReply: () -> Void
     let onEmojiReaction: (String) -> Void
+    let onFindOriginalMessage: (UUID) -> Message?
 
     @State private var showingAddToPlaylistSheet = false
     @State private var selectedTrack: Track? = nil
@@ -42,14 +43,25 @@ struct MessageRowView: View {
                     }
                 }
 
-                if let text = message.text {
-                    Text(text)
-                        .font(.body)
-                        .foregroundStyle(isCurrentUser ? .white : .primary)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 10)
-                        .background(isCurrentUser ? Color.accentColor : Color(.secondarySystemBackground))
-                        .clipShape(RoundedRectangle(cornerRadius: 18))
+                if message.replyToMessageID != nil || message.text != nil {
+                    VStack(alignment: .leading, spacing: 4) {
+                        if let replyID = message.replyToMessageID,
+                           let originalMessage = onFindOriginalMessage(replyID) {
+                            replyQuoteBlock(originalMessage: originalMessage)
+                        } else if message.replyToMessageID != nil {
+                            replyQuotePlaceholder
+                        }
+
+                        if let text = message.text {
+                            Text(text)
+                                .font(.body)
+                                .foregroundStyle(isCurrentUser ? .white : .primary)
+                        }
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .background(isCurrentUser ? Color.accentColor : Color(.secondarySystemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 18))
                 }
 
                 if let track = message.track {
@@ -140,6 +152,52 @@ struct MessageRowView: View {
                 Text("🔥")
             }
         }
+    }
+private func replyQuoteBlock(originalMessage: Message) -> some View {
+        HStack(spacing: 6) {
+            RoundedRectangle(cornerRadius: 1.5)
+                .fill(Color.accentColor.opacity(isCurrentUser ? 0.7 : 1))
+                .frame(width: 3)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(originalMessage.senderName)
+                    .font(.caption2)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(isCurrentUser ? .white.opacity(0.8) : .secondary)
+
+                if let text = originalMessage.text {
+                    Text(text)
+                        .font(.caption2)
+                        .foregroundStyle(isCurrentUser ? .white.opacity(0.7) : .secondary)
+                        .lineLimit(2)
+                } else if let track = originalMessage.track {
+                    Text("🎵 \(track.title)")
+                        .font(.caption2)
+                        .foregroundStyle(isCurrentUser ? .white.opacity(0.7) : .secondary)
+                        .lineLimit(1)
+                }
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .background(isCurrentUser ? Color.white.opacity(0.15) : Color(.tertiarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    private var replyQuotePlaceholder: some View {
+        HStack(spacing: 6) {
+            RoundedRectangle(cornerRadius: 1.5)
+                .fill(Color.accentColor.opacity(isCurrentUser ? 0.7 : 1))
+                .frame(width: 3)
+
+            Text("引用的消息")
+                .font(.caption2)
+                .foregroundStyle(isCurrentUser ? .white.opacity(0.7) : .secondary)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .background(isCurrentUser ? Color.white.opacity(0.15) : Color(.tertiarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 }
 

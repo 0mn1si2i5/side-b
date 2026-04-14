@@ -113,6 +113,9 @@ struct RoomDetailView: View {
                         },
                         onEmojiReaction: { emoji in
                             viewModel.addEmojiReaction(to: message.id, emoji: emoji)
+                        },
+                        onFindOriginalMessage: { id in
+                            viewModel.messages.first(where: { $0.id == id })
                         }
                     )
                     .padding(.horizontal, 16)
@@ -166,6 +169,37 @@ struct RoomDetailView: View {
         VStack(alignment: .leading, spacing: 10) {
             if viewModel.linkResolutionState != .idle {
                 linkResolutionFeedback
+            }
+
+            if let replyPreview = viewModel.replyToMessagePreview {
+                HStack(spacing: 10) {
+                    Image(systemName: "arrow.turn.up.left")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("回复")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+
+                        Text(replyPreview)
+                            .font(.footnote)
+                            .lineLimit(1)
+                    }
+
+                    Spacer()
+
+                    Button {
+                        viewModel.cancelReply()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(Color(.secondarySystemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 14))
             }
 
             if let quotedTrack = viewModel.quotedTrack {

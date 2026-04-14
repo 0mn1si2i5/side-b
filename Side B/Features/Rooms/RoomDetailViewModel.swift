@@ -161,20 +161,36 @@ final class RoomDetailViewModel: ObservableObject {
 
         beginSendingState()
 
+        let replyID = replyToMessageID
+
         let newMessage = Message(
             senderName: senderName,
             text: trimmedDraft,
             track: quotedTrack,
+            replyToMessageID: replyID,
             sentAt: Date()
         )
 
         messages.append(newMessage)
         draftText = ""
-        quotedTrack = nil
+        clearQuotedTrack()
+        cancelReply()
 
         if connectionState == .connected {
-            Task {
-                try? await webSocketService.send(text: trimmedDraft)
+            if replyID != nil {
+                Task {
+                    _ = try? await messageService.sendMessage(
+                        roomId: roomId,
+                        contentType: "text",
+                        textContent: trimmedDraft,
+                        trackData: nil,
+                        replyToId: replyID
+                    )
+                }
+            } else {
+                Task {
+                    try? await webSocketService.send(text: trimmedDraft)
+                }
             }
         }
     }

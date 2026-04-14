@@ -2,7 +2,7 @@ import Foundation
 
 protocol MessageServiceProtocol {
     func fetchMessages(roomId: UUID) async throws -> [Message]
-    func sendMessage(roomId: UUID, contentType: String, textContent: String?, trackData: Track?) async throws -> Message
+    func sendMessage(roomId: UUID, contentType: String, textContent: String?, trackData: Track?, replyToId: UUID?) async throws -> Message
     func sendSongMessage(roomId: UUID, track: Track) async throws -> Message
     func addEmojiReaction(roomId: UUID, messageId: UUID, emoji: String) async throws -> EmojiReaction
 }
@@ -42,7 +42,7 @@ struct RemoteMessageService: MessageServiceProtocol {
         return dtos.compactMap { $0.toDomain() }
     }
 
-    func sendMessage(roomId: UUID, contentType: String, textContent: String?, trackData: Track?) async throws -> Message {
+    func sendMessage(roomId: UUID, contentType: String, textContent: String?, trackData: Track?, replyToId: UUID?) async throws -> Message {
         let trackDataString = try trackData.map { track in
             let payload = TrackPayload(from: track)
             let jsonData = try encoder.encode(payload)
@@ -52,7 +52,8 @@ struct RemoteMessageService: MessageServiceProtocol {
         let body = CreateMessageBody(
             contentType: contentType,
             textContent: textContent,
-            trackData: trackDataString
+            trackData: trackDataString,
+            replyToId: replyToId?.uuidString
         )
         let (data, response) = try await sendRequest(
             path: "/api/rooms/\(roomId.uuidString)/messages", method: "POST", body: body
@@ -66,7 +67,7 @@ struct RemoteMessageService: MessageServiceProtocol {
     }
 
     func sendSongMessage(roomId: UUID, track: Track) async throws -> Message {
-        try await sendMessage(roomId: roomId, contentType: "song", textContent: nil, trackData: track)
+        try await sendMessage(roomId: roomId, contentType: "song", textContent: nil, trackData: track, replyToId: nil)
     }
 
     func addEmojiReaction(roomId: UUID, messageId: UUID, emoji: String) async throws -> EmojiReaction {
@@ -125,11 +126,11 @@ struct MockMessageService: MessageServiceProtocol {
         MockData.messages
     }
 
-    func sendMessage(roomId: UUID, contentType: String, textContent: String?, trackData: Track?) async throws -> Message {
+    func sendMessage(roomId: UUID, contentType: String, textContent: String?, trackData: Track?, replyToId: UUID?) async throws -> Message {
         if contentType == "song", let track = trackData {
-            return Message(senderName: "You", track: track, sentAt: Date())
+            return Message(senderName: "You", track: track, replyToMessageID: replyToId, sentAt: Date())
         }
-        return Message(senderName: "You", text: textContent ?? "", sentAt: Date())
+        return Message(senderName: "You", text: textContent ?? "", replyToMessageID: replyToId, sentAt: Date())
     }
 
     func sendSongMessage(roomId: UUID, track: Track) async throws -> Message {
@@ -236,6 +237,7 @@ private struct CreateMessageBody: Encodable {
     let contentType: String
     let textContent: String?
     let trackData: String?
+    let replyToId: String?
 }
 
 private struct AddEmojiBody: Encodable {
