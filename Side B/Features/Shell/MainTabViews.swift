@@ -24,8 +24,7 @@ final class RoomsListViewModel {
                 rooms = try await service.fetchRooms()
                 state = .loaded
             } catch {
-                rooms = MockData.rooms
-                state = rooms.isEmpty ? .failed : .loaded
+                state = .failed
             }
         }
     }
