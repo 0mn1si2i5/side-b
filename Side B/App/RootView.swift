@@ -5,21 +5,21 @@ struct RootView: View {
         TabView {
             PlaylistListView()
                 .tabItem {
-                    Label("Playlist", systemImage: "music.note.list")
+                    Label("歌单", systemImage: "music.note.list")
                 }
 
             NavigationStack {
                 RoomsListView()
             }
             .tabItem {
-                Label("Rooms", systemImage: "bubble.left.and.bubble.right.fill")
+                Label("聊天室", systemImage: "bubble.left.and.bubble.right.fill")
             }
 
             NavigationStack {
                 ProfileTabView()
             }
             .tabItem {
-                Label("Profile", systemImage: "person")
+                Label("我的", systemImage: "person")
             }
         }
     }

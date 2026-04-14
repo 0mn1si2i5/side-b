@@ -14,21 +14,21 @@ struct CreatePlaylistView: View {
         NavigationView {
             Form {
                 Section {
-                    TextField("Playlist Name", text: $playlistName)
+                    TextField("歌单名称", text: $playlistName)
                 }
             }
-            .navigationTitle("New Playlist")
+            .navigationTitle("新建歌单")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
+                    Button("取消") {
                         dismiss()
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Create") {
+                    Button("创建") {
                         createPlaylist()
                     }
                     .disabled(!isCreateEnabled)

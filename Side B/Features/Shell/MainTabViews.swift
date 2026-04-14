@@ -7,12 +7,12 @@ struct HomeTabView: View {
                 .font(.largeTitle)
                 .fontWeight(.bold)
 
-            Text("A cross-platform music sharing inbox for friends.")
+            Text("跨平台音乐分享，让朋友听到你喜欢的歌")
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
                 .padding(.horizontal)
         }
-        .navigationTitle("Home")
+        .navigationTitle("首页")
     }
 }
 
@@ -43,7 +43,7 @@ struct RoomsListView: View {
                 }
             }
         }
-        .navigationTitle("Rooms")
+        .navigationTitle("聊天室")
     }
 }
 
@@ -85,18 +85,18 @@ struct SongDetailView: View {
                         .foregroundStyle(.secondary)
 
                     if let albumTitle = displayTrack.albumTitle {
-                        Text("Album: \(albumTitle)")
+                        Text("专辑：\(albumTitle)")
                             .font(.body)
                             .foregroundStyle(.secondary)
                     }
 
-                    Text("Source: \(displayTrack.sourcePlatformName)")
+                    Text("来源：\(displayTrack.sourcePlatformName)")
                         .font(.body)
                         .foregroundStyle(.secondary)
                 }
 
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Open In")
+                    Text("打开方式")
                         .font(.headline)
 
                     ForEach(platformSlotRows, id: \.self) { row in
@@ -133,8 +133,8 @@ struct SongDetailView: View {
         }
         .navigationTitle(displayTrack.title)
         .navigationBarTitleDisplayMode(.inline)
-        .alert("Coming Soon", isPresented: $isShowingPlatformFeedback) {
-            Button("OK", role: .cancel) {}
+.alert("即将上线", isPresented: $isShowingPlatformFeedback) {
+                    Button("好的", role: .cancel) {}
         } message: {
             Text(platformFeedbackMessage)
         }
@@ -177,14 +177,14 @@ struct SongDetailView: View {
         let destinationURL = platformLink.destinationURL
 
         guard navigationService.destinationURL(for: platformLink.platform, track: displayTrack) != nil || platformLink.isSource else {
-            platformFeedbackMessage = "A destination for \(platformLink.platformName) is not available in this mock build."
+            platformFeedbackMessage = "\(platformLink.platformName) 暂不支持跳转"
             isShowingPlatformFeedback = true
             return
         }
 
         openURL(destinationURL) { accepted in
             if !accepted {
-                platformFeedbackMessage = "Could not open \(platformLink.platformName)."
+                platformFeedbackMessage = "无法打开\(platformLink.platformName)"
                 isShowingPlatformFeedback = true
             }
         }
@@ -374,15 +374,15 @@ struct ProfileTabView: View {
             Image(systemName: "person.crop.circle.fill")
                 .font(.system(size: 64))
 
-            Text("Your Profile")
+            Text("我的")
                 .font(.title2)
                 .fontWeight(.semibold)
 
-            Text("Shared songs, saved tracks, and listening activity will appear here.")
+            Text("分享的歌曲、收藏的曲目和听歌动态将在这里显示。")
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
                 .padding(.horizontal)
         }
-        .navigationTitle("Profile")
+        .navigationTitle("我的")
     }
 }

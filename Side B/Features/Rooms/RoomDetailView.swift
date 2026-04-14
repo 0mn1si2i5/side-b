@@ -109,7 +109,7 @@ struct RoomDetailView: View {
                         .foregroundStyle(.secondary)
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Replying to song")
+                        Text("回复歌曲")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
 
@@ -145,7 +145,7 @@ struct RoomDetailView: View {
 
                 Group {
                     if viewModel.isShowingLinkInput {
-                        TextField("Paste a music link", text: $viewModel.linkInput)
+                        TextField("粘贴音乐链接", text: $viewModel.linkInput)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
                             .textFieldStyle(.roundedBorder)
@@ -155,7 +155,7 @@ struct RoomDetailView: View {
                                 submitComposer()
                             }
                     } else {
-                        TextField("Send a message", text: $viewModel.draftText)
+                        TextField("发送消息", text: $viewModel.draftText)
                             .textFieldStyle(.roundedBorder)
                             .disabled(viewModel.isSending)
                             .submitLabel(.send)
@@ -165,7 +165,7 @@ struct RoomDetailView: View {
                     }
                 }
 
-                Button(viewModel.isShowingLinkInput ? "Share" : "Send") {
+                Button(viewModel.isShowingLinkInput ? "分享" : "发送") {
                     submitComposer()
                 }
                 .buttonStyle(.borderedProminent)
@@ -258,13 +258,13 @@ struct RoomDetailView: View {
         case .idle:
             return ""
         case .resolving:
-            return "Resolving song link..."
+            return "正在解析歌曲链接..."
         case .resolved:
-            return "Song resolved."
+            return "歌曲解析成功"
         case .fallbackMock:
-            return "Resolver unavailable. Sent a fallback song card."
+            return "解析器不可用，已发送备用歌曲卡片"
         case .failed:
-            return "Could not resolve this song link."
+            return "无法解析该歌曲链接"
         }
     }
 

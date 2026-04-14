@@ -51,6 +51,12 @@ final class RecentlyResolvedStore {
         userDefaults.removeObject(forKey: storageKey)
     }
 
+    func remove(identity: String) {
+        var entries = loadAllRecords()
+        entries.removeAll { $0.persistenceIdentity == identity }
+        persistAllRecords(entries)
+    }
+
     private func loadAllRecords() -> [RecentlyResolvedEntry] {
         guard let data = userDefaults.data(forKey: storageKey) else { return [] }
         return (try? decoder.decode([RecentlyResolvedEntry].self, from: data)) ?? []

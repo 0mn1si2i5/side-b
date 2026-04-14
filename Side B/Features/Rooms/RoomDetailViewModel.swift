@@ -120,11 +120,11 @@ final class RoomDetailViewModel: ObservableObject {
         switch response.parsingResult {
         case .unsupportedLink:
             linkResolutionState = .failed
-            linkResolutionMessage = "This link is not supported yet. Paste a Spotify, Apple Music, 网易云音乐, or QQ 音乐 track link."
+            linkResolutionMessage = "暂不支持该链接，请粘贴 Spotify、Apple Music、网易云音乐或 QQ 音乐的歌曲链接"
             return
         case .missingResourceID:
             linkResolutionState = .failed
-            linkResolutionMessage = "Could not extract a track ID from this link."
+            linkResolutionMessage = "无法从链接中提取歌曲 ID"
             return
         case .parsed:
             break
@@ -133,9 +133,9 @@ final class RoomDetailViewModel: ObservableObject {
         if response.metadataStatus == .fallbackMock {
             linkResolutionState = .failed
             if let diagnosticMessage = response.diagnosticMessage, !diagnosticMessage.isEmpty {
-                linkResolutionMessage = "Could not resolve this song. \(diagnosticMessage)"
+                linkResolutionMessage = "无法解析该歌曲。\(diagnosticMessage)"
             } else {
-                linkResolutionMessage = "Could not resolve this song."
+                linkResolutionMessage = "无法解析该歌曲"
             }
             return
         }
@@ -150,6 +150,10 @@ final class RoomDetailViewModel: ObservableObject {
 
         messages.append(newMessage)
         persistenceStore.save(track: resolvedTrack)
+        TrackCache.shared.save(track: resolvedTrack)
+        if let identity = resolvedTrack.persistenceIdentity {
+            RecentlyResolvedStore.shared.add(identity)
+        }
         linkInput = ""
         isShowingLinkInput = false
         quotedTrack = nil
@@ -160,7 +164,7 @@ final class RoomDetailViewModel: ObservableObject {
             linkResolutionMessage = nil
         case .fallbackMock:
             linkResolutionState = .failed
-            linkResolutionMessage = "Could not resolve or match this song."
+            linkResolutionMessage = "无法解析或匹配该歌曲"
         case .mockLocal:
             linkResolutionState = .resolved
             linkResolutionMessage = nil

@@ -3,6 +3,7 @@ import SwiftUI
 struct AddToPlaylistView: View {
     let track: Track
     @Binding var isPresented: Bool
+    var onAdded: ((Playlist) -> Void)? = nil
 
     @State private var playlists: [Playlist] = []
     @State private var showDuplicateAlert = false
@@ -51,6 +52,7 @@ struct AddToPlaylistView: View {
         let success = playlistStore.addTrack(trackID, to: playlist)
 
         if success {
+            onAdded?(playlist)
             isPresented = false
         } else {
             selectedPlaylistName = playlist.name

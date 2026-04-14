@@ -13,9 +13,12 @@ struct PlaylistDetailView: View {
             } else {
                 ForEach(sortedTrackEntries) { entry in
                     NavigationLink {
-                        if let track = resolvedTrack(for: entry) {
-                            SongDetailView(track: track)
-                        }
+                        SongDetailView(track: resolvedTrack(for: entry) ?? Track(
+                            title: "Unknown Song",
+                            artistName: "Unknown Artist",
+                            sourcePlatform: .spotify,
+                            sourcePlatformID: entry.trackID
+                        ))
                     } label: {
                         PlaylistSongRowView(
                             entry: entry,
@@ -26,7 +29,7 @@ struct PlaylistDetailView: View {
                         Button(role: .destructive) {
                             deleteTrackEntry(entry)
                         } label: {
-                            Label("Delete", systemImage: "trash")
+                            Label("删除", systemImage: "trash")
                         }
                     }
                 }
@@ -37,7 +40,7 @@ struct PlaylistDetailView: View {
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Text("\(trackEntries.count) songs")
+                Text("\(trackEntries.count) 首歌曲")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -58,11 +61,11 @@ struct PlaylistDetailView: View {
                     .font(.system(size: 48))
                     .foregroundStyle(.secondary.opacity(0.6))
 
-                Text("No songs yet")
+                Text("暂无歌曲")
                     .font(.headline)
                     .foregroundStyle(.primary)
 
-                Text("Add songs to this playlist from song cards")
+                Text("从歌曲卡片中添加歌曲到此歌单")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -82,8 +85,10 @@ struct PlaylistDetailView: View {
     private func resolveTracksForEntries() {
         var tracks: [String: Track] = [:]
         for entry in trackEntries {
-            if let track = MockData.track(forTrackID: entry.trackID) {
-                tracks[entry.trackID] = track
+            if let cachedTrack = TrackCache.shared.track(for: entry.trackID) {
+                tracks[entry.trackID] = cachedTrack
+            } else if let mockTrack = MockData.track(forTrackID: entry.trackID) {
+                tracks[entry.trackID] = mockTrack
             }
         }
         entryTracks = tracks

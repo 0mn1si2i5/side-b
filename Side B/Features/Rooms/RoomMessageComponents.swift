@@ -68,7 +68,7 @@ struct MessageRowView: View {
                                 Button {
                                     onQuoteTrack(track)
                                 } label: {
-                                    Label("Quote song", systemImage: "quote.bubble")
+                                    Label("引用歌曲", systemImage: "quote.bubble")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
@@ -78,7 +78,7 @@ struct MessageRowView: View {
                                     selectedTrack = track
                                     showingAddToPlaylistSheet = true
                                 } label: {
-                                    Label("Add to Playlist", systemImage: "plus.circle")
+                                    Label("加入歌单", systemImage: "plus.circle")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
