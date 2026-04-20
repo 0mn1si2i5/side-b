@@ -1,7 +1,6 @@
 import SwiftUI
 
 struct RegisterView: View {
-    @Environment(AuthState.self) private var authState
     @Bindable var viewModel: AuthViewModel
     @State private var username = ""
     @State private var password = ""
@@ -42,9 +41,6 @@ struct RegisterView: View {
                             displayName: displayName,
                             avatarName: selectedAvatar
                         )
-                        if let user = viewModel.currentUser {
-                            authState.handleAuthenticationSuccess(user: user)
-                        }
                     }
                 } label: {
                     HStack {

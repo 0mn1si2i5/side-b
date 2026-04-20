@@ -23,6 +23,10 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class UpdateProfileRequest(BaseModel):
+    preferredPlatform: str | None = None
+
+
 class UserResponse(BaseModel):
     id: str
     username: str
@@ -88,6 +92,26 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
 @router.get("/me", response_model=UserResponse)
 def get_me(user=Depends(get_current_user)):
     return _user_to_response(user)
+
+
+VALID_PLATFORMS = {"apple_music", "spotify", "qq_music", "netease_music"}
+
+
+@router.put("/me", response_model=UserResponse)
+def update_profile(
+    req: UpdateProfileRequest,
+    user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if req.preferredPlatform is not None and req.preferredPlatform not in VALID_PLATFORMS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid platform. Choose from: {sorted(VALID_PLATFORMS)}",
+        )
+    updated = user_service.update_preferred_platform(
+        db, user.id, req.preferredPlatform
+    )
+    return _user_to_response(updated)
 
 
 @router.get("/avatars")

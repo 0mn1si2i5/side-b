@@ -79,6 +79,30 @@ struct RemoteAuthService: AuthServiceProtocol {
         return userBody.toDomain()
     }
 
+    func updatePreferredPlatform(_ platform: MusicPlatform?) async throws -> User {
+        guard let token = tokenStore.load() else {
+            throw AuthServiceError.notAuthenticated
+        }
+        let platformValue: String?
+        switch platform {
+        case .appleMusic: platformValue = "apple_music"
+        case .spotify: platformValue = "spotify"
+        case .qqMusic: platformValue = "qq_music"
+        case .neteaseMusic: platformValue = "netease_music"
+        case nil: platformValue = nil
+        }
+        let body = UpdateProfileRequestBody(preferredPlatform: platformValue)
+        let (data, response) = try await sendRequest(
+            path: "/api/auth/me",
+            method: "PUT",
+            body: body,
+            token: token
+        )
+        try validate(response: response)
+        let userBody = try decoder.decode(UserResponseBody.self, from: data)
+        return userBody.toDomain()
+    }
+
     func logout() async throws {
         tokenStore.delete()
     }
@@ -117,6 +141,10 @@ struct RemoteAuthService: AuthServiceProtocol {
             throw AuthServiceError.unsuccessfulStatusCode(response.statusCode)
         }
     }
+}
+
+private struct UpdateProfileRequestBody: Encodable {
+    let preferredPlatform: String?
 }
 
 private struct RegisterRequestBody: Encodable {

@@ -54,7 +54,13 @@ struct CachedTrack: Codable {
     }
 }
 
-final class TrackCache {
+protocol TrackCacheProtocol: AnyObject {
+    func save(track: Track)
+    func track(for persistenceIdentity: String) -> Track?
+    func removeTrack(for persistenceIdentity: String)
+}
+
+final class TrackCache: TrackCacheProtocol {
     static let shared = TrackCache()
 
     private let userDefaults: UserDefaults
@@ -99,11 +105,22 @@ final class TrackCache {
 
     private func loadAllRecords() -> [String: CachedTrack] {
         guard let data = userDefaults.data(forKey: storageKey) else { return [:] }
-        return (try? decoder.decode([String: CachedTrack].self, from: data)) ?? [:]
+        do {
+            return try decoder.decode([String: CachedTrack].self, from: data)
+        } catch {
+            print("[TrackCache] decode failed:", error)
+            return [:]
+        }
     }
 
     private func persistAllRecords(_ records: [String: CachedTrack]) {
-        guard let data = try? encoder.encode(records) else { return }
+        let data: Data
+        do {
+            data = try encoder.encode(records)
+        } catch {
+            print("[TrackCache] encode failed:", error)
+            return
+        }
         userDefaults.set(data, forKey: storageKey)
     }
 

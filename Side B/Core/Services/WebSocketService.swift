@@ -16,6 +16,7 @@ protocol WebSocketServiceProtocol {
     var onMessageReceived: ((Message) -> Void)? { get set }
     var onEmojiReactionReceived: ((EmojiReaction) -> Void)? { get set }
     var onRoomUpdated: ((Room) -> Void)? { get set }
+    var onConnectionStateChanged: ((WebSocketConnectionState) -> Void)? { get set }
 
     func connect(toRoom roomId: UUID) async
     func disconnect()
@@ -39,6 +40,7 @@ final class RemoteWebSocketService: WebSocketServiceProtocol {
     var onMessageReceived: ((Message) -> Void)?
     var onEmojiReactionReceived: ((EmojiReaction) -> Void)?
     var onRoomUpdated: ((Room) -> Void)?
+    var onConnectionStateChanged: ((WebSocketConnectionState) -> Void)?
 
     private let baseURL: URL
     private let tokenStore: KeychainTokenStore
@@ -178,10 +180,15 @@ final class RemoteWebSocketService: WebSocketServiceProtocol {
     // MARK: - Message Handling
 
     private func handleRawMessage(_ text: String) {
-        guard let data = text.data(using: .utf8),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let type = json["type"] as? String
-        else { return }
+        guard let data = text.data(using: .utf8) else { return }
+        let json: [String: Any]?
+        do {
+            json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        } catch {
+            print("[WebSocketService] JSON parse failed:", error)
+            return
+        }
+        guard let json, let type = json["type"] as? String else { return }
 
         switch type {
         case "new_message":
@@ -275,9 +282,14 @@ final class RemoteWebSocketService: WebSocketServiceProtocol {
     }
 
     private func parseTrackData(_ jsonString: String) -> Track? {
-        guard let data = jsonString.data(using: .utf8),
-              let trackDTO = try? JSONDecoder().decode(WebSocketTrackDTO.self, from: data)
-        else { return nil }
+        guard let data = jsonString.data(using: .utf8) else { return nil }
+        let trackDTO: WebSocketTrackDTO
+        do {
+            trackDTO = try JSONDecoder().decode(WebSocketTrackDTO.self, from: data)
+        } catch {
+            print("[WebSocketService] track decode failed:", error)
+            return nil
+        }
 
         return trackDTO.toTrack()
     }
@@ -298,7 +310,11 @@ final class RemoteWebSocketService: WebSocketServiceProtocol {
         retryCount += 1
 
         reconnectTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            do {
+                try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            } catch {
+                print("[WebSocketService] sleep cancelled:", error)
+            }
             guard !Task.isCancelled, let self else { return }
             await self.establishConnection(toRoom: roomId)
         }
@@ -314,6 +330,7 @@ final class RemoteWebSocketService: WebSocketServiceProtocol {
     private func setConnectionState(_ state: WebSocketConnectionState) {
         Task { @MainActor in
             self.connectionState = state
+            self.onConnectionStateChanged?(state)
         }
     }
 }
@@ -362,6 +379,7 @@ final class MockWebSocketService: WebSocketServiceProtocol {
     var onMessageReceived: ((Message) -> Void)?
     var onEmojiReactionReceived: ((EmojiReaction) -> Void)?
     var onRoomUpdated: ((Room) -> Void)?
+    var onConnectionStateChanged: ((WebSocketConnectionState) -> Void)?
 
     func connect(toRoom roomId: UUID) async {
         connectionState = .connected

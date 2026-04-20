@@ -8,9 +8,14 @@ final class AuthViewModel {
     var errorMessage: String?
 
     private let authService: any AuthServiceProtocol
+    private weak var authState: AuthState?
 
-    init(authService: any AuthServiceProtocol = AuthServiceFactory.makeDefaultService()) {
+    init(
+        authService: any AuthServiceProtocol = AuthServiceFactory.makeDefaultService(),
+        authState: AuthState? = nil
+    ) {
         self.authService = authService
+        self.authState = authState
     }
 
     func login(username: String, password: String) async {
@@ -34,6 +39,7 @@ final class AuthViewModel {
             let user = try await authService.getCurrentUser()
             currentUser = user
             isAuthenticated = true
+            authState?.handleAuthenticationSuccess(user: user)
         } catch {
             errorMessage = localizedErrorMessage(error)
         }
@@ -72,6 +78,7 @@ final class AuthViewModel {
             let user = try await authService.getCurrentUser()
             currentUser = user
             isAuthenticated = true
+            authState?.handleAuthenticationSuccess(user: user)
         } catch {
             errorMessage = localizedErrorMessage(error)
         }

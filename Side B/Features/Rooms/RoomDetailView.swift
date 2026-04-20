@@ -2,16 +2,14 @@ import SwiftUI
 
 struct RoomDetailView: View {
     let room: Room
-    @StateObject private var viewModel: RoomDetailViewModel
+    @State private var viewModel: RoomDetailViewModel
     @Environment(AuthState.self) private var authState
     @State private var pendingIncomingMessageCount = 0
     @State private var isAtBottom = true
 
     init(room: Room) {
         self.room = room
-        _viewModel = StateObject(
-            wrappedValue: RoomDetailViewModel(roomId: room.id)
-        )
+        _viewModel = State(initialValue: RoomDetailViewModel(roomId: room.id))
     }
 
     var body: some View {

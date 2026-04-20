@@ -73,11 +73,22 @@ final class PlatformLinkPersistenceStore {
 
     private func loadAllRecords() -> [String: PersistedPlatformLinkRecordBody] {
         guard let data = userDefaults.data(forKey: storageKey) else { return [:] }
-        return (try? decoder.decode([String: PersistedPlatformLinkRecordBody].self, from: data)) ?? [:]
+        do {
+            return try decoder.decode([String: PersistedPlatformLinkRecordBody].self, from: data)
+        } catch {
+            print("[PlatformLinkPersistenceStore] decode failed:", error)
+            return [:]
+        }
     }
 
     private func persistAllRecords(_ records: [String: PersistedPlatformLinkRecordBody]) {
-        guard let data = try? encoder.encode(records) else { return }
+        let data: Data
+        do {
+            data = try encoder.encode(records)
+        } catch {
+            print("[PlatformLinkPersistenceStore] encode failed:", error)
+            return
+        }
         userDefaults.set(data, forKey: storageKey)
     }
 }

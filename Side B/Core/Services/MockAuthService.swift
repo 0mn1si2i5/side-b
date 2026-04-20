@@ -4,7 +4,7 @@ struct MockAuthService: AuthServiceProtocol {
     private let tokenStore: KeychainTokenStore
 
     private let mockUser = User(
-        id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
+        id: UUID(uuidString: "00000000-0000-0000-0000-000000000001") ?? UUID(),
         username: "mockuser",
         displayName: "Mock User",
         avatarName: "avatar_1"
@@ -14,7 +14,7 @@ struct MockAuthService: AuthServiceProtocol {
         accessToken: "mock-jwt-token",
         tokenType: "bearer",
         expiresIn: 86400,
-        userId: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+        userId: UUID(uuidString: "00000000-0000-0000-0000-000000000001") ?? UUID()
     )
 
     init(tokenStore: KeychainTokenStore = KeychainTokenStore()) {
@@ -45,6 +45,16 @@ struct MockAuthService: AuthServiceProtocol {
             throw AuthServiceError.notAuthenticated
         }
         return mockUser
+    }
+
+    func updatePreferredPlatform(_ platform: MusicPlatform?) async throws -> User {
+        User(
+            id: mockUser.id,
+            username: mockUser.username,
+            displayName: mockUser.displayName,
+            avatarName: mockUser.avatarName,
+            preferredPlatform: platform
+        )
     }
 
     func logout() async throws {

@@ -1,67 +1,5 @@
 import SwiftUI
 
-@Observable
-final class CreateRoomViewModel {
-    var roomType: RoomType = .direct
-    var roomName = ""
-    var memberUsername = ""
-    var isLoading = false
-    var errorMessage: String?
-    var createdRoom: Room?
-
-    private let service: any RoomServiceProtocol
-
-    init(service: any RoomServiceProtocol = RoomServiceFactory.makeDefaultService()) {
-        self.service = service
-    }
-
-    var canCreate: Bool {
-        if isLoading { return false }
-        switch roomType {
-        case .direct:
-            return !memberUsername.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        case .group:
-            return !roomName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                && !memberUsername.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        }
-    }
-
-    func createRoom() {
-        let name: String
-        switch roomType {
-        case .direct:
-            name = memberUsername.trimmingCharacters(in: .whitespacesAndNewlines)
-        case .group:
-            name = roomName.trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-
-        let username = memberUsername.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        guard !name.isEmpty, !username.isEmpty else { return }
-
-        isLoading = true
-        errorMessage = nil
-
-        Task { @MainActor in
-            do {
-                let room = try await service.createRoom(
-                    name: name,
-                    type: roomType.rawValue,
-                    memberUsername: username
-                )
-                createdRoom = room
-            } catch {
-                errorMessage = localizedErrorMessage(for: error)
-            }
-            isLoading = false
-        }
-    }
-
-    func clearError() {
-        errorMessage = nil
-    }
-}
-
 struct CreateRoomView: View {
     @State private var viewModel = CreateRoomViewModel()
     @Environment(\.dismiss) private var dismiss
@@ -133,9 +71,15 @@ struct CreateRoomView: View {
                     .autocorrectionDisabled()
             }
 
-            TextField("对方用户名", text: $viewModel.memberUsername)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
+            if viewModel.roomType == .direct {
+                TextField("对方用户名", text: $viewModel.memberUsername)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+            } else {
+                TextField("成员用户名（逗号分隔）", text: $viewModel.memberUsernamesText)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+            }
         } header: {
             Text(viewModel.roomType == .group ? "群聊信息" : "私聊信息")
         }

@@ -2,10 +2,10 @@ import Foundation
 
 enum MockData {
     private static let realSourceURLs: [MusicPlatform: URL] = [
-        .spotify: URL(string: "https://open.spotify.com/track/6qxvy9Pe4RJIq5JBVbbwbS?si=A8pcxUVOSAydRfDBx_IONw")!,
-        .appleMusic: URL(string: "https://music.apple.com/cn/album/maroon/1689131527?i=1689131532")!,
-        .qqMusic: URL(string: "https://c6.y.qq.com/base/fcgi-bin/u?__=ctDFhEfIaJUS")!,
-        .neteaseMusic: URL(string: "https://163cn.tv/4XYD10p")!
+        .spotify: URL(string: "https://open.spotify.com/track/6qxvy9Pe4RJIq5JBVbbwbS?si=A8pcxUVOSAydRfDBx_IONw") ?? URL(string: "https://example.com")!,
+        .appleMusic: URL(string: "https://music.apple.com/cn/album/maroon/1689131527?i=1689131532") ?? URL(string: "https://example.com")!,
+        .qqMusic: URL(string: "https://c6.y.qq.com/base/fcgi-bin/u?__=ctDFhEfIaJUS") ?? URL(string: "https://example.com")!,
+        .neteaseMusic: URL(string: "https://163cn.tv/4XYD10p") ?? URL(string: "https://example.com")!
     ]
 
     static let tracks: [Track] = [
@@ -16,7 +16,7 @@ enum MockData {
             durationMS: 218_270,
             sourcePlatform: .spotify,
             sourcePlatformID: "6qxvy9Pe4RJIq5JBVbbwbS",
-            sourceURL: realSourceURLs[.spotify]!,
+            sourceURL: realSourceURLs[.spotify] ?? URL(string: "https://example.com")!,
             isrc: "USUG12306678",
             platformLinks: defaultPlatformLinks(for: .spotify),
             artworkURL: URL(string: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/44/1f/b7/441fb7c1-1005-4d0b-85d2-6890af9bf7fb/23UMGIM63834.rgb.jpg/1200x1200bb.jpg")
@@ -28,7 +28,7 @@ enum MockData {
             durationMS: 218_270,
             sourcePlatform: .neteaseMusic,
             sourcePlatformID: "2049512695",
-            sourceURL: realSourceURLs[.neteaseMusic]!,
+            sourceURL: realSourceURLs[.neteaseMusic] ?? URL(string: "https://example.com")!,
             isrc: "USUG12306678",
             platformLinks: defaultPlatformLinks(for: .neteaseMusic),
             artworkURL: URL(string: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/44/1f/b7/441fb7c1-1005-4d0b-85d2-6890af9bf7fb/23UMGIM63834.rgb.jpg/1200x1200bb.jpg")
@@ -40,7 +40,7 @@ enum MockData {
             durationMS: 218_270,
             sourcePlatform: .appleMusic,
             sourcePlatformID: "1689131532",
-            sourceURL: realSourceURLs[.appleMusic]!,
+            sourceURL: realSourceURLs[.appleMusic] ?? URL(string: "https://example.com")!,
             isrc: "USUG12306678",
             platformLinks: defaultPlatformLinks(for: .appleMusic),
             artworkURL: URL(string: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/44/1f/b7/441fb7c1-1005-4d0b-85d2-6890af9bf7fb/23UMGIM63834.rgb.jpg/1200x1200bb.jpg")
@@ -58,7 +58,7 @@ enum MockData {
             durationMS: tracks[0].durationMS,
             sourcePlatform: .qqMusic,
             sourcePlatformID: "003OUlho2HcRHC",
-            sourceURL: realSourceURLs[.qqMusic]!,
+            sourceURL: realSourceURLs[.qqMusic] ?? URL(string: "https://example.com")!,
             isrc: tracks[0].isrc,
             platformLinks: defaultPlatformLinks(for: .qqMusic),
             artworkURL: tracks[0].artworkURL
@@ -68,20 +68,20 @@ enum MockData {
     static let platformLinks: [PlatformLink] = [
         PlatformLink(
             platform: .spotify,
-            destinationURL: realSourceURLs[.spotify]!,
+            destinationURL: realSourceURLs[.spotify] ?? URL(string: "https://example.com")!,
             isSource: true
         ),
         PlatformLink(
             platform: .neteaseMusic,
-            destinationURL: realSourceURLs[.neteaseMusic]!
+            destinationURL: realSourceURLs[.neteaseMusic] ?? URL(string: "https://example.com")!
         ),
         PlatformLink(
             platform: .appleMusic,
-            destinationURL: realSourceURLs[.appleMusic]!
+            destinationURL: realSourceURLs[.appleMusic] ?? URL(string: "https://example.com")!
         ),
         PlatformLink(
             platform: .qqMusic,
-            destinationURL: realSourceURLs[.qqMusic]!
+            destinationURL: realSourceURLs[.qqMusic] ?? URL(string: "https://example.com")!
         )
     ]
 
@@ -163,10 +163,10 @@ enum MockData {
 
     private static func defaultPlatformLinks(for sourcePlatform: MusicPlatform) -> [PlatformLink] {
         let destinations: [MusicPlatform: URL] = [
-            .spotify: realSourceURLs[.spotify]!,
-            .appleMusic: realSourceURLs[.appleMusic]!,
-            .neteaseMusic: realSourceURLs[.neteaseMusic]!,
-            .qqMusic: realSourceURLs[.qqMusic]!
+            .spotify: realSourceURLs[.spotify] ?? URL(string: "https://example.com")!,
+            .appleMusic: realSourceURLs[.appleMusic] ?? URL(string: "https://example.com")!,
+            .neteaseMusic: realSourceURLs[.neteaseMusic] ?? URL(string: "https://example.com")!,
+            .qqMusic: realSourceURLs[.qqMusic] ?? URL(string: "https://example.com")!
         ]
 
         return MusicPlatform.allCases.compactMap { platform in

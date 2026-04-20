@@ -179,7 +179,7 @@ private struct PlaylistSongRowView: View {
 #if DEBUG
 #Preview {
     NavigationStack {
-        PlaylistDetailView(playlist: MockData.playlists[1])
+        PlaylistDetailView(playlist: MockData.playlists[1]) // Preview mock data
     }
 }
 #endif

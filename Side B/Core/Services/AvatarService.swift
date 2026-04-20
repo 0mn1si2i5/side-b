@@ -1,4 +1,27 @@
-import SwiftUI
+import Foundation
+
+/// Platform-agnostic color representation for avatar backgrounds.
+/// Convert to SwiftUI Color via `swiftUIColor` computed property.
+struct AvatarBackgroundColor {
+    let red: Double
+    let green: Double
+    let blue: Double
+
+    /// Predefined colors matching the original SwiftUI Color values
+    static let blue    = AvatarBackgroundColor(red: 0.0, green: 0.478, blue: 1.0)
+    static let purple  = AvatarBackgroundColor(red: 0.686, green: 0.321, blue: 0.871)
+    static let green   = AvatarBackgroundColor(red: 0.204, green: 0.78, blue: 0.349)
+    static let orange  = AvatarBackgroundColor(red: 1.0, green: 0.584, blue: 0.0)
+    static let pink    = AvatarBackgroundColor(red: 1.0, green: 0.176, blue: 0.333)
+    static let teal    = AvatarBackgroundColor(red: 0.0, green: 0.663, blue: 0.624)
+    static let indigo  = AvatarBackgroundColor(red: 0.345, green: 0.337, blue: 0.839)
+    static let red     = AvatarBackgroundColor(red: 1.0, green: 0.231, blue: 0.188)
+    static let mint    = AvatarBackgroundColor(red: 0.0, green: 0.78, blue: 0.745)
+    static let yellow  = AvatarBackgroundColor(red: 1.0, green: 0.8, blue: 0.0)
+    static let cyan    = AvatarBackgroundColor(red: 0.0, green: 0.745, blue: 0.745)
+    static let brown   = AvatarBackgroundColor(red: 0.635, green: 0.518, blue: 0.369)
+    static let gray    = AvatarBackgroundColor(red: 0.557, green: 0.557, blue: 0.576)
+}
 
 enum AvatarService {
 
@@ -10,7 +33,7 @@ enum AvatarService {
 
     struct AvatarConfig {
         let symbolName: String
-        let backgroundColor: Color
+        let backgroundColor: AvatarBackgroundColor
     }
 
     private static let configs: [String: AvatarConfig] = [

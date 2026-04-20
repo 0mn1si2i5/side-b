@@ -1,6 +1,18 @@
 import Foundation
 
-final class PlaylistStore {
+protocol PlaylistStoreProtocol: AnyObject {
+    func loadPlaylists() -> [Playlist]
+    @discardableResult func savePlaylist(name: String, isDefault: Bool) -> Playlist
+    func deletePlaylist(_ playlist: Playlist) -> Bool
+    func renamePlaylist(_ playlist: Playlist, to newName: String) -> Playlist?
+    @discardableResult func addTrack(_ trackID: String, to playlist: Playlist) -> Bool
+    @discardableResult func addTrack(_ track: Track, to playlist: Playlist) -> Bool
+    func removeTrack(_ entry: PlaylistTrackEntry, from playlist: Playlist) -> Bool
+    func getTrackEntries(for playlist: Playlist) -> [PlaylistTrackEntry]
+    func getDefaultPlaylist() -> Playlist?
+}
+
+final class PlaylistStore: PlaylistStoreProtocol {
     static let shared = PlaylistStore()
 
     private let userDefaults: UserDefaults
@@ -123,11 +135,22 @@ final class PlaylistStore {
 
     private func loadAllRecords() -> [Playlist] {
         guard let data = userDefaults.data(forKey: storageKey) else { return [] }
-        return (try? decoder.decode([Playlist].self, from: data)) ?? []
+        do {
+            return try decoder.decode([Playlist].self, from: data)
+        } catch {
+            print("[PlaylistStore] decode failed:", error)
+            return []
+        }
     }
 
     private func persistAllRecords(_ playlists: [Playlist]) {
-        guard let data = try? encoder.encode(playlists) else { return }
+        let data: Data
+        do {
+            data = try encoder.encode(playlists)
+        } catch {
+            print("[PlaylistStore] encode failed:", error)
+            return
+        }
         userDefaults.set(data, forKey: storageKey)
     }
 }

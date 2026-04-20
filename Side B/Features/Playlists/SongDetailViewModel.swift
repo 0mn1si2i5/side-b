@@ -100,8 +100,13 @@ final class SongDetailViewModel {
     func requestPlatformLink(for platform: MusicPlatform, using track: Track) {
         displayTrack = displayTrack.updatingPlatformLinkState(.loading, for: platform)
         Task { @MainActor in
-            let result = try? await resolver.resolvePlatformLink(for: track, targetPlatform: platform)
-            guard let result else { return }
+            let result: SinglePlatformLinkResolutionResponse
+            do {
+                result = try await resolver.resolvePlatformLink(for: track, targetPlatform: platform)
+            } catch {
+                print("[SongDetailViewModel] resolvePlatformLink failed:", error)
+                return
+            }
             let updatedTrack = displayTrack.updatingPlatformLink(
                 result.platformLink,
                 state: result.state,

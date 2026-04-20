@@ -1,5 +1,11 @@
 import SwiftUI
 
+extension AvatarBackgroundColor {
+    var swiftUIColor: Color {
+        Color(red: red, green: green, blue: blue)
+    }
+}
+
 struct AvatarSelectionView: View {
 
     @Binding var selectedAvatar: String
@@ -25,12 +31,12 @@ struct AvatarSelectionView: View {
             selectedAvatar = name
         } label: {
             Circle()
-                .fill(config.backgroundColor.opacity(0.2))
+                .fill(config.backgroundColor.swiftUIColor.opacity(0.2))
                 .overlay {
                     Image(systemName: config.symbolName)
                         .resizable()
                         .aspectRatio(contentMode: .fit)
-                        .foregroundStyle(config.backgroundColor)
+                        .foregroundStyle(config.backgroundColor.swiftUIColor)
                         .padding(16)
                 }
                 .overlay {

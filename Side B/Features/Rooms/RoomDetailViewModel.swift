@@ -1,4 +1,3 @@
-import Combine
 import Foundation
 
 enum LinkResolutionState: Equatable {
@@ -9,28 +8,27 @@ enum LinkResolutionState: Equatable {
     case failed
 }
 
-final class RoomDetailViewModel: ObservableObject {
-    @Published var messages: [Message] = []
-    @Published var draftText = ""
-    @Published var linkInput = ""
-    @Published var quotedTrack: Track?
-    @Published var isShowingLinkInput = false
-    @Published var isSending = false
-    @Published var connectionState: WebSocketConnectionState = .disconnected
-    @Published private(set) var linkResolutionState: LinkResolutionState = .idle
-    @Published private(set) var linkResolutionMessage: String?
-    @Published var isLoading = false
-    @Published var errorMessage: String?
-    @Published var replyToMessageID: UUID?
-    @Published var replyToMessagePreview: String?
+@Observable
+final class RoomDetailViewModel {
+    var messages: [Message] = []
+    var draftText = ""
+    var linkInput = ""
+    var quotedTrack: Track?
+    var isShowingLinkInput = false
+    var isSending = false
+    var connectionState: WebSocketConnectionState = .disconnected
+    private(set) var linkResolutionState: LinkResolutionState = .idle
+    private(set) var linkResolutionMessage: String?
+    var isLoading = false
+    var errorMessage: String?
+    var replyToMessageID: UUID?
+    var replyToMessagePreview: String?
 
     private let roomId: UUID
     private let resolver: MusicResolverService
     private let persistenceStore: PlatformLinkPersistenceStore
     private let messageService: MessageServiceProtocol
     private var webSocketService: WebSocketServiceProtocol
-
-    private var cancellables = Set<AnyCancellable>()
 
     init(
         roomId: UUID,
@@ -74,7 +72,7 @@ final class RoomDetailViewModel: ObservableObject {
         isLoading = true
         errorMessage = nil
         do {
-            let fetched = try await messageService.fetchMessages(roomId: roomId)
+            let fetched = try await messageService.fetchMessages(roomId: roomId, limit: 50, before: nil)
             messages = fetched
                 .sorted { $0.sentAt < $1.sentAt }
                 .map { message in
@@ -107,13 +105,10 @@ final class RoomDetailViewModel: ObservableObject {
     }
 
     private func observeConnectionState() {
-        if let remoteService = webSocketService as? RemoteWebSocketService {
-            remoteService.$connectionState
-                .receive(on: DispatchQueue.main)
-                .sink { [weak self] state in
-                    self?.connectionState = state
-                }
-                .store(in: &cancellables)
+        webSocketService.onConnectionStateChanged = { [weak self] state in
+            DispatchQueue.main.async {
+                self?.connectionState = state
+            }
         }
     }
 
@@ -180,17 +175,25 @@ final class RoomDetailViewModel: ObservableObject {
         if connectionState == .connected {
             if replyID != nil {
                 Task {
-                    _ = try? await messageService.sendMessage(
-                        roomId: roomId,
-                        contentType: "text",
-                        textContent: trimmedDraft,
-                        trackData: nil,
-                        replyToId: replyID
-                    )
+                    do {
+                        _ = try await messageService.sendMessage(
+                            roomId: roomId,
+                            contentType: "text",
+                            textContent: trimmedDraft,
+                            trackData: nil,
+                            replyToId: replyID
+                        )
+                    } catch {
+                        print("[RoomDetailViewModel] sendMessage failed:", error)
+                    }
                 }
             } else {
                 Task {
-                    try? await webSocketService.send(text: trimmedDraft)
+                    do {
+                        try await webSocketService.send(text: trimmedDraft)
+                    } catch {
+                        print("[RoomDetailViewModel] ws send failed:", error)
+                    }
                 }
             }
         }

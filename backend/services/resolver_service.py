@@ -6,6 +6,7 @@ import time
 from models.resolver_models import CanonicalTrack, ParsedSource, ResolverContext, ResolverDiagnostic, SourcePlatformAdapter, TargetPlatformResolver
 from resolvers.spotify_platform import fetch_spotify_access_token, parse_spotify_track_id
 from services.input_parser import InputParser, InputParseResult
+from services.platform_link_cache import get_platform_link_cache
 from services.platform_link_resolvers import SpotifyTargetResolver, resolve_platform_link, resolve_platform_links
 from services.source_platform_adapters import SpotifySourceAdapter, default_source_adapters
 
@@ -32,6 +33,7 @@ class ResolverService:
             SpotifySourceAdapter(),
         )
         self.spotify_target_resolver = SpotifyTargetResolver()
+        self.platform_link_cache = get_platform_link_cache()
 
     def resolve(self, raw_input: str, preferred_market: str | None, include_platform_links: bool) -> dict:
         parse_result = self.input_parser.parse(raw_input)
@@ -82,16 +84,55 @@ class ResolverService:
 
     def resolve_platform_links(self, canonical_track: CanonicalTrack, preferred_market: str | None) -> dict:
         context = self.build_context(preferred_market)
+        platform_links = resolve_platform_links(
+            canonical_track,
+            context,
+            resolvers=self.target_resolvers,
+        )
+
+        for link in platform_links:
+            if link.get("isSource"):
+                continue
+            target_platform = link.get("platform")
+            destination_url = link.get("destinationURL")
+            if target_platform and destination_url:
+                self.platform_link_cache.set(
+                    canonical_track.source_url, target_platform, destination_url, preferred_market
+                )
+
         return {
-            "platformLinks": resolve_platform_links(
-                canonical_track,
-                context,
-                resolvers=self.target_resolvers,
-            ),
+            "platformLinks": platform_links,
             "resolverVersion": RESOLVER_VERSION,
         }
 
     def resolve_platform_link(self, canonical_track: CanonicalTrack, target_platform: str, preferred_market: str | None) -> dict:
+        if target_platform == canonical_track.source_platform:
+            source_link = {
+                "platform": canonical_track.source_platform,
+                "destinationURL": canonical_track.source_url,
+                "isSource": True,
+            }
+            return {
+                "targetPlatform": target_platform,
+                "platformLink": source_link,
+                "resolverVersion": RESOLVER_VERSION,
+            }
+
+        cached_url = self.platform_link_cache.get(
+            canonical_track.source_url, target_platform, preferred_market
+        )
+        if cached_url:
+            platform_link = {
+                "platform": target_platform,
+                "destinationURL": cached_url,
+                "isSource": False,
+            }
+            return {
+                "targetPlatform": target_platform,
+                "platformLink": platform_link,
+                "resolverVersion": RESOLVER_VERSION,
+            }
+
         context = self.build_context(preferred_market)
         platform_link = resolve_platform_link(
             canonical_track,
@@ -99,6 +140,14 @@ class ResolverService:
             target_platform,
             resolvers=self.target_resolvers,
         )
+
+        if platform_link and not platform_link.get("isSource"):
+            resolved_url = platform_link.get("destinationURL")
+            if resolved_url:
+                self.platform_link_cache.set(
+                    canonical_track.source_url, target_platform, resolved_url, preferred_market
+                )
+
         return {
             "targetPlatform": target_platform,
             "platformLink": platform_link,

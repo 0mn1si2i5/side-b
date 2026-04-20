@@ -40,8 +40,21 @@ final class AuthState {
         isAuthenticated = true
     }
 
+    func updatePreferredPlatform(_ platform: MusicPlatform?) async {
+        do {
+            let user = try await authService.updatePreferredPlatform(platform)
+            currentUser = user
+        } catch {
+            errorMessage = "更新偏好平台失败：\(error.localizedDescription)"
+        }
+    }
+
     func logout() async {
-        try? await authService.logout()
+        do {
+            try await authService.logout()
+        } catch {
+            print("[AuthState] logout failed:", error)
+        }
         currentUser = nil
         isAuthenticated = false
         errorMessage = nil

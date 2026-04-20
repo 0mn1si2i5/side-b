@@ -9,7 +9,7 @@ struct RootView: View {
                 MainTabView()
             } else {
                 NavigationStack {
-                    LoginView(viewModel: AuthViewModel())
+                    LoginView(viewModel: AuthViewModel(authState: authState))
                 }
             }
         }

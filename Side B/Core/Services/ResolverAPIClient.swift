@@ -2,11 +2,11 @@ import Foundation
 
 struct RemoteMusicResolverService: MusicResolverService {
     let apiClient: any ResolverAPIClient
-    let fallbackService: any MusicResolverService
+    let fallbackService: (any MusicResolverService)?
 
     init(
         apiClient: any ResolverAPIClient,
-        fallbackService: any MusicResolverService = MockMusicResolverService()
+        fallbackService: (any MusicResolverService)? = nil
     ) {
         self.apiClient = apiClient
         self.fallbackService = fallbackService
@@ -24,6 +24,7 @@ struct RemoteMusicResolverService: MusicResolverService {
                 diagnosticMessage: response.diagnosticMessage
             )
         } catch {
+            guard let fallbackService else { throw error }
             print("RemoteMusicResolverService fallback to mock:", error)
             let fallbackResponse = try await fallbackService.resolve(request: request)
             return ResolverResponse(
@@ -49,6 +50,7 @@ struct RemoteMusicResolverService: MusicResolverService {
                 diagnosticMessage: response.diagnosticMessage
             )
         } catch {
+            guard let fallbackService else { throw error }
             print("RemoteMusicResolverService metadata fallback to mock:", error)
             let fallbackResponse = try await fallbackService.resolveMetadata(request: request)
             return ResolverResponse(

@@ -56,6 +56,18 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
     return jwt.encode(to_encode, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
 
 
+def update_preferred_platform(
+    db: Session, user_id: str, platform: str | None
+) -> User | None:
+    user = get_user_by_id(db, user_id)
+    if user is None:
+        return None
+    user.preferred_platform = platform
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 def verify_token(token: str) -> dict | None:
     try:
         payload = jwt.decode(

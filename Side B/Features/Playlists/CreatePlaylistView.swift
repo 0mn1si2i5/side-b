@@ -3,6 +3,7 @@ import SwiftUI
 struct CreatePlaylistView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var playlistName: String = ""
+    @State private var viewModel = CreatePlaylistViewModel()
     
     let onCreated: (Playlist) -> Void
     
@@ -41,7 +42,7 @@ struct CreatePlaylistView: View {
         let trimmedName = playlistName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedName.isEmpty else { return }
         
-        let playlist = PlaylistStore.shared.savePlaylist(name: trimmedName)
+        let playlist = viewModel.createPlaylist(name: trimmedName)
         onCreated(playlist)
         dismiss()
     }

@@ -2,7 +2,7 @@ import Foundation
 
 protocol RoomServiceProtocol {
     func fetchRooms() async throws -> [Room]
-    func createRoom(name: String, type: String, memberUsername: String) async throws -> Room
+    func createRoom(name: String, type: String, memberUsernames: [String]) async throws -> Room
     func renameRoom(id: UUID, newName: String) async throws -> Room
     func addMember(roomId: UUID, username: String) async throws -> Room
     func dissolveRoom(id: UUID) async throws
@@ -42,8 +42,8 @@ struct RemoteRoomService: RoomServiceProtocol {
         return dtos.map { $0.toDomain() }
     }
 
-    func createRoom(name: String, type: String, memberUsername: String) async throws -> Room {
-        let body = CreateRoomBody(name: name, type: type, memberUsernames: [memberUsername])
+    func createRoom(name: String, type: String, memberUsernames: [String]) async throws -> Room {
+        let body = CreateRoomBody(name: name, type: type, memberUsernames: memberUsernames)
         let (data, response) = try await sendRequest(path: "/api/rooms", method: "POST", body: body)
         try validate(response: response)
         let dto = try decoder.decode(RoomDTO.self, from: data)
@@ -136,10 +136,10 @@ struct RemoteRoomService: RoomServiceProtocol {
 
 struct MockRoomService: RoomServiceProtocol {
     func fetchRooms() async throws -> [Room] {
-        MockData.rooms
+        []
     }
 
-    func createRoom(name: String, type: String, memberUsername: String) async throws -> Room {
+    func createRoom(name: String, type: String, memberUsernames: [String]) async throws -> Room {
         Room(name: name)
     }
 
@@ -148,7 +148,7 @@ struct MockRoomService: RoomServiceProtocol {
     }
 
     func addMember(roomId: UUID, username: String) async throws -> Room {
-        MockData.rooms.first { $0.id == roomId } ?? Room(name: "Room")
+        MockData.rooms.first { $0.id == roomId } ?? Room(name: "Unknown Room")
     }
 
     func dissolveRoom(id: UUID) async throws {
@@ -156,7 +156,7 @@ struct MockRoomService: RoomServiceProtocol {
     }
 
     func fetchRoomMessages(roomId: UUID) async throws -> [Message] {
-        MockData.messages
+        []
     }
 }
 
@@ -199,79 +199,5 @@ private struct AddMemberBody: Encodable {
     let username: String
 }
 
-private struct MessageDTO: Decodable {
-    let id: String
-    let roomId: String
-    let senderId: String
-    let senderName: String
-    let contentType: String
-    let textContent: String?
-    let trackData: String?
-    let replyToId: String?
-    let createdAt: String
 
-    func toDomain() -> Message? {
-        let dateFormatter = ISO8601DateFormatter()
-        dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let date = dateFormatter.date(from: createdAt) ?? Date()
 
-        let contentTypeEnum = MessageType(rawValue: contentType) ?? .text
-        let text: String? = contentTypeEnum == .text ? textContent : nil
-        let track: Track? = contentTypeEnum == .song ? parseTrackData() : nil
-
-        return Message(
-            id: UUID(uuidString: id) ?? UUID(),
-            senderName: senderName,
-            senderID: UUID(uuidString: senderId),
-            contentType: contentTypeEnum,
-            text: text,
-            track: track,
-            replyToMessageID: replyToId.flatMap { UUID(uuidString: $0) },
-            sentAt: date
-        )
-    }
-
-    private func parseTrackData() -> Track? {
-        guard let trackData else { return nil }
-        guard let data = trackData.data(using: .utf8) else { return nil }
-        return try? JSONDecoder().decode(TrackPayload.self, from: data).toTrack()
-    }
-}
-
-private struct TrackPayload: Decodable {
-    let title: String
-    let artistName: String
-    let albumTitle: String?
-    let durationMS: Int?
-    let sourcePlatform: String
-    let sourcePlatformID: String?
-    let sourceURL: String?
-    let isrc: String?
-    let artworkURL: String?
-
-    enum CodingKeys: String, CodingKey {
-        case title
-        case artistName = "artist_name"
-        case albumTitle = "album_title"
-        case durationMS = "duration_ms"
-        case sourcePlatform = "source_platform"
-        case sourcePlatformID = "source_platform_id"
-        case sourceURL = "source_url"
-        case isrc
-        case artworkURL = "artwork_url"
-    }
-
-    func toTrack() -> Track {
-        Track(
-            title: title,
-            artistName: artistName,
-            albumTitle: albumTitle,
-            durationMS: durationMS,
-            sourcePlatform: MusicPlatform(rawValue: sourcePlatform) ?? .spotify,
-            sourcePlatformID: sourcePlatformID,
-            sourceURL: sourceURL.flatMap { URL(string: $0) },
-            isrc: isrc,
-            artworkURL: artworkURL.flatMap { URL(string: $0) }
-        )
-    }
-}

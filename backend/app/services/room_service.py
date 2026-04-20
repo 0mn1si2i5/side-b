@@ -30,6 +30,12 @@ def create_room(
         if existing_dm:
             return existing_dm
 
+    # For direct rooms, auto-generate name from the other user's display name
+    if room_type == "direct" and not name:
+        other_user = db.query(User).filter(User.username == member_usernames[0]).first()
+        if other_user:
+            name = other_user.display_name or other_user.username
+
     room = Room(name=name, type=room_type, created_by=created_by)
     db.add(room)
     db.flush()

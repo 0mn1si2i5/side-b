@@ -5,7 +5,15 @@ struct RecentlyResolvedEntry: Codable {
     let resolvedAt: Date
 }
 
-final class RecentlyResolvedStore {
+protocol RecentlyResolvedStoreProtocol: AnyObject {
+    func add(_ persistenceIdentity: String)
+    func recentEntries(limit: Int) -> [String]
+    func allEntries() -> [String]
+    func clear()
+    func remove(identity: String)
+}
+
+final class RecentlyResolvedStore: RecentlyResolvedStoreProtocol {
     static let shared = RecentlyResolvedStore()
 
     private let userDefaults: UserDefaults
@@ -59,11 +67,22 @@ final class RecentlyResolvedStore {
 
     private func loadAllRecords() -> [RecentlyResolvedEntry] {
         guard let data = userDefaults.data(forKey: storageKey) else { return [] }
-        return (try? decoder.decode([RecentlyResolvedEntry].self, from: data)) ?? []
+        do {
+            return try decoder.decode([RecentlyResolvedEntry].self, from: data)
+        } catch {
+            print("[RecentlyResolvedStore] decode failed:", error)
+            return []
+        }
     }
 
     private func persistAllRecords(_ entries: [RecentlyResolvedEntry]) {
-        guard let data = try? encoder.encode(entries) else { return }
+        let data: Data
+        do {
+            data = try encoder.encode(entries)
+        } catch {
+            print("[RecentlyResolvedStore] encode failed:", error)
+            return
+        }
         userDefaults.set(data, forKey: storageKey)
     }
 }

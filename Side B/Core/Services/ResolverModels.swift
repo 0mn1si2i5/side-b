@@ -148,7 +148,7 @@ protocol MockPlatformTrackBuilding {
 extension MockPlatformTrackBuilding {
     func buildMockTrackResult(for parsedLink: ParsedMusicLink) -> TrackMetadataResult? {
         guard parsedLink.platform == platform else { return nil }
-        let baseTrack = MockData.track(for: platform)
+        let baseTrack = MockData.track(for: platform)  // Mock data — intentional, used by MockMusicResolverService only
 
         return TrackMetadataResult(
             track: ResolverTrackDTO(

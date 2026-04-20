@@ -94,8 +94,13 @@ final class PlaylistListViewModel {
 
         for platform in pendingPlatforms {
             Task { @MainActor in
-                let result = try? await resolver.resolvePlatformLink(for: track, targetPlatform: platform)
-                guard let result else { return }
+                let result: SinglePlatformLinkResolutionResponse
+                do {
+                    result = try await resolver.resolvePlatformLink(for: track, targetPlatform: platform)
+                } catch {
+                    print("[PlaylistListViewModel] resolvePlatformLink failed:", error)
+                    return
+                }
 
                 if let index = recentlyResolved.firstIndex(where: { $0.id == track.id }) {
                     let updatedTrack = recentlyResolved[index].updatingPlatformLink(
@@ -118,8 +123,6 @@ final class PlaylistListViewModel {
         for identity in identities {
             if let track = TrackCache.shared.track(for: identity) {
                 tracks.append(track)
-            } else if let mockTrack = MockData.track(forTrackID: identity) {
-                tracks.append(mockTrack)
             }
         }
         recentlyResolved = tracks

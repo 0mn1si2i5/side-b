@@ -33,8 +33,6 @@ final class PlaylistDetailViewModel {
         for entry in trackEntries {
             if let cachedTrack = TrackCache.shared.track(for: entry.trackID) {
                 tracks[entry.trackID] = cachedTrack
-            } else if let mockTrack = MockData.track(forTrackID: entry.trackID) {
-                tracks[entry.trackID] = mockTrack
             }
         }
         entryTracks = tracks

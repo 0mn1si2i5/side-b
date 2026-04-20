@@ -5,15 +5,13 @@ struct AddToPlaylistView: View {
     @Binding var isPresented: Bool
     var onAdded: ((Playlist) -> Void)? = nil
 
-    @State private var playlists: [Playlist] = []
+    @State private var viewModel = AddToPlaylistViewModel()
     @State private var showDuplicateAlert = false
     @State private var selectedPlaylistName: String = ""
 
-    private let playlistStore = PlaylistStore.shared
-
     var body: some View {
         NavigationView {
-            List(playlists) { playlist in
+            List(viewModel.playlists) { playlist in
                 PlaylistRow(
                     playlist: playlist,
                     onTap: { addTrack(to: playlist) }
@@ -30,7 +28,7 @@ struct AddToPlaylistView: View {
                 }
             }
             .onAppear {
-                loadPlaylists()
+                viewModel.loadPlaylists()
             }
             .alert("提示", isPresented: $showDuplicateAlert) {
                 Button("确定", role: .cancel) { }
@@ -40,16 +38,12 @@ struct AddToPlaylistView: View {
         }
     }
 
-    private func loadPlaylists() {
-        playlists = playlistStore.loadPlaylists()
-    }
-
     private func addTrack(to playlist: Playlist) {
         guard let trackID = track.persistenceIdentity else {
             return
         }
 
-        let success = playlistStore.addTrack(trackID, to: playlist)
+        let success = viewModel.addTrack(trackID, to: playlist)
 
         if success {
             onAdded?(playlist)

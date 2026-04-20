@@ -12,6 +12,8 @@ protocol AuthServiceProtocol {
 
     func getCurrentUser() async throws -> User
 
+    func updatePreferredPlatform(_ platform: MusicPlatform?) async throws -> User
+
     func logout() async throws
 
     var isLoggedIn: Bool { get }

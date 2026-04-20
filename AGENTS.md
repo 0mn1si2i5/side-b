@@ -33,10 +33,8 @@
 ## 开发原则
 
 1. 始终保证项目可编译
-2. 每次最多修改 1-3 个文件
-3. 不要一次性实现完整功能
-4. 不要随意重构目录
-5. 不要修改 project.pbxproj，除非明确要求
+2. 不要随意重构目录
+3. 不要修改 project.pbxproj，除非明确要求
 
 ---
 
@@ -63,8 +61,8 @@
 
 ## 当前阶段限制
 
-- 所有外部平台先用 mock 数据
-- 不接入真实 Spotify / 网易云 / QQ / Apple Music API
+- 后端已接入四平台真实 API，iOS 端保留 mock fallback（仅 #if DEBUG）
+- 不接入真实 Spotify / 网易云 / QQ / Apple Music API（后端已接入，iOS 端不做直连）
 - 不实现截图识别，截图输入仅作为未来能力预留
 - 不实现站内播放
 
@@ -99,3 +97,24 @@
 - 不要一开始就接真实平台 API
 - 不要把默认模板代码无限叠加
 - 不要把业务逻辑写进 SwiftUI View
+
+
+## 当前状态（每次接手前更新）
+
+### 已完成
+- Phase 1–7 全部完成
+- Phase 8–10 主体功能
+- 歌单系统、聊天室主路径、四平台 resolver 均可用
+
+### 进行中
+- Phase 13：稳定性修复与结构整理
+
+### 当前已知 Bug
+- 暂无已知 Bug
+
+### 下一个任务
+- [ ] 执行稳定性修复 plan (.sisyphus/plans/stabilization-cleanup.md)
+
+### 近期不要动的模块
+- MockMusicResolverService 中的 MockData 引用是有意为之，不要移除
+- backend/app/routers/resolve.py 已接替旧 resolve_route.py，不要回退

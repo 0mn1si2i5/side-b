@@ -29,7 +29,7 @@
 
 ### Backend / Resolver 侧
 
-- 已有本地 resolver 服务：`backend/spotify_resolver_server.py`
+- 已有本地 resolver 服务：FastAPI (端口 8788)，旧 `spotify_resolver_server.py` 已废弃
 - 已支持源平台解析：
   - Spotify
   - Apple Music
@@ -88,8 +88,7 @@ pip install -r backend/requirements.txt
 ```env
 SPOTIFY_CLIENT_ID=...
 SPOTIFY_CLIENT_SECRET=...
-PORT=8787
-HOST=0.0.0.0
+JWT_SECRET=...
 NETEASE_API_BASE_URL=http://127.0.0.1:3000
 ```
 
@@ -98,6 +97,8 @@ NETEASE_API_BASE_URL=http://127.0.0.1:3000
 ```env
 APPLE_MUSIC_STOREFRONT=cn
 NETEASE_REQUEST_TIMEOUT=10
+PORT=8788
+HOST=0.0.0.0
 ```
 
 ### 3. 启动网易云 api-enhanced
@@ -109,16 +110,18 @@ NETEASE_REQUEST_TIMEOUT=10
 http://127.0.0.1:3000
 ```
 
-### 4. 启动 Side B resolver
+### 4. 启动 Side B resolver (FastAPI)
 
 ```bash
-python3 backend/spotify_resolver_server.py
+uvicorn backend.app.main:app --host 0.0.0.0 --port 8788
 ```
+
+> 旧 `spotify_resolver_server.py` 已废弃，所有功能已迁移至 FastAPI (端口 8788)
 
 默认监听：
 
 ```text
-http://0.0.0.0:8787
+http://0.0.0.0:8788
 ```
 
 ### 5. iOS 端指向本地 resolver
@@ -126,7 +129,7 @@ http://0.0.0.0:8787
 在 Xcode Scheme 的环境变量里设置：
 
 ```text
-SIDEB_RESOLVER_BASE_URL=http://<你的Mac局域网IP>:8787
+SIDEB_RESOLVER_BASE_URL=http://<你的Mac局域网IP>:8788
 ```
 
 真机运行时不能使用 `127.0.0.1`，必须使用 Mac 在局域网中的可访问地址。
