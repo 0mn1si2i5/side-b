@@ -298,7 +298,8 @@ class NeteaseTargetResolver:
                         candidate_score += 6
                     elif playable is False:
                         candidate_score -= 8
-                except Exception:
+                except Exception as e:
+                    logger.debug("Netease playable check failed: %s", e)
                     pass
 
                 try:
@@ -309,7 +310,8 @@ class NeteaseTargetResolver:
                     )
                     if preview_url:
                         candidate_score += 4
-                except Exception:
+                except Exception as e:
+                    logger.debug("Netease preview URL fetch failed: %s", e)
                     pass
 
                 if candidate_score > best_score:

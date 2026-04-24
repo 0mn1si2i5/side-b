@@ -3,8 +3,6 @@ services:
     build:
       context: backend/
     container_name: sideb-api
-    ports:
-      - "8788:8788"
     env_file:
       - backend/.env
     environment:
@@ -35,7 +33,7 @@ services:
           cpus: "0.5"
 
   netease:
-    image: binaryify/netease_cloud_music_api:latest
+    image: binaryify/netease_cloud_music_api:v4.15.4
     container_name: sideb-netease
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000"]
@@ -71,7 +69,8 @@ services:
       retries: 3
       start_period: 10s
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     logging:
       driver: json-file
       options:

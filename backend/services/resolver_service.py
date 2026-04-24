@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import time
 
 from app.config import settings
@@ -10,6 +11,8 @@ from services.platform_link_cache import get_platform_link_cache
 from services.platform_link_resolvers import SpotifyTargetResolver, resolve_platform_link, resolve_platform_links
 from services.source_platform_adapters import SpotifySourceAdapter, default_source_adapters
 
+
+logger = logging.getLogger(__name__)
 
 RESOLVER_VERSION = "music-resolver/v1"
 SUPPORTED_LINK_ERROR = "Only Spotify, Apple Music, 网易云音乐, and QQ 音乐 track links are supported in this resolver"
@@ -293,7 +296,8 @@ class ResolverService:
                 code="spotify_promoted",
                 message="Promoted canonical metadata to Spotify while preserving the original source platform.",
             )
-        except Exception:
+        except Exception as e:
+            logger.warning("Spotify canonical promotion failed: %s", e)
             return canonical_track, ResolverDiagnostic(
                 code="spotify_promotion_failed",
                 message="Fell back to source platform metadata because Spotify canonical promotion failed.",

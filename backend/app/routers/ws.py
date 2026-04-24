@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
 from sqlalchemy.orm import Session
 
@@ -5,6 +7,8 @@ from app.database import SessionLocal
 from app.dependencies import verify_token_from_header
 from app.services import room_service
 from app.services.ws_manager import manager
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -17,7 +21,8 @@ async def ws_room(websocket: WebSocket, room_id: str, token: str | None = Query(
             user = verify_token_from_header(
                 f"Bearer {token}" if token else None, db
             )
-        except Exception:
+        except Exception as e:
+            logger.warning("WebSocket auth verification failed: %s", e)
             await websocket.close(code=4001)
             return
 
