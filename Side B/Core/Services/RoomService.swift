@@ -1,4 +1,7 @@
 import Foundation
+import os
+
+private let logger = Logger(subsystem: "com.sideb.app", category: "RoomService")
 
 protocol RoomServiceProtocol {
     func fetchRooms() async throws -> [Room]
@@ -171,15 +174,21 @@ private struct RoomDTO: Decodable {
     let isActive: Bool
     let memberUsernames: [String]
 
+    private static let dateFormatter: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+
     func toDomain() -> Room {
         Room(
-            id: UUID(uuidString: id) ?? UUID(),
+            id: UUID(uuidString: id) ?? { logger.warning("Invalid UUID string: \(id)"); return UUID() }(),
             name: name ?? "Unnamed Room",
             type: RoomType(rawValue: type) ?? .group,
             memberIDs: [],
             memberUsernames: memberUsernames,
-            createdBy: UUID(uuidString: createdBy) ?? UUID(),
-            createdAt: ISO8601DateFormatter().date(from: createdAt) ?? Date(),
+            createdBy: UUID(uuidString: createdBy) ?? { logger.warning("Invalid UUID string: \(createdBy)"); return UUID() }(),
+            createdAt: Self.dateFormatter.date(from: createdAt) ?? Date(),
             isActive: isActive
         )
     }

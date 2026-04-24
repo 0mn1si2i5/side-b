@@ -1,4 +1,7 @@
 import Foundation
+import os
+
+private let logger = Logger(subsystem: "com.sideb.app", category: "RemoteAuthService")
 
 struct RemoteAuthService: AuthServiceProtocol {
     private let baseURL: URL
@@ -44,7 +47,7 @@ struct RemoteAuthService: AuthServiceProtocol {
             accessToken: authResponse.token,
             tokenType: "bearer",
             expiresIn: 86400,
-            userId: UUID(uuidString: authResponse.user.id) ?? UUID()
+            userId: UUID(uuidString: authResponse.user.id) ?? { logger.warning("Invalid UUID string: \(authResponse.user.id)"); return UUID() }()
         )
     }
 
@@ -61,7 +64,7 @@ struct RemoteAuthService: AuthServiceProtocol {
             accessToken: authResponse.token,
             tokenType: "bearer",
             expiresIn: 86400,
-            userId: UUID(uuidString: authResponse.user.id) ?? UUID()
+            userId: UUID(uuidString: authResponse.user.id) ?? { logger.warning("Invalid UUID string: \(authResponse.user.id)"); return UUID() }()
         )
     }
 
@@ -173,7 +176,7 @@ private struct UserResponseBody: Decodable {
 
     func toDomain() -> User {
         User(
-            id: UUID(uuidString: id) ?? UUID(),
+            id: UUID(uuidString: id) ?? { logger.warning("Invalid UUID string: \(id)"); return UUID() }(),
             username: username,
             displayName: displayName,
             avatarName: avatarName,

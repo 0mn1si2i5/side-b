@@ -38,6 +38,12 @@ enum WebSocketServiceError: Error {
 // MARK: - Remote Implementation
 
 final class RemoteWebSocketService: WebSocketServiceProtocol {
+    private static let dateFormatter: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+
     @Published private(set) var connectionState: WebSocketConnectionState = .disconnected
 
     var onMessageReceived: ((Message) -> Void)?
@@ -210,7 +216,8 @@ final class RemoteWebSocketService: WebSocketServiceProtocol {
     private func handleNewMessage(_ json: [String: Any]) {
         guard let dataDict = json["data"] as? [String: Any] else { return }
 
-        let id = UUID(uuidString: dataDict["id"] as? String ?? "") ?? UUID()
+        let idStr = dataDict["id"] as? String ?? ""
+        let id = UUID(uuidString: idStr) ?? { logger.warning("Invalid UUID string: \(idStr)"); return UUID() }()
         let senderId = dataDict["senderId"] as? String ?? ""
         let senderName = dataDict["senderName"] as? String ?? senderId
         let contentType = dataDict["contentType"] as? String ?? "text"
@@ -220,9 +227,7 @@ final class RemoteWebSocketService: WebSocketServiceProtocol {
 
         let track: Track? = trackData.flatMap { parseTrackData($0) }
 
-        let dateFormatter = ISO8601DateFormatter()
-        dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let sentAt = dateFormatter.date(from: createdAtStr) ?? Date()
+        let sentAt = Self.dateFormatter.date(from: createdAtStr) ?? Date()
 
         let contentTypeEnum = MessageType(rawValue: contentType) ?? .text
         let message = Message(
@@ -241,15 +246,16 @@ final class RemoteWebSocketService: WebSocketServiceProtocol {
     private func handleEmojiReaction(_ json: [String: Any]) {
         guard let dataDict = json["data"] as? [String: Any] else { return }
 
-        let id = UUID(uuidString: dataDict["id"] as? String ?? "") ?? UUID()
-        let messageId = UUID(uuidString: dataDict["messageId"] as? String ?? "") ?? UUID()
-        let userId = UUID(uuidString: dataDict["userId"] as? String ?? "") ?? UUID()
+        let idStr = dataDict["id"] as? String ?? ""
+        let id = UUID(uuidString: idStr) ?? { logger.warning("Invalid UUID string: \(idStr)"); return UUID() }()
+        let messageIdStr = dataDict["messageId"] as? String ?? ""
+        let messageId = UUID(uuidString: messageIdStr) ?? { logger.warning("Invalid UUID string: \(messageIdStr)"); return UUID() }()
+        let userIdStr = dataDict["userId"] as? String ?? ""
+        let userId = UUID(uuidString: userIdStr) ?? { logger.warning("Invalid UUID string: \(userIdStr)"); return UUID() }()
         let emoji = dataDict["emoji"] as? String ?? ""
         let createdAtStr = dataDict["createdAt"] as? String ?? ""
 
-        let dateFormatter = ISO8601DateFormatter()
-        dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let createdAt = dateFormatter.date(from: createdAtStr) ?? Date()
+        let createdAt = Self.dateFormatter.date(from: createdAtStr) ?? Date()
 
         let reaction = EmojiReaction(
             id: id,
@@ -265,10 +271,12 @@ final class RemoteWebSocketService: WebSocketServiceProtocol {
     private func handleRoomUpdated(_ json: [String: Any]) {
         guard let dataDict = json["data"] as? [String: Any] else { return }
 
-        let id = UUID(uuidString: dataDict["id"] as? String ?? "") ?? UUID()
+        let idStr = dataDict["id"] as? String ?? ""
+        let id = UUID(uuidString: idStr) ?? { logger.warning("Invalid UUID string: \(idStr)"); return UUID() }()
         let name = dataDict["name"] as? String ?? ""
         let type = RoomType(rawValue: dataDict["type"] as? String ?? "group") ?? .group
-        let createdBy = UUID(uuidString: dataDict["createdBy"] as? String ?? "") ?? UUID()
+        let createdByStr = dataDict["createdBy"] as? String ?? ""
+        let createdBy = UUID(uuidString: createdByStr) ?? { logger.warning("Invalid UUID string: \(createdByStr)"); return UUID() }()
         let isActive = dataDict["isActive"] as? Bool ?? true
         let memberUsernames = dataDict["memberUsernames"] as? [String] ?? []
 

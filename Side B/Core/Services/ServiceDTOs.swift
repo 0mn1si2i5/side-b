@@ -1,4 +1,7 @@
 import Foundation
+import os
+
+private let logger = Logger(subsystem: "com.sideb.app", category: "ServiceDTOs")
 
 // MARK: - Track Payload
 
@@ -65,19 +68,23 @@ struct MessageDTO: Decodable {
     let replyToId: String?
     let createdAt: String
 
+    private static let dateFormatter: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+
     func toDomain() -> Message? {
-        let dateFormatter = ISO8601DateFormatter()
-        dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let date = dateFormatter.date(from: createdAt) ?? Date()
+        let date = Self.dateFormatter.date(from: createdAt) ?? Date()
 
         let contentTypeEnum = MessageType(rawValue: contentType) ?? .text
         let text: String? = contentTypeEnum == .text ? textContent : nil
         let track: Track? = contentTypeEnum == .song ? parseTrackData() : nil
 
         return Message(
-            id: UUID(uuidString: id) ?? UUID(),
+            id: UUID(uuidString: id) ?? { logger.warning("Invalid UUID string: \(id)"); return UUID() }(),
             senderName: senderName,
-            senderID: UUID(uuidString: senderId),
+            senderID: UUID(uuidString: senderId).map { $0 },
             contentType: contentTypeEnum,
             text: text,
             track: track,
