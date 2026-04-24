@@ -59,7 +59,8 @@ final class CreateRoomViewModel {
         isLoading = true
         errorMessage = nil
 
-        Task { @MainActor in
+        Task { @MainActor [weak self] in
+            guard let self else { return }
             do {
                 let room = try await service.createRoom(
                     name: name,

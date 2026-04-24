@@ -30,7 +30,8 @@ final class PlaylistListViewModel {
 
         isResolving = true
 
-        Task { @MainActor in
+        Task { @MainActor [weak self] in
+            guard let self else { return }
             do {
                 let response = try await resolver.resolveMetadata(request: ResolverRequest(rawLink: trimmedLink))
 
@@ -95,12 +96,14 @@ final class PlaylistListViewModel {
 
         guard !pendingPlatforms.isEmpty else { return }
 
-        Task {
+        Task { [weak self] in
+            guard let self else { return }
+            let resolver = self.resolver
             await withTaskGroup(of: (MusicPlatform, SinglePlatformLinkResolutionResponse?).self) { group in
                 for platform in pendingPlatforms {
                     group.addTask {
                         do {
-                            let result = try await self.resolver.resolvePlatformLink(for: track, targetPlatform: platform)
+                            let result = try await resolver.resolvePlatformLink(for: track, targetPlatform: platform)
                             return (platform, result)
                         } catch {
                             print("[PlaylistListViewModel] resolvePlatformLink failed:", error)

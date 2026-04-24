@@ -58,7 +58,8 @@ final class RoomDetailViewModel {
     }
 
     func onAppear() {
-        Task { @MainActor in
+        Task { @MainActor [weak self] in
+            guard let self else { return }
             await loadInitialMessages()
             await webSocketService.connect(toRoom: roomId)
         }
@@ -139,7 +140,8 @@ final class RoomDetailViewModel {
         linkResolutionState = .resolving
         linkResolutionMessage = "正在解析歌曲链接..."
 
-        Task { @MainActor in
+        Task { @MainActor [weak self] in
+            guard let self else { return }
             do {
                 let response = try await resolver.resolveMetadata(request: ResolverRequest(rawLink: normalizedLink))
                 finishResolvedTrackMessage(response: response, senderName: senderName)
@@ -174,7 +176,8 @@ final class RoomDetailViewModel {
 
         if connectionState == .connected {
             if replyID != nil {
-                Task {
+                Task { [weak self] in
+                    guard let self else { return }
                     do {
                         _ = try await messageService.sendMessage(
                             roomId: roomId,
@@ -188,7 +191,8 @@ final class RoomDetailViewModel {
                     }
                 }
             } else {
-                Task {
+                Task { [weak self] in
+                    guard let self else { return }
                     do {
                         try await webSocketService.send(text: trimmedDraft)
                     } catch {
@@ -234,7 +238,8 @@ final class RoomDetailViewModel {
     }
 
     func addEmojiReaction(to messageId: UUID, emoji: String) {
-        Task { @MainActor in
+        Task { @MainActor [weak self] in
+            guard let self else { return }
             do {
                 let reaction = try await messageService.addEmojiReaction(roomId: roomId, messageId: messageId, emoji: emoji)
                 if let index = messages.firstIndex(where: { $0.id == messageId }) {
@@ -264,9 +269,9 @@ final class RoomDetailViewModel {
     private func beginSendingState() {
         isSending = true
 
-        Task {
+        Task { [weak self] in
             try? await Task.sleep(nanoseconds: 350_000_000)
-            isSending = false
+            self?.isSending = false
         }
     }
 

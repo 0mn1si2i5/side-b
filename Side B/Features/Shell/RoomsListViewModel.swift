@@ -19,7 +19,8 @@ final class RoomsListViewModel {
 
     func loadRooms() {
         state = .loading
-        Task { @MainActor in
+        Task { @MainActor [weak self] in
+            guard let self else { return }
             do {
                 let rooms = try await service.fetchRooms()
                 state = .loaded(rooms)

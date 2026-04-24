@@ -328,7 +328,8 @@ final class RemoteWebSocketService: WebSocketServiceProtocol {
     // MARK: - State
 
     private func setConnectionState(_ state: WebSocketConnectionState) {
-        Task { @MainActor in
+        Task { @MainActor [weak self] in
+            guard let self else { return }
             self.connectionState = state
             self.onConnectionStateChanged?(state)
         }

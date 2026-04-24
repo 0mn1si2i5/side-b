@@ -33,7 +33,8 @@ final class RoomManagementViewModel {
         isLoading = true
         errorMessage = nil
 
-        Task { @MainActor in
+        Task { @MainActor [weak self] in
+            guard let self else { return }
             do {
                 room = try await service.renameRoom(id: room.id, newName: name)
                 newRoomName = ""
@@ -52,7 +53,8 @@ final class RoomManagementViewModel {
         isLoading = true
         errorMessage = nil
 
-        Task { @MainActor in
+        Task { @MainActor [weak self] in
+            guard let self else { return }
             do {
                 room = try await service.addMember(roomId: room.id, username: username)
                 inviteUsername = ""
@@ -67,7 +69,8 @@ final class RoomManagementViewModel {
         isLoading = true
         errorMessage = nil
 
-        Task { @MainActor in
+        Task { @MainActor [weak self] in
+            guard let self else { return }
             do {
                 try await service.dissolveRoom(id: room.id)
                 isDissolved = true
