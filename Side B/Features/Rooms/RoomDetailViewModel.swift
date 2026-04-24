@@ -188,6 +188,7 @@ final class RoomDetailViewModel {
                         )
                     } catch {
                         print("[RoomDetailViewModel] sendMessage failed:", error)
+                        errorMessage = localizedErrorMessage(for: error)
                     }
                 }
             } else {
@@ -197,6 +198,7 @@ final class RoomDetailViewModel {
                         try await webSocketService.send(text: trimmedDraft)
                     } catch {
                         print("[RoomDetailViewModel] ws send failed:", error)
+                        errorMessage = localizedErrorMessage(for: error)
                     }
                 }
             }
@@ -246,7 +248,7 @@ final class RoomDetailViewModel {
                     messages[index].emojiReactions.append(reaction)
                 }
             } catch {
-                // Silently ignore emoji reaction failures
+                errorMessage = localizedErrorMessage(for: error)
             }
         }
     }

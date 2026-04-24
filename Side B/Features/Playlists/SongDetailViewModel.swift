@@ -133,6 +133,7 @@ final class SongDetailViewModel {
                 result = try await resolver.resolvePlatformLink(for: track, targetPlatform: platform)
             } catch {
                 print("[SongDetailViewModel] resolvePlatformLink failed:", error)
+                displayTrack = displayTrack.updatingPlatformLinkState(.failed, for: platform)
                 return
             }
             let updatedTrack = displayTrack.updatingPlatformLink(
