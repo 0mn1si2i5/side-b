@@ -52,7 +52,7 @@ final class SongDetailViewModel {
         resolver: any MusicResolverService = ResolverServiceFactory.makeDefaultService()!,
         persistenceStore: PlatformLinkPersistenceStore = .shared,
         onTrackUpdated: ((Track) -> Void)? = nil,
-        navigationService: PlatformNavigationService = MockPlatformNavigationService()
+        navigationService: PlatformNavigationService = DefaultPlatformNavigationService()
     ) {
         self.displayTrack = track
         self.resolver = resolver

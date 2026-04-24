@@ -8,7 +8,7 @@ struct MockMusicResolverService: MusicResolverService {
     init(
         linkParsers: [any MusicLinkParser] = MockMusicLinkParser.defaultParsers,
         metadataProviders: [any TrackMetadataProvider] = MockTrackMetadataProvider.defaultProviders,
-        navigationService: PlatformNavigationService = MockPlatformNavigationService()
+        navigationService: PlatformNavigationService = DefaultPlatformNavigationService()
     ) {
         self.linkParsers = linkParsers
         self.metadataProviders = metadataProviders

@@ -4,7 +4,7 @@ protocol PlatformNavigationService {
     func destinationURL(for platform: MusicPlatform, track: Track) -> URL?
 }
 
-struct MockPlatformNavigationService: PlatformNavigationService {
+struct DefaultPlatformNavigationService: PlatformNavigationService {
     func destinationURL(for platform: MusicPlatform, track: Track) -> URL? {
         let query = "\(track.title) \(track.artistName)"
             .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
