@@ -8,7 +8,7 @@ enum LinkResolutionState: Equatable {
     case failed
 }
 
-@Observable
+@MainActor @Observable
 final class RoomDetailViewModel {
     var messages: [Message] = []
     var draftText = ""
@@ -89,13 +89,13 @@ final class RoomDetailViewModel {
 
     private func setupWebSocketCallbacks() {
         webSocketService.onMessageReceived = { [weak self] message in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 self?.handleIncomingMessage(message)
             }
         }
 
         webSocketService.onEmojiReactionReceived = { [weak self] reaction in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 self?.handleIncomingEmojiReaction(reaction)
             }
         }
@@ -106,7 +106,7 @@ final class RoomDetailViewModel {
 
     private func observeConnectionState() {
         webSocketService.onConnectionStateChanged = { [weak self] state in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 self?.connectionState = state
             }
         }
@@ -264,8 +264,9 @@ final class RoomDetailViewModel {
     private func beginSendingState() {
         isSending = true
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
-            self?.isSending = false
+        Task {
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            isSending = false
         }
     }
 
