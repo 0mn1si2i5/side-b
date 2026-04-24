@@ -4,5 +4,6 @@ from app.models.room import Room  # noqa: F401
 from app.models.room_member import RoomMember  # noqa: F401
 from app.models.message import Message  # noqa: F401
 from app.models.emoji_reaction import EmojiReaction  # noqa: F401
+from app.models.revoked_token import RevokedToken  # noqa: F401
 
-__all__ = ["Base", "User", "Room", "RoomMember", "Message", "EmojiReaction"]
+__all__ = ["Base", "User", "Room", "RoomMember", "Message", "EmojiReaction", "RevokedToken"]

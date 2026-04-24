@@ -28,6 +28,11 @@ class UpdateProfileRequest(BaseModel):
     preferredPlatform: str | None = None
 
 
+class ChangePasswordRequest(BaseModel):
+    old_password: str = Field(min_length=1)
+    new_password: str = Field(min_length=8, max_length=128)
+
+
 class UserResponse(BaseModel):
     id: str
     username: str
@@ -120,3 +125,29 @@ def update_profile(
 @router.get("/avatars")
 def get_avatars():
     return {"avatars": AVAILABLE_AVATARS}
+
+
+@router.post("/logout")
+@limiter.limit("10/minute")
+def logout(request: Request, user=Depends(get_current_user), db: Session = Depends(get_db)):
+    authorization = request.headers.get("Authorization", "")
+    token = authorization.removeprefix("Bearer ").strip()
+    user_service.revoke_token(db, token)
+    return {"detail": "Logged out successfully"}
+
+
+@router.put("/password")
+@limiter.limit("5/minute")
+def change_password(
+    request: Request,
+    req: ChangePasswordRequest,
+    user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not user_service.pwd_context.verify(req.old_password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect current password",
+        )
+    user_service.update_password(db, user.id, req.new_password)
+    return {"detail": "Password changed successfully"}

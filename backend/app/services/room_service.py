@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from sqlalchemy.orm import Session
 from sqlalchemy import true
 
@@ -8,7 +10,9 @@ from app.models.user import User
 
 def get_rooms_for_user(db: Session, user_id: str) -> list[Room]:
     room_ids = (
-        db.query(RoomMember.room_id).filter(RoomMember.user_id == user_id).subquery()
+        db.query(RoomMember.room_id)
+        .filter(RoomMember.user_id == user_id, RoomMember.left_at.is_(None))
+        .subquery()
     )
     return (
         db.query(Room)
@@ -80,6 +84,29 @@ def dissolve_room(db: Session, room_id: str) -> Room | None:
     return room
 
 
+def leave_room(db: Session, room_id: str, user_id: str) -> RoomMember | None:
+    room = db.query(Room).filter(Room.id == room_id).first()
+    if room is None:
+        return None
+    if room.type == "direct":
+        return None  # Cannot leave direct rooms
+    member = (
+        db.query(RoomMember)
+        .filter(
+            RoomMember.room_id == room_id,
+            RoomMember.user_id == user_id,
+            RoomMember.left_at.is_(None),
+        )
+        .first()
+    )
+    if member is None:
+        return None
+    member.left_at = datetime.utcnow()
+    db.commit()
+    db.refresh(member)
+    return member
+
+
 def add_member(db: Session, room_id: str, user_id: str) -> RoomMember | None:
     existing = (
         db.query(RoomMember)
@@ -116,7 +143,11 @@ def get_room_members(db: Session, room_id: str) -> list[RoomMember]:
 def is_room_member(db: Session, room_id: str, user_id: str) -> bool:
     return (
         db.query(RoomMember)
-        .filter(RoomMember.room_id == room_id, RoomMember.user_id == user_id)
+        .filter(
+            RoomMember.room_id == room_id,
+            RoomMember.user_id == user_id,
+            RoomMember.left_at.is_(None),
+        )
         .first()
         is not None
     )
@@ -130,11 +161,13 @@ def _find_existing_dm(
         return None
 
     my_rooms = (
-        db.query(RoomMember.room_id).filter(RoomMember.user_id == user_id).subquery()
+        db.query(RoomMember.room_id)
+        .filter(RoomMember.user_id == user_id, RoomMember.left_at.is_(None))
+        .subquery()
     )
     other_rooms = (
         db.query(RoomMember.room_id)
-        .filter(RoomMember.user_id == other_user.id)
+        .filter(RoomMember.user_id == other_user.id, RoomMember.left_at.is_(None))
         .subquery()
     )
 

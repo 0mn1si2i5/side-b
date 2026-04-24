@@ -26,3 +26,4 @@ class Message(Base):
         String(36), ForeignKey("messages.id"), nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=None)

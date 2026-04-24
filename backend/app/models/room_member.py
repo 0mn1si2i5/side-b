@@ -21,3 +21,4 @@ class RoomMember(Base):
         String(36), ForeignKey("users.id"), nullable=False
     )
     joined_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    left_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=None)

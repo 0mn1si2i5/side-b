@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from sqlalchemy.orm import Session
 
 from app.models.message import Message
@@ -10,12 +12,28 @@ def get_messages(
     limit: int = 50,
     before: str | None = None,
 ) -> list[Message]:
-    q = db.query(Message).filter(Message.room_id == room_id)
+    q = db.query(Message).filter(Message.room_id == room_id, Message.deleted_at.is_(None))
     if before:
         before_msg = db.query(Message).filter(Message.id == before).first()
         if before_msg:
             q = q.filter(Message.created_at < before_msg.created_at)
     return q.order_by(Message.created_at.desc()).limit(limit).all()
+
+
+def get_message_by_id(db: Session, message_id: str) -> Message | None:
+    return db.query(Message).filter(Message.id == message_id).first()
+
+
+def soft_delete_message(db: Session, message_id: str, user_id: str) -> Message | None:
+    message = db.query(Message).filter(Message.id == message_id).first()
+    if message is None:
+        return None
+    if message.sender_id != user_id:
+        return None
+    message.deleted_at = datetime.utcnow()
+    db.commit()
+    db.refresh(message)
+    return message
 
 
 def create_message(

@@ -1,9 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import get_current_user
+from app.main import limiter
+from app.models.room import Room
 from app.models.user import User
 from app.services import room_service, message_service, user_service
 from app.services.ws_manager import manager as ws_manager
@@ -226,6 +229,29 @@ def dissolve_room(
     room_service.dissolve_room(db, room_id)
 
 
+@router.post("/{room_id}/leave")
+@limiter.limit("10/minute")
+def leave_room_endpoint(
+    request: Request,
+    room_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    result = room_service.leave_room(db, room_id, user.id)
+    if result is None:
+        room = db.query(Room).filter(Room.id == room_id).first()
+        if room and room.type == "direct":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Cannot leave direct rooms",
+            )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Room not found or not a member",
+        )
+    return {"detail": "Left room successfully"}
+
+
 @router.post(
     "/{room_id}/members",
     response_model=MemberResponse,
@@ -322,6 +348,40 @@ async def create_message(
         room_id, {"type": "new_message", "data": response.model_dump()}
     )
     return response
+
+
+@router.delete(
+    "/{room_id}/messages/{message_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_message(
+    room_id: str,
+    message_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    room = room_service.get_room(db, room_id)
+    if room is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Room not found"
+        )
+    _require_membership(db, room_id, user.id)
+    message = message_service.get_message_by_id(db, message_id)
+    if message is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Message not found"
+        )
+    if message.sender_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Can only delete your own messages",
+        )
+    message_service.soft_delete_message(db, message_id, user.id)
+    await ws_manager.broadcast_to_room(
+        room_id,
+        {"type": "message_deleted", "data": {"messageId": message_id}},
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post(
