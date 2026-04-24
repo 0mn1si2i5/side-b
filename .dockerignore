@@ -12,6 +12,7 @@ venv/
 # Environment (real .env must NOT be in image)
 .env
 .env.*
+!.env.example
 
 # Database (mounted as volume, not baked into image)
 *.db

@@ -2,12 +2,15 @@ from fastapi import Depends, Header, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.models.user import User
 from app.services import user_service
 
 
-def get_current_user(
-    authorization: str | None = Header(None), db: Session = Depends(get_db)
-):
+def verify_token_from_header(authorization: str | None, db: Session) -> User:
+    """Extract and verify JWT from 'Bearer ...' authorization string.
+
+    Returns User or raises HTTPException.
+    """
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -38,3 +41,9 @@ def get_current_user(
             detail="User not found",
         )
     return user
+
+
+def get_current_user(
+    authorization: str | None = Header(None), db: Session = Depends(get_db)
+) -> User:
+    return verify_token_from_header(authorization, db)
