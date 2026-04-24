@@ -1,5 +1,8 @@
 import Combine
 import Foundation
+import os
+
+private let logger = Logger(subsystem: "com.sideb.app", category: "WebSocketService")
 
 // MARK: - Connection State
 
@@ -185,7 +188,7 @@ final class RemoteWebSocketService: WebSocketServiceProtocol {
         do {
             json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         } catch {
-            print("[WebSocketService] JSON parse failed:", error)
+            logger.error("JSON parse failed: \(error)")
             return
         }
         guard let json, let type = json["type"] as? String else { return }
@@ -287,7 +290,7 @@ final class RemoteWebSocketService: WebSocketServiceProtocol {
         do {
             trackDTO = try JSONDecoder().decode(WebSocketTrackDTO.self, from: data)
         } catch {
-            print("[WebSocketService] track decode failed:", error)
+            logger.error("track decode failed: \(error)")
             return nil
         }
 
@@ -313,7 +316,7 @@ final class RemoteWebSocketService: WebSocketServiceProtocol {
             do {
                 try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
             } catch {
-                print("[WebSocketService] sleep cancelled:", error)
+                logger.debug("sleep cancelled: \(error)")
             }
             guard !Task.isCancelled, let self else { return }
             await self.establishConnection(toRoom: roomId)

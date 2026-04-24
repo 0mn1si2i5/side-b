@@ -1,4 +1,7 @@
 import Foundation
+import os
+
+private let logger = Logger(subsystem: "com.sideb.app", category: "AuthState")
 
 @MainActor
 @Observable
@@ -54,7 +57,7 @@ final class AuthState {
         do {
             try await authService.logout()
         } catch {
-            print("[AuthState] logout failed:", error)
+            logger.error("logout failed: \(error)")
         }
         currentUser = nil
         isAuthenticated = false

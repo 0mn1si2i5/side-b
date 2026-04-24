@@ -1,4 +1,7 @@
 import Foundation
+import os
+
+private let logger = Logger(subsystem: "com.sideb.app", category: "RemoteMusicResolverService")
 
 struct RemoteMusicResolverService: MusicResolverService {
     let apiClient: any ResolverAPIClient
@@ -25,7 +28,7 @@ struct RemoteMusicResolverService: MusicResolverService {
             )
         } catch {
             guard let fallbackService else { throw error }
-            print("RemoteMusicResolverService fallback to mock:", error)
+            logger.info("fallback to mock: \(error)")
             let fallbackResponse = try await fallbackService.resolve(request: request)
             return ResolverResponse(
                 resolvedTrack: fallbackResponse.resolvedTrack,
@@ -51,7 +54,7 @@ struct RemoteMusicResolverService: MusicResolverService {
             )
         } catch {
             guard let fallbackService else { throw error }
-            print("RemoteMusicResolverService metadata fallback to mock:", error)
+            logger.info("metadata fallback to mock: \(error)")
             let fallbackResponse = try await fallbackService.resolveMetadata(request: request)
             return ResolverResponse(
                 resolvedTrack: fallbackResponse.resolvedTrack,
@@ -68,7 +71,7 @@ struct RemoteMusicResolverService: MusicResolverService {
         do {
             return try await apiClient.resolvePlatformLinks(for: track)
         } catch {
-            print("RemoteMusicResolverService platform links failed:", error)
+            logger.error("platform links failed: \(error)")
             return PlatformLinksResolutionResponse(
                 platformLinks: track.platformLinks,
                 status: .failed,
@@ -82,7 +85,7 @@ struct RemoteMusicResolverService: MusicResolverService {
         do {
             return try await apiClient.resolvePlatformLink(for: track, targetPlatform: targetPlatform)
         } catch {
-            print("RemoteMusicResolverService single platform link failed:", error)
+            logger.error("single platform link failed: \(error)")
             return SinglePlatformLinkResolutionResponse(
                 platform: targetPlatform,
                 platformLink: nil,

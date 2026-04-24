@@ -1,4 +1,7 @@
 import Foundation
+import os
+
+private let logger = Logger(subsystem: "com.sideb.app", category: "RoomDetailViewModel")
 
 enum LinkResolutionState: Equatable {
     case idle
@@ -187,7 +190,7 @@ final class RoomDetailViewModel {
                             replyToId: replyID
                         )
                     } catch {
-                        print("[RoomDetailViewModel] sendMessage failed:", error)
+                        logger.error("sendMessage failed: \(error)")
                         errorMessage = localizedErrorMessage(for: error)
                     }
                 }
@@ -197,7 +200,7 @@ final class RoomDetailViewModel {
                     do {
                         try await webSocketService.send(text: trimmedDraft)
                     } catch {
-                        print("[RoomDetailViewModel] ws send failed:", error)
+                        logger.error("ws send failed: \(error)")
                         errorMessage = localizedErrorMessage(for: error)
                     }
                 }

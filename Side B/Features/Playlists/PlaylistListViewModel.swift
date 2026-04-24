@@ -1,4 +1,7 @@
 import Foundation
+import os
+
+private let logger = Logger(subsystem: "com.sideb.app", category: "PlaylistListViewModel")
 
 @MainActor
 @Observable
@@ -106,7 +109,7 @@ final class PlaylistListViewModel {
                             let result = try await resolver.resolvePlatformLink(for: track, targetPlatform: platform)
                             return (platform, result)
                         } catch {
-                            print("[PlaylistListViewModel] resolvePlatformLink failed:", error)
+                            logger.error("resolvePlatformLink failed: \(error)")
                             return (platform, nil)
                         }
                     }

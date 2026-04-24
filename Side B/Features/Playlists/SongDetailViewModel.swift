@@ -1,4 +1,7 @@
 import Foundation
+import os
+
+private let logger = Logger(subsystem: "com.sideb.app", category: "SongDetailViewModel")
 
 struct PlatformSlot: Hashable {
     let platform: MusicPlatform
@@ -98,7 +101,7 @@ final class SongDetailViewModel {
                             let result = try await resolver.resolvePlatformLink(for: track, targetPlatform: platform)
                             return (platform, result)
                         } catch {
-                            print("[SongDetailViewModel] resolvePlatformLink failed:", error)
+                            logger.error("resolvePlatformLink failed: \(error)")
                             return (platform, nil)
                         }
                     }
@@ -132,7 +135,7 @@ final class SongDetailViewModel {
             do {
                 result = try await resolver.resolvePlatformLink(for: track, targetPlatform: platform)
             } catch {
-                print("[SongDetailViewModel] resolvePlatformLink failed:", error)
+                logger.error("resolvePlatformLink failed: \(error)")
                 displayTrack = displayTrack.updatingPlatformLinkState(.failed, for: platform)
                 return
             }
