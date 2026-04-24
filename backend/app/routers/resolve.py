@@ -10,6 +10,8 @@ Routes:
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
@@ -20,6 +22,8 @@ from app.services.resolver_service import (
     resolve_platform_links,
 )
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(tags=["resolve"])
 
 
@@ -29,7 +33,8 @@ async def resolve_endpoint(request: Request) -> JSONResponse:
     """Resolve a raw music link into canonical track data."""
     try:
         payload = await request.json()
-    except Exception:
+    except Exception as e:
+        logger.warning("Resolve request parse error: %s", e)
         return JSONResponse(status_code=400, content={"error": "Invalid JSON body"})
 
     raw_link = payload.get("rawLink", "").strip()
@@ -49,7 +54,8 @@ async def resolve_platform_links_endpoint(request: Request) -> JSONResponse:
     """Resolve platform links for an already-known canonical track."""
     try:
         payload = await request.json()
-    except Exception:
+    except Exception as e:
+        logger.warning("Resolve platform links request parse error: %s", e)
         return JSONResponse(status_code=400, content={"error": "Invalid JSON body"})
 
     result = resolve_platform_links(payload)
@@ -62,7 +68,8 @@ async def resolve_platform_link_endpoint(request: Request) -> JSONResponse:
     """Resolve a single platform link for a canonical track."""
     try:
         payload = await request.json()
-    except Exception:
+    except Exception as e:
+        logger.warning("Resolve platform link request parse error: %s", e)
         return JSONResponse(status_code=400, content={"error": "Invalid JSON body"})
 
     result = resolve_platform_link(payload)

@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import re
 from urllib import parse, request
@@ -20,6 +21,8 @@ from utils.resolver_common import (
     text_variants,
 )
 
+
+logger = logging.getLogger(__name__)
 
 SONGLINK_LINKS_URL = "https://api.song.link/v1-alpha.1/links"
 SUPPORTED_AGGREGATED_PLATFORM_LABELS = {
@@ -268,7 +271,7 @@ class NeteaseTargetResolver:
                     timeout_seconds=context.netease_request_timeout,
                 )
             except Exception as exc:
-                print("Netease search skipped:", exc)
+                logger.warning("Netease search skipped: %s", exc)
                 continue
 
             for query_rank, candidate in enumerate(candidates):
@@ -407,7 +410,7 @@ class QQMusicTargetResolver:
             try:
                 candidates = search_qq_tracks(search_term, limit=10)
             except Exception as exc:
-                print("QQ Music search skipped:", exc)
+                logger.warning("QQ Music search skipped: %s", exc)
                 continue
 
             for query_rank, candidate in enumerate(candidates):
@@ -447,7 +450,7 @@ class AggregatedTargetResolver:
         try:
             aggregated_urls = fetch_aggregated_platform_urls(canonical_track.source_url, context)
         except Exception as exc:
-            print("Songlink mapping skipped:", exc)
+            logger.warning("Songlink mapping skipped: %s", exc)
             return None
 
         return aggregated_urls.get(self.platform)
@@ -503,7 +506,7 @@ def resolve_platform_links(
         try:
             resolved_url = resolver.resolve_link(canonical_track, context)
         except Exception as exc:
-            print(f"{resolver.platform} mapping skipped:", exc)
+            logger.warning("%s mapping skipped: %s", resolver.platform, exc)
             continue
 
         if resolved_url:

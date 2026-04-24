@@ -1,5 +1,9 @@
+import logging
+
 from fastapi import WebSocket
 from typing import Dict, List
+
+logger = logging.getLogger(__name__)
 
 
 class ConnectionManager:
@@ -29,7 +33,8 @@ class ConnectionManager:
         for ws in connections:
             try:
                 await ws.send_json(message)
-            except Exception:
+            except Exception as e:
+                logger.debug("WebSocket send failed: %s", e)
                 stale.append(ws)
         for ws in stale:
             self.disconnect(ws, room_id)

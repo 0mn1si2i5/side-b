@@ -11,7 +11,7 @@ final class AuthViewModel {
     private weak var authState: AuthState?
 
     init(
-        authService: any AuthServiceProtocol = AuthServiceFactory.makeDefaultService(),
+        authService: any AuthServiceProtocol = AuthServiceFactory.makeDefaultService()!,
         authState: AuthState? = nil
     ) {
         self.authService = authService

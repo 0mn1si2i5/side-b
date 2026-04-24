@@ -15,7 +15,7 @@ class Settings:
     JWT_SECRET: str = os.environ.get("JWT_SECRET", "")
     JWT_ALGORITHM: str = os.environ.get("JWT_ALGORITHM", "HS256")
     JWT_EXPIRATION_MINUTES: int = int(os.environ.get("JWT_EXPIRATION_MINUTES", "1440"))
-    CORS_ORIGINS: str = os.environ.get("CORS_ORIGINS", "*")
+    CORS_ORIGINS: str = os.environ.get("CORS_ORIGINS", "")
 
     def __init__(self) -> None:
         if not self.JWT_SECRET:

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 from sqlalchemy import true
@@ -101,7 +101,7 @@ def leave_room(db: Session, room_id: str, user_id: str) -> RoomMember | None:
     )
     if member is None:
         return None
-    member.left_at = datetime.utcnow()
+    member.left_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(member)
     return member

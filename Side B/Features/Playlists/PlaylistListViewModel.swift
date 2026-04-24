@@ -1,5 +1,6 @@
 import Foundation
 
+@MainActor
 @Observable
 final class PlaylistListViewModel {
     var playlists: [Playlist] = []
@@ -17,7 +18,7 @@ final class PlaylistListViewModel {
 
     private let resolver: any MusicResolverService
 
-    init(resolver: any MusicResolverService = ResolverServiceFactory.makeDefaultService()) {
+    init(resolver: any MusicResolverService = ResolverServiceFactory.makeDefaultService()!) {
         self.resolver = resolver
     }
 
@@ -48,12 +49,14 @@ final class PlaylistListViewModel {
                     break
                 }
 
+                #if !DEBUG
                 if response.metadataStatus == .fallbackMock {
                     errorMessage = "无法解析该歌曲，请检查链接是否正确"
                     showErrorAlert = true
                     isResolving = false
                     return
                 }
+                #endif
 
                 let track = response.resolvedTrack.track
                 if !track.title.isEmpty {
@@ -92,24 +95,31 @@ final class PlaylistListViewModel {
 
         guard !pendingPlatforms.isEmpty else { return }
 
-        for platform in pendingPlatforms {
-            Task { @MainActor in
-                let result: SinglePlatformLinkResolutionResponse
-                do {
-                    result = try await resolver.resolvePlatformLink(for: track, targetPlatform: platform)
-                } catch {
-                    print("[PlaylistListViewModel] resolvePlatformLink failed:", error)
-                    return
+        Task {
+            await withTaskGroup(of: (MusicPlatform, SinglePlatformLinkResolutionResponse?).self) { group in
+                for platform in pendingPlatforms {
+                    group.addTask {
+                        do {
+                            let result = try await self.resolver.resolvePlatformLink(for: track, targetPlatform: platform)
+                            return (platform, result)
+                        } catch {
+                            print("[PlaylistListViewModel] resolvePlatformLink failed:", error)
+                            return (platform, nil)
+                        }
+                    }
                 }
 
-                if let index = recentlyResolved.firstIndex(where: { $0.id == track.id }) {
-                    let updatedTrack = recentlyResolved[index].updatingPlatformLink(
-                        result.platformLink,
-                        state: result.state,
-                        for: platform
-                    )
-                    recentlyResolved[index] = updatedTrack
-                    TrackCache.shared.save(track: updatedTrack)
+                for await (platform, result) in group {
+                    guard let result else { continue }
+                    if let index = self.recentlyResolved.firstIndex(where: { $0.id == track.id }) {
+                        let updatedTrack = self.recentlyResolved[index].updatingPlatformLink(
+                            result.platformLink,
+                            state: result.state,
+                            for: platform
+                        )
+                        self.recentlyResolved[index] = updatedTrack
+                        TrackCache.shared.save(track: updatedTrack)
+                    }
                 }
             }
         }

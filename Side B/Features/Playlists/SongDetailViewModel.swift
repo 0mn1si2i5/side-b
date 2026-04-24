@@ -29,6 +29,7 @@ struct PlatformSlot: Hashable {
     }
 }
 
+@MainActor
 @Observable
 final class SongDetailViewModel {
     var displayTrack: Track
@@ -45,7 +46,7 @@ final class SongDetailViewModel {
 
     init(
         track: Track,
-        resolver: any MusicResolverService = ResolverServiceFactory.makeDefaultService(),
+        resolver: any MusicResolverService = ResolverServiceFactory.makeDefaultService()!,
         persistenceStore: PlatformLinkPersistenceStore = .shared,
         onTrackUpdated: ((Track) -> Void)? = nil,
         navigationService: PlatformNavigationService = MockPlatformNavigationService()
@@ -87,8 +88,32 @@ final class SongDetailViewModel {
             displayTrack = displayTrack.updatingPlatformLinkState(.loading, for: platform)
         }
 
-        for platform in pendingPlatforms {
-            requestPlatformLink(for: platform, using: track)
+        Task {
+            await withTaskGroup(of: (MusicPlatform, SinglePlatformLinkResolutionResponse?).self) { group in
+                for platform in pendingPlatforms {
+                    group.addTask {
+                        do {
+                            let result = try await self.resolver.resolvePlatformLink(for: track, targetPlatform: platform)
+                            return (platform, result)
+                        } catch {
+                            print("[SongDetailViewModel] resolvePlatformLink failed:", error)
+                            return (platform, nil)
+                        }
+                    }
+                }
+
+                for await (platform, result) in group {
+                    guard let result else { continue }
+                    let updatedTrack = self.displayTrack.updatingPlatformLink(
+                        result.platformLink,
+                        state: result.state,
+                        for: platform
+                    )
+                    self.displayTrack = updatedTrack
+                    self.persistenceStore.save(track: updatedTrack)
+                    self.onTrackUpdated?(updatedTrack)
+                }
+            }
         }
     }
 
@@ -99,7 +124,7 @@ final class SongDetailViewModel {
 
     func requestPlatformLink(for platform: MusicPlatform, using track: Track) {
         displayTrack = displayTrack.updatingPlatformLinkState(.loading, for: platform)
-        Task { @MainActor in
+        Task {
             let result: SinglePlatformLinkResolutionResponse
             do {
                 result = try await resolver.resolvePlatformLink(for: track, targetPlatform: platform)

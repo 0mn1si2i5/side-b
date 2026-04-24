@@ -34,9 +34,9 @@ final class RoomDetailViewModel {
         roomId: UUID,
         initialMessages: [Message] = [],
         persistenceStore: PlatformLinkPersistenceStore = .shared,
-        resolver: MusicResolverService = ResolverServiceFactory.makeDefaultService(),
-        messageService: MessageServiceProtocol = MessageServiceFactory.makeDefaultService(),
-        webSocketService: WebSocketServiceProtocol = WebSocketServiceFactory.makeDefaultService()
+        resolver: MusicResolverService = ResolverServiceFactory.makeDefaultService()!,
+        messageService: MessageServiceProtocol = MessageServiceFactory.makeDefaultService()!,
+        webSocketService: WebSocketServiceProtocol = WebSocketServiceFactory.makeDefaultService()!
     ) {
         self.roomId = roomId
         self.persistenceStore = persistenceStore
@@ -285,6 +285,7 @@ final class RoomDetailViewModel {
             break
         }
 
+        #if !DEBUG
         if response.metadataStatus == .fallbackMock {
             linkResolutionState = .failed
             if let diagnosticMessage = response.diagnosticMessage, !diagnosticMessage.isEmpty {
@@ -294,6 +295,7 @@ final class RoomDetailViewModel {
             }
             return
         }
+        #endif
 
         let resolvedTrack = persistenceStore.restore(track: response.resolvedTrack.track) ?? response.resolvedTrack.track
         let newMessage = Message(
@@ -318,8 +320,13 @@ final class RoomDetailViewModel {
             linkResolutionState = .resolved
             linkResolutionMessage = nil
         case .fallbackMock:
+            #if DEBUG
+            linkResolutionState = .resolved
+            linkResolutionMessage = nil
+            #else
             linkResolutionState = .failed
             linkResolutionMessage = "无法解析或匹配该歌曲"
+            #endif
         case .mockLocal:
             linkResolutionState = .resolved
             linkResolutionMessage = nil

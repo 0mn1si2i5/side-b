@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
@@ -30,7 +30,7 @@ def soft_delete_message(db: Session, message_id: str, user_id: str) -> Message |
         return None
     if message.sender_id != user_id:
         return None
-    message.deleted_at = datetime.utcnow()
+    message.deleted_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(message)
     return message

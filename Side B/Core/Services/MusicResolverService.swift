@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 protocol MusicResolverService {
     func resolve(request: ResolverRequest) async throws -> ResolverResponse
@@ -10,6 +11,7 @@ protocol MusicResolverService {
 }
 
 enum ResolverServiceFactory {
+    private static let logger = Logger(subsystem: "com.sideb.app", category: "ServiceFactory")
     private static let apiBaseURLKey = "SIDEB_API_BASE_URL"
     private static let legacyResolverURLKey = "SIDEB_RESOLVER_BASE_URL"
     private static let userDefaultsKey = "SideB_ResolverBaseURL"
@@ -18,14 +20,20 @@ enum ResolverServiceFactory {
     /// Takes precedence over environment variables and UserDefaults.
     static var configuredBaseURL: URL?
 
-    static func makeDefaultService() -> any MusicResolverService {
+    /// Whether the resolver has a valid base URL configured.
+    static var isConfigured: Bool {
+        resolverBaseURL != nil
+    }
+
+    static func makeDefaultService() -> (any MusicResolverService)? {
         let baseURL = resolverBaseURL
 
         guard let baseURL else {
             #if DEBUG
             return MockMusicResolverService()
             #else
-            fatalError("SIDEB_API_BASE_URL or SIDEB_RESOLVER_BASE_URL must be set in production")
+            logger.error("ResolverServiceFactory: No resolver base URL configured. Set SIDEB_API_BASE_URL or SIDEB_RESOLVER_BASE_URL.")
+            return nil
             #endif
         }
 

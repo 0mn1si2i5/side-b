@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import http.client
+import logging
 import re
 import subprocess
 import time
 from urllib import parse, request
+
+logger = logging.getLogger(__name__)
 
 
 QQ_MUSIC_TRACK_URL_TEMPLATE = "https://y.qq.com/n/ryqq/songDetail/{track_mid}"
@@ -38,7 +41,8 @@ def resolve_qq_music_link(raw_link: str) -> str:
 def parse_qq_music_track_id(raw_link: str) -> str | None:
     try:
         resolved_link = resolve_qq_music_link(raw_link)
-    except Exception:
+    except Exception as e:
+        logger.warning("QQ Music link resolution failed: %s", e)
         return None
 
     parsed_url = parse.urlparse(resolved_link)
@@ -96,7 +100,8 @@ def _resolve_with_head_or_get(raw_link: str) -> str | None:
                 resolved_url = response.geturl()
                 if isinstance(resolved_url, str) and resolved_url:
                     return resolved_url
-        except Exception:
+        except Exception as e:
+            logger.debug("QQ Music redirect resolution failed: %s", e)
             continue
 
     return None
@@ -119,7 +124,8 @@ def _resolve_redirect_location(raw_link: str, method: str) -> str | None:
         location = response.getheader("Location")
         if isinstance(location, str) and location:
             return location
-    except Exception:
+    except Exception as e:
+        logger.debug("QQ Music redirect location resolution failed: %s", e)
         return None
     finally:
         connection.close()
@@ -140,7 +146,8 @@ def _resolve_redirect_location_with_curl(raw_link: str) -> str | None:
             timeout=10,
             check=False,
         )
-    except Exception:
+    except Exception as e:
+        logger.debug("QQ Music curl redirect resolution failed: %s", e)
         return None
 
     if not isinstance(completed.stdout, str) or not completed.stdout:

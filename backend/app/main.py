@@ -1,4 +1,5 @@
 import logging
+import os
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,7 +18,10 @@ app = FastAPI(title="Side B API", version="0.1.0")
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-origins = [origin.strip() for origin in settings.CORS_ORIGINS.split(",")]
+origins = [origin.strip() for origin in settings.CORS_ORIGINS.split(",") if origin.strip()]
+if not origins:
+    logger.warning("CORS_ORIGINS is empty; falling back to wildcard for development. Set CORS_ORIGINS explicitly in production.")
+    origins = ["*"]
 # allow_credentials=True with origins=["*"] is a security violation;
 # when origins is wildcard, credentials must be False.
 allow_credentials = "*" not in origins
@@ -68,5 +72,5 @@ if __name__ == "__main__":
         "app.main:app",
         host=settings.FASTAPI_HOST,
         port=settings.FASTAPI_PORT,
-        reload=True,
+        reload=os.environ.get("DEBUG", "false").lower() == "true",
     )

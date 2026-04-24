@@ -1,5 +1,6 @@
 import base64
 import json
+import logging
 from urllib import parse, request
 
 from utils.resolver_common import (
@@ -16,6 +17,8 @@ from utils.resolver_common import (
     CACHE_MISS,
 )
 
+
+logger = logging.getLogger(__name__)
 
 SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token"
 SPOTIFY_TRACK_URL = "https://api.spotify.com/v1/tracks/{track_id}"
@@ -217,7 +220,7 @@ def fetch_spotify_track_url(
             try:
                 candidates = fetch_spotify_search_candidates(access_token, search_term, search_market)
             except Exception as exc:
-                print("Spotify search skipped:", exc)
+                logger.warning("Spotify search skipped: %s", exc)
                 continue
 
             for query_rank, candidate in enumerate(candidates):

@@ -1,7 +1,10 @@
+import logging
 import re
 import time
 from urllib import request
 from urllib.error import HTTPError
+
+logger = logging.getLogger(__name__)
 
 
 NETEASE_TRACK_URL_TEMPLATE = "https://music.163.com/#/song?id={track_id}"
@@ -40,7 +43,8 @@ def resolve_netease_link(raw_link: str) -> str:
 def parse_netease_track_id(raw_link: str) -> str | None:
     try:
         resolved_link = resolve_netease_link(raw_link)
-    except Exception:
+    except Exception as e:
+        logger.warning("Netease link resolution failed: %s", e)
         return None
 
     query_id_match = re.search(r"[?&]id=(\d+)", resolved_link)
@@ -70,7 +74,8 @@ def _resolve_with_head_or_get(raw_link: str) -> str | None:
                 resolved_url = response.geturl()
                 if isinstance(resolved_url, str) and resolved_url:
                     return resolved_url
-        except Exception:
+        except Exception as e:
+            logger.debug("Netease redirect resolution failed: %s", e)
             continue
 
     return None
@@ -94,7 +99,8 @@ def _resolve_redirect_location(raw_link: str, method: str) -> str | None:
         location = exc.headers.get("Location")
         if isinstance(location, str) and location:
             return location
-    except Exception:
+    except Exception as e:
+        logger.debug("Netease redirect location resolution failed: %s", e)
         return None
 
     return None

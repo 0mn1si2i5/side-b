@@ -4,7 +4,7 @@ struct RoomManagementView: View {
     @State private var viewModel: RoomManagementViewModel
     @Environment(\.dismiss) private var dismiss
 
-    init(room: Room, service: any RoomServiceProtocol = RoomServiceFactory.makeDefaultService()) {
+    init(room: Room, service: any RoomServiceProtocol = RoomServiceFactory.makeDefaultService()!) {
         _viewModel = State(initialValue: RoomManagementViewModel(room: room, service: service))
     }
 

@@ -19,8 +19,31 @@ _backend_root = str(Path(__file__).resolve().parent.parent.parent)
 if _backend_root not in sys.path:
     sys.path.insert(0, _backend_root)
 
-from routes.resolve_route import build_canonical_track_from_payload  # noqa: E402
+from models.resolver_models import CanonicalTrack  # noqa: E402
 from services.resolver_service import ResolverService  # noqa: E402
+
+def build_canonical_track_from_payload(payload: dict) -> CanonicalTrack | None:
+    source_platform = payload.get("sourcePlatform")
+    source_platform_id = payload.get("sourcePlatformID")
+    source_url = payload.get("sourceURL")
+    title = payload.get("title")
+    artist_name = payload.get("artistName")
+
+    if not all(isinstance(value, str) and value for value in (source_platform, source_platform_id, source_url, title, artist_name)):
+        return None
+
+    return CanonicalTrack(
+        source_platform=source_platform,
+        source_id=source_platform_id,
+        source_url=source_url,
+        title=title,
+        artist_name=artist_name,
+        album_title=payload.get("albumTitle"),
+        duration_ms=payload.get("durationMS"),
+        artwork_url=payload.get("artworkURL"),
+        isrc=payload.get("isrc"),
+    )
+
 
 # Module-level singleton – the same instance the old server uses.
 _resolver = ResolverService()

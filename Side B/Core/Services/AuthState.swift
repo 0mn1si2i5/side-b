@@ -1,5 +1,6 @@
 import Foundation
 
+@MainActor
 @Observable
 final class AuthState {
     var isAuthenticated = false
@@ -9,7 +10,7 @@ final class AuthState {
 
     private let authService: any AuthServiceProtocol
 
-    init(authService: any AuthServiceProtocol = AuthServiceFactory.makeDefaultService()) {
+    init(authService: any AuthServiceProtocol = AuthServiceFactory.makeDefaultService()!) {
         self.authService = authService
     }
 

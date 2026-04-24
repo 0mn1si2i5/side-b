@@ -1,8 +1,14 @@
 .build/
+.env
 backend/.env
 backend/__pycache__/
 backend/vendor/
 *.pyc
+*.pem
+*.key
+*.crt
 .sisyphus/
+.claude/
 backend/data/*.db
 *.db
+docker-compose.override.yml

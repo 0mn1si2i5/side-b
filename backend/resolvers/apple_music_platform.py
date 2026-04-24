@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import re
 from urllib import parse, request
@@ -17,6 +18,8 @@ from utils.resolver_common import (
     CACHE_MISS,
 )
 
+
+logger = logging.getLogger(__name__)
 
 ITUNES_SEARCH_URL = "https://itunes.apple.com/search"
 ITUNES_LOOKUP_URL = "https://itunes.apple.com/lookup"
@@ -206,7 +209,7 @@ def fetch_apple_music_track_url(
         try:
             candidates = fetch_itunes_candidates(search_term, storefront)
         except Exception as exc:
-            print("Apple Music search skipped:", exc)
+            logger.warning("Apple Music search skipped: %s", exc)
             continue
 
         for query_rank, candidate in enumerate(candidates):
