@@ -170,9 +170,12 @@ func testPlaylistStoreRenamePlaylist() {
     assert(loadedPlaylist?.name == "New Name", "Renamed playlist persists after load")
 }
 
+// When included in Xcode, this conflicts with SideBApp's @main.
+// Use: swiftc -o /tmp/sideb_tests "Side B/Tests/SmokeTests.swift" ... to compile standalone.
+// Or exclude this file from the Xcode build target.
+
 // MARK: - Run All Tests
 
-@main
 struct SmokeTestRunner {
     static func main() {
         print("=== Side B Smoke Tests ===\n")
