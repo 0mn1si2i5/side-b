@@ -1,9 +1,9 @@
 import json
 import logging
-import os
 import re
 from urllib import parse, request
 
+from app.config import settings
 from utils.resolver_common import (
     COMPILATION_KEYWORDS,
     TITLE_VERSION_KEYWORDS,
@@ -44,7 +44,7 @@ def apple_music_storefront(preferred_market: str | None) -> str:
     if normalized_market:
         return normalized_market
 
-    configured_storefront = os.environ.get("APPLE_MUSIC_STOREFRONT", "cn").strip().lower()
+    configured_storefront = settings.APPLE_MUSIC_STOREFRONT.strip().lower()
     if re.fullmatch(r"[a-z]{2}", configured_storefront):
         return configured_storefront
 

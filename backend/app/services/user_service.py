@@ -1,14 +1,13 @@
 import hashlib
 from datetime import datetime, timedelta, timezone
 
-from jose import jwt, JWTError
-from passlib.context import CryptContext
+import jwt
+from jwt.exceptions import InvalidTokenError as JWTError
+import bcrypt
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models.user import User
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def get_user_by_username(db: Session, username: str) -> User | None:
@@ -26,7 +25,7 @@ def create_user(
     display_name: str,
     avatar_name: str,
 ) -> User:
-    hashed_password = pwd_context.hash(password)
+    hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
     user = User(
         username=username,
         display_name=display_name,
@@ -39,11 +38,15 @@ def create_user(
     return user
 
 
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+
+
 def authenticate_user(db: Session, username: str, password: str) -> User | None:
     user = get_user_by_username(db, username)
     if user is None:
         return None
-    if not pwd_context.verify(password, user.hashed_password):
+    if not bcrypt.checkpw(password.encode('utf-8'), user.hashed_password.encode('utf-8')):
         return None
     return user
 
@@ -73,7 +76,7 @@ def update_password(db: Session, user_id: str, new_password: str) -> User | None
     user = get_user_by_id(db, user_id)
     if user is None:
         return None
-    user.hashed_password = pwd_context.hash(new_password)
+    user.hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
     db.commit()
     db.refresh(user)
     return user

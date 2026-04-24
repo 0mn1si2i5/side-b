@@ -15,10 +15,10 @@ class RoomMember(Base):
         String(36), primary_key=True, default=lambda: str(uuid.uuid4())
     )
     room_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("rooms.id"), nullable=False
+        String(36), ForeignKey("rooms.id", ondelete="CASCADE", name="fk_room_members_room_id_rooms"), nullable=False, index=True
     )
     user_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("users.id"), nullable=False
+        String(36), ForeignKey("users.id", ondelete="CASCADE", name="fk_room_members_user_id_users"), nullable=False, index=True
     )
     joined_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
     left_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=None)

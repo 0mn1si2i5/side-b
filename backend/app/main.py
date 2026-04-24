@@ -1,5 +1,4 @@
 import logging
-import os
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -39,7 +38,7 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
     logger.error(f"Unhandled exception: {exc}", exc_info=True)
     return JSONResponse(
         status_code=500,
-        content={"error": "Internal server error", "detail": "An unexpected error occurred"},
+        content={"detail": "Internal server error"},
     )
 
 
@@ -47,7 +46,7 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
 async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
     return JSONResponse(
         status_code=429,
-        content={"error": "Rate limit exceeded", "detail": "Too many requests"},
+        content={"detail": "Rate limit exceeded"},
     )
 
 
@@ -72,5 +71,5 @@ if __name__ == "__main__":
         "app.main:app",
         host=settings.FASTAPI_HOST,
         port=settings.FASTAPI_PORT,
-        reload=os.environ.get("DEBUG", "false").lower() == "true",
+        reload=settings.DEBUG,
     )

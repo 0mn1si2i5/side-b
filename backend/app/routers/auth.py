@@ -13,9 +13,9 @@ AVAILABLE_AVATARS = [f"avatar_{i}" for i in range(1, 13)]
 
 
 class RegisterRequest(BaseModel):
-    username: str = Field(min_length=3, max_length=30)
+    username: str = Field(min_length=3, max_length=20, pattern="^[a-zA-Z0-9_]+$")
     password: str = Field(min_length=8, max_length=128)
-    displayName: str = Field(min_length=1, max_length=50)
+    displayName: str = Field(min_length=2, max_length=20)
     avatarName: str
 
 
@@ -144,7 +144,7 @@ def change_password(
     user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if not user_service.pwd_context.verify(req.old_password, user.hashed_password):
+    if not user_service.verify_password(req.old_password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect current password",

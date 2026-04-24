@@ -1,6 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from typing import Literal
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -16,7 +19,7 @@ router = APIRouter()
 
 class CreateRoomRequest(BaseModel):
     name: str | None = None
-    type: str
+    type: Literal["direct", "group"]
     memberUsernames: list[str]
 
 
@@ -29,14 +32,14 @@ class AddMemberRequest(BaseModel):
 
 
 class CreateMessageRequest(BaseModel):
-    contentType: str
+    contentType: Literal["text", "song", "system"]
     textContent: str | None = None
     trackData: str | None = None
     replyToId: str | None = None
 
 
 class AddEmojiRequest(BaseModel):
-    emoji: str
+    emoji: str = Field(..., min_length=1, max_length=10)
 
 
 class RoomResponse(BaseModel):
@@ -162,11 +165,6 @@ def create_room(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if req.type not in ("direct", "group"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Room type must be 'direct' or 'group'",
-        )
     if req.type == "direct" and len(req.memberUsernames) != 1:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -297,8 +295,8 @@ def list_members(
 @router.get("/{room_id}/messages", response_model=list[MessageResponse])
 def list_messages(
     room_id: str,
-    limit: int = 50,
-    before: str | None = None,
+    limit: int = Query(default=50, le=200, ge=1),
+    before: UUID | None = None,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -308,7 +306,7 @@ def list_messages(
             status_code=status.HTTP_404_NOT_FOUND, detail="Room not found"
         )
     _require_membership(db, room_id, user.id)
-    messages = message_service.get_messages(db, room_id, limit=limit, before=before)
+    messages = message_service.get_messages(db, room_id, limit=limit, before=str(before) if before else None)
     return [_message_to_response(m, db) for m in messages]
 
 
@@ -329,11 +327,6 @@ async def create_message(
             status_code=status.HTTP_404_NOT_FOUND, detail="Room not found"
         )
     _require_membership(db, room_id, user.id)
-    if req.contentType not in ("text", "song", "system"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Content type must be 'text', 'song', or 'system'",
-        )
     msg = message_service.create_message(
         db=db,
         room_id=room_id,

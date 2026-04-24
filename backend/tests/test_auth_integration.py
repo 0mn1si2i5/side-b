@@ -9,7 +9,7 @@ from tests.conftest import auth_headers, register_user
 
 def test_register_valid_data(client: TestClient):
     resp = client.post("/api/auth/register", json={
-        "username": f"newuser_{int(time.time()*1000)}",
+        "username": f"u_{int(time.time())}",
         "password": "ValidPass123!",
         "displayName": "New User",
         "avatarName": "avatar_1",
@@ -17,7 +17,7 @@ def test_register_valid_data(client: TestClient):
     assert resp.status_code == 200
     data = resp.json()
     assert "token" in data
-    assert data["user"]["username"].startswith("newuser_")
+    assert data["user"]["username"].startswith("u_")
 
 
 def test_register_duplicate_username(client: TestClient):
@@ -37,7 +37,7 @@ def test_register_duplicate_username(client: TestClient):
 
 def test_register_short_password(client: TestClient):
     resp = client.post("/api/auth/register", json={
-        "username": f"shortpw_{int(time.time()*1000)}",
+        "username": f"sp_{int(time.time())}",
         "password": "abc",
         "displayName": "Short PW",
         "avatarName": "avatar_1",

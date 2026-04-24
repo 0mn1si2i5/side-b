@@ -35,11 +35,11 @@ async def resolve_endpoint(request: Request) -> JSONResponse:
         payload = await request.json()
     except Exception as e:
         logger.warning("Resolve request parse error: %s", e)
-        return JSONResponse(status_code=400, content={"error": "Invalid JSON body"})
+        return JSONResponse(status_code=400, content={"detail": "Invalid JSON body"})
 
     raw_link = payload.get("rawLink", "").strip()
     if not raw_link:
-        return JSONResponse(status_code=400, content={"error": "rawLink is required"})
+        return JSONResponse(status_code=400, content={"detail": "rawLink is required"})
 
     preferred_market = payload.get("preferredMarket")
     include_platform_links = bool(payload.get("includePlatformLinks", True))
@@ -56,7 +56,7 @@ async def resolve_platform_links_endpoint(request: Request) -> JSONResponse:
         payload = await request.json()
     except Exception as e:
         logger.warning("Resolve platform links request parse error: %s", e)
-        return JSONResponse(status_code=400, content={"error": "Invalid JSON body"})
+        return JSONResponse(status_code=400, content={"detail": "Invalid JSON body"})
 
     result = resolve_platform_links(payload)
     return JSONResponse(status_code=result["status_code"], content=result["body"])
@@ -70,7 +70,7 @@ async def resolve_platform_link_endpoint(request: Request) -> JSONResponse:
         payload = await request.json()
     except Exception as e:
         logger.warning("Resolve platform link request parse error: %s", e)
-        return JSONResponse(status_code=400, content={"error": "Invalid JSON body"})
+        return JSONResponse(status_code=400, content={"detail": "Invalid JSON body"})
 
     result = resolve_platform_link(payload)
     return JSONResponse(status_code=result["status_code"], content=result["body"])

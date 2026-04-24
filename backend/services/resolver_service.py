@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import os
 import time
 
+from app.config import settings
 from models.resolver_models import CanonicalTrack, ParsedSource, ResolverContext, ResolverDiagnostic, SourcePlatformAdapter, TargetPlatformResolver
 from resolvers.spotify_platform import fetch_spotify_access_token, parse_spotify_track_id
 from services.input_parser import InputParser, InputParseResult
@@ -155,23 +155,15 @@ class ResolverService:
         }
 
     def build_context(self, preferred_market: str | None) -> ResolverContext:
-        client_id = os.environ.get("SPOTIFY_CLIENT_ID")
-        client_secret = os.environ.get("SPOTIFY_CLIENT_SECRET")
+        client_id = settings.SPOTIFY_CLIENT_ID
+        client_secret = settings.SPOTIFY_CLIENT_SECRET
         spotify_access_token = self._spotify_access_token_from_cache(client_id, client_secret)
-
-        netease_request_timeout = 10.0
-        raw_timeout = os.environ.get("NETEASE_REQUEST_TIMEOUT")
-        if raw_timeout:
-            try:
-                netease_request_timeout = float(raw_timeout)
-            except ValueError:
-                pass
 
         return ResolverContext(
             preferred_market=preferred_market,
             spotify_access_token=spotify_access_token,
-            netease_api_base_url=os.environ.get("NETEASE_API_BASE_URL"),
-            netease_request_timeout=netease_request_timeout,
+            netease_api_base_url=settings.NETEASE_API_BASE_URL or None,
+            netease_request_timeout=float(settings.NETEASE_REQUEST_TIMEOUT),
         )
 
     def _build_resolver_response(

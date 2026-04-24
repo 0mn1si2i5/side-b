@@ -1,9 +1,9 @@
 import json
 import logging
-import os
 import re
 from urllib import parse, request
 
+from app.config import settings
 from models.resolver_models import CanonicalTrack, ResolverContext, TargetPlatformResolver
 from platform_clients.netease_client import check_music, fetch_song_url, search_tracks
 from platform_clients.qq_music_client import search_tracks as search_qq_tracks
@@ -72,7 +72,7 @@ def fetch_aggregated_platform_urls(source_url: str, context: ResolverContext) ->
 
     query_items = {"url": source_url}
     normalized_market = normalize_preferred_market(context.preferred_market)
-    api_key = os.environ.get("SONGLINK_API_KEY", "").strip()
+    api_key = settings.SONGLINK_API_KEY.strip()
 
     if normalized_market:
         query_items["userCountry"] = normalized_market.upper()
