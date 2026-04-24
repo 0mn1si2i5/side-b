@@ -1,0 +1,49 @@
+services:
+  api:
+    build:
+      context: backend/
+    container_name: sideb-api
+    ports:
+      - "8788:8788"
+    env_file:
+      - backend/.env
+    environment:
+      - NETEASE_API_BASE_URL=http://netease:3000
+    volumes:
+      - sideb-data:/app/data
+    depends_on:
+      - netease
+    restart: unless-stopped
+    networks:
+      - sideb-network
+
+  netease:
+    image: binaryify/netease_cloud_music_api:latest
+    container_name: sideb-netease
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    networks:
+      - sideb-network
+
+  nginx:
+    build:
+      context: nginx/
+    container_name: sideb-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - api
+    restart: unless-stopped
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - sideb-network
+
+volumes:
+  sideb-data:
+
+networks:
+  sideb-network:
+    driver: bridge
