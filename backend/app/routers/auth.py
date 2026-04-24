@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import get_current_user
+from app.main import limiter
 from app.services import user_service
 
 router = APIRouter()
@@ -12,9 +13,9 @@ AVAILABLE_AVATARS = [f"avatar_{i}" for i in range(1, 13)]
 
 
 class RegisterRequest(BaseModel):
-    username: str
-    password: str
-    displayName: str
+    username: str = Field(min_length=3, max_length=30)
+    password: str = Field(min_length=8, max_length=128)
+    displayName: str = Field(min_length=1, max_length=50)
     avatarName: str
 
 
@@ -54,7 +55,8 @@ def _user_to_response(user) -> UserResponse:
 
 
 @router.post("/register", response_model=AuthResponse)
-def register(req: RegisterRequest, db: Session = Depends(get_db)):
+@limiter.limit("3/minute")
+def register(request: Request, req: RegisterRequest, db: Session = Depends(get_db)):
     existing = user_service.get_user_by_username(db, req.username)
     if existing:
         raise HTTPException(
@@ -78,7 +80,8 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=AuthResponse)
-def login(req: LoginRequest, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def login(request: Request, req: LoginRequest, db: Session = Depends(get_db)):
     user = user_service.authenticate_user(db, req.username, req.password)
     if user is None:
         raise HTTPException(

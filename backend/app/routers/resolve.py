@@ -13,6 +13,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
+from app.main import limiter
 from app.services.resolver_service import (
     resolve,
     resolve_platform_link,
@@ -23,6 +24,7 @@ router = APIRouter(tags=["resolve"])
 
 
 @router.post("/resolve")
+@limiter.limit("30/minute")
 async def resolve_endpoint(request: Request) -> JSONResponse:
     """Resolve a raw music link into canonical track data."""
     try:
@@ -42,6 +44,7 @@ async def resolve_endpoint(request: Request) -> JSONResponse:
 
 
 @router.post("/resolve-platform-links")
+@limiter.limit("10/minute")
 async def resolve_platform_links_endpoint(request: Request) -> JSONResponse:
     """Resolve platform links for an already-known canonical track."""
     try:
@@ -54,6 +57,7 @@ async def resolve_platform_links_endpoint(request: Request) -> JSONResponse:
 
 
 @router.post("/resolve-platform-link")
+@limiter.limit("30/minute")
 async def resolve_platform_link_endpoint(request: Request) -> JSONResponse:
     """Resolve a single platform link for a canonical track."""
     try:
