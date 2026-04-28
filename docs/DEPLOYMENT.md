@@ -58,6 +58,12 @@ For local testing, run `api-enhanced` on `127.0.0.1:3000` and set `NETEASE_API_B
 
 For Docker deployment, run the Netease service inside the compose network under service name `netease`, and keep the backend value as `http://netease:3000`.
 
+The default compose file uses:
+
+```yaml
+image: moefurina/ncm-api:latest
+```
+
 ## 4. First Deploy
 
 Build and start:

@@ -33,7 +33,7 @@ services:
           cpus: "0.5"
 
   netease:
-    image: binaryify/netease_cloud_music_api:v4.15.4
+    image: moefurina/ncm-api:latest
     container_name: sideb-netease
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000"]
