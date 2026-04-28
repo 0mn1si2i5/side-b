@@ -7,6 +7,7 @@ Runtime services:
 - `api`: Side B FastAPI backend. It owns auth, rooms, messages, WebSocket, resolver orchestration, SQLite migrations, and QQ Music access through `qqmusic-api-python`.
 - `netease`: Netease-compatible API service on port `3000`. The backend reaches it through `NETEASE_API_BASE_URL`.
 - `nginx`: public HTTP/HTTPS entrypoint, reverse proxy, rate limits, and `/health`.
+- `certbot`: on-demand Let's Encrypt certificate issuer/renewer, enabled through the `certbot` Compose profile.
 
 ## 1. Server Prerequisites
 
@@ -83,7 +84,37 @@ The API container runs migrations on startup through `backend/entrypoint.sh`.
 
 The backend Docker build intentionally excludes local `backend/vendor/`, virtualenvs, caches, and SQLite files. Runtime dependencies come from `backend/requirements.txt`, and runtime data comes from the `sideb-data` volume.
 
-## 5. Smoke Tests
+## 5. HTTPS Certificate
+
+The Compose stack mounts two certificate-related volumes:
+
+- `certbot-www`: shared webroot for HTTP-01 challenges.
+- `letsencrypt`: persisted Let's Encrypt account and certificate data.
+
+After DNS points to the server and port `80` is reachable, issue the first certificate:
+
+```bash
+docker compose --profile certbot run --rm certbot certonly \
+  --webroot -w /var/www/certbot \
+  -d <your-domain> \
+  --email <your-email> \
+  --agree-tos \
+  --no-eff-email
+```
+
+Then start or reload nginx:
+
+```bash
+docker compose up -d --build nginx
+```
+
+Install a renewal cron on the server:
+
+```bash
+17 3 * * * cd /path/to/Side-B && docker compose --profile certbot run --rm certbot renew --quiet --webroot -w /var/www/certbot && docker compose kill -s HUP nginx >/dev/null 2>&1
+```
+
+## 6. Smoke Tests
 
 From the server:
 
@@ -120,7 +151,7 @@ Expected resolver behavior:
 - Target platform misses hide that platform button instead of failing the whole card.
 - Netease failures should be isolated to Netease source or Netease target mapping.
 
-## 6. iOS Production Pointing
+## 7. iOS Production Pointing
 
 Set the scheme or app configuration to:
 
@@ -134,7 +165,7 @@ For LAN testing before domain cutover:
 SIDEB_API_BASE_URL=http://<server-lan-ip>
 ```
 
-## 7. SQLite Volume Backup
+## 8. SQLite Volume Backup
 
 The default database lives in Docker volume `sideb-data` at `/app/data/sideb.db`.
 
@@ -160,18 +191,19 @@ docker compose logs api
 curl -f http://127.0.0.1/health
 ```
 
-## 8. Operational Checks
+## 9. Operational Checks
 
 - `docker compose ps` shows `api`, `netease`, and `nginx` healthy.
 - `docker compose logs api` has no migration errors.
 - `/health` returns success through nginx.
+- The Let's Encrypt certificate exists in the `letsencrypt` volume and auto-renewal is installed.
 - `/api/auth/register` and `/api/auth/login` work.
 - `/api/resolve` works for at least one Spotify or Apple Music link.
 - Netease link resolution works when the `netease` service is healthy.
 - QQ link resolution works from inside the `api` container.
 - WebSocket connects with one API worker.
 
-## 9. Rollback
+## 10. Rollback
 
 For code rollback:
 
