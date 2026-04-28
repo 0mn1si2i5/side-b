@@ -36,6 +36,7 @@ enum SideBVisualStyle {
     static let disabledOpacity = 0.34
     static let surfaceBorder = Color.primary.opacity(0.10)
     static let surfaceShadow = Color.black.opacity(0.08)
+    static let glassDivider = Color.primary.opacity(0.16)
 }
 
 extension ShapeStyle where Self == Color {
@@ -50,11 +51,24 @@ extension View {
             .shadow(color: SideBVisualStyle.surfaceShadow, radius: 14, y: 7)
     }
 
+    func sideBProminentGlassSurface(cornerRadius: CGFloat) -> some View {
+        self
+            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(Color.white.opacity(0.20), lineWidth: 1)
+            }
+            .shadow(color: Color.black.opacity(0.12), radius: 20, y: 10)
+    }
+
     func sideBGlassCircle() -> some View {
         self
-            .background(.ultraThinMaterial)
-            .clipShape(Circle())
-            .shadow(color: SideBVisualStyle.surfaceShadow, radius: 10, y: 5)
+            .background(.thinMaterial, in: Circle())
+            .overlay {
+                Circle()
+                    .stroke(Color.white.opacity(0.18), lineWidth: 1)
+            }
+            .shadow(color: Color.black.opacity(0.10), radius: 10, y: 5)
     }
 
     func sideBAuthFieldStyle() -> some View {

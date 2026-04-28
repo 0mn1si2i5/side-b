@@ -43,6 +43,7 @@ final class SongDetailViewModel {
     var showingSendToRoomSheet = false
     var showAddSuccessToast = false
     var addSuccessMessage = ""
+    var isRetryingMissingPlatformLinks = false
 
     private let resolver: any MusicResolverService
     private let persistenceStore: PlatformLinkPersistenceStore
@@ -77,6 +78,10 @@ final class SongDetailViewModel {
         stride(from: 0, to: platformSlots.count, by: 2).map { index in
             Array(platformSlots[index..<min(index + 2, platformSlots.count)])
         }
+    }
+
+    var shouldShowMissingPlatformLinksRetry: Bool {
+        isRetryingMissingPlatformLinks || !missingPlatformLinkTargets.isEmpty
     }
 
     // MARK: - Platform Link Resolution
@@ -128,6 +133,18 @@ final class SongDetailViewModel {
     func shouldResolvePlatformLink(for platform: MusicPlatform) -> Bool {
         let state = displayTrack.platformLinkState(for: platform)
         return state == .idle || state == .failed
+    }
+
+    private var missingPlatformLinkTargets: [MusicPlatform] {
+        platformDisplayOrder.filter { platform in
+            guard platform != displayTrack.sourcePlatform else { return false }
+            switch displayTrack.platformLinkState(for: platform) {
+            case .idle, .failed, .unavailable:
+                return true
+            case .loading, .ready:
+                return false
+            }
+        }
     }
 
     func requestPlatformLink(for platform: MusicPlatform, using track: Track) {
@@ -182,6 +199,56 @@ final class SongDetailViewModel {
         guard platform != displayTrack.sourcePlatform else { return }
         displayTrack = displayTrack.updatingPlatformLinkState(.loading, for: platform)
         requestPlatformLink(for: platform, using: displayTrack)
+    }
+
+    func retryMissingPlatformLinks() {
+        let targetPlatforms = missingPlatformLinkTargets
+        guard !targetPlatforms.isEmpty, !isRetryingMissingPlatformLinks else { return }
+
+        isRetryingMissingPlatformLinks = true
+        let track = displayTrack
+        for platform in targetPlatforms {
+            displayTrack = displayTrack.updatingPlatformLinkState(.loading, for: platform)
+        }
+
+        Task { [weak self] in
+            guard let self else { return }
+            let resolver = self.resolver
+            let logger = Logger(subsystem: "com.sideb.app", category: "SongDetailViewModel")
+
+            await withTaskGroup(of: (MusicPlatform, SinglePlatformLinkResolutionResponse?).self) { group in
+                for platform in targetPlatforms {
+                    group.addTask {
+                        do {
+                            let result = try await resolver.resolvePlatformLink(for: track, targetPlatform: platform)
+                            return (platform, result)
+                        } catch {
+                            logger.error("retry resolvePlatformLink failed: \(error)")
+                            return (platform, nil)
+                        }
+                    }
+                }
+
+                for await (platform, result) in group {
+                    let updatedTrack: Track
+                    if let result {
+                        updatedTrack = self.displayTrack.updatingPlatformLink(
+                            result.platformLink,
+                            state: result.state,
+                            for: platform
+                        )
+                    } else {
+                        updatedTrack = self.displayTrack.updatingPlatformLinkState(.failed, for: platform)
+                    }
+
+                    self.displayTrack = updatedTrack
+                    self.persistenceStore.save(track: updatedTrack)
+                    self.onTrackUpdated?(updatedTrack)
+                }
+            }
+
+            self.isRetryingMissingPlatformLinks = false
+        }
     }
 }
 

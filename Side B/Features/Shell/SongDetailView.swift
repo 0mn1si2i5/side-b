@@ -110,9 +110,9 @@ struct SongDetailView: View {
                         .frame(width: proxy.size.width, height: proxy.size.height)
                         .scaleEffect(1.18)
                         .clipped()
-                        .blur(radius: 46, opaque: true)
-                        .saturation(0.42)
-                        .opacity(colorScheme == .dark ? 0.44 : 0.30)
+                        .blur(radius: 50, opaque: true)
+                        .saturation(0.48)
+                        .opacity(colorScheme == .dark ? 0.52 : 0.60)
                 }
 
                 LinearGradient(
@@ -128,21 +128,38 @@ struct SongDetailView: View {
     private var backgroundOverlayColors: [Color] {
         if colorScheme == .dark {
             return [
-                Color.black.opacity(0.70),
-                Color.black.opacity(0.55),
-                Color.black.opacity(0.78)
+                Color.black.opacity(0.62),
+                Color.black.opacity(0.46),
+                Color.black.opacity(0.70)
             ]
         }
         return [
-            Color.white.opacity(0.82),
-            Color.white.opacity(0.70),
-            Color.white.opacity(0.90)
+            Color.white.opacity(0.42),
+            Color.white.opacity(0.30),
+            Color.white.opacity(0.58)
         ]
     }
 
     private var platformGlassCard: some View {
-        HStack(spacing: 18) {
-            ForEach(viewModel.platformSlots, id: \.platform) { slot in
+        ZStack(alignment: .trailing) {
+            platformLinksContent
+
+            if viewModel.shouldShowMissingPlatformLinksRetry {
+                retryMissingPlatformLinksButton
+                    .offset(x: 20)
+                    .transition(.opacity.combined(with: .scale(scale: 0.92)))
+            }
+        }
+        .padding(.horizontal, viewModel.shouldShowMissingPlatformLinksRetry ? 30 : 10)
+        .animation(.easeInOut(duration: 0.18), value: viewModel.shouldShowMissingPlatformLinksRetry)
+    }
+
+    private var platformLinksContent: some View {
+        HStack(spacing: 0) {
+            let slots = viewModel.platformSlots
+            ForEach(slots.indices, id: \.self) { index in
+                let slot = slots[index]
+
                 PlatformJumpButton(
                     platform: slot.platform,
                     isEnabled: slot.isEnabled,
@@ -151,13 +168,40 @@ struct SongDetailView: View {
                 ) {
                     handlePlatformSlotTap(slot)
                 }
+
+                if index < slots.index(before: slots.endIndex) {
+                    Rectangle()
+                        .fill(SideBVisualStyle.glassDivider)
+                        .frame(width: 1, height: 52)
+                }
             }
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 14)
-        .frame(minHeight: 88)
-        .sideBGlassSurface(cornerRadius: 28)
-        .padding(.horizontal, 10)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .frame(minHeight: 92)
+        .sideBProminentGlassSurface(cornerRadius: 32)
+    }
+
+    private var retryMissingPlatformLinksButton: some View {
+        Button {
+            viewModel.retryMissingPlatformLinks()
+        } label: {
+            ZStack {
+                if viewModel.isRetryingMissingPlatformLinks {
+                    ProgressView()
+                        .controlSize(.small)
+                } else {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(.primary)
+                }
+            }
+            .frame(width: 42, height: 42)
+            .sideBGlassCircle()
+        }
+        .buttonStyle(.plain)
+        .disabled(viewModel.isRetryingMissingPlatformLinks)
+        .accessibilityLabel("重新获取缺失平台链接")
     }
 
     private func glassCircleButton(systemName: String, size: CGFloat = 46, action: @escaping () -> Void) -> some View {

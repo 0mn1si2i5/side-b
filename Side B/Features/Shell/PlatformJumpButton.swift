@@ -14,7 +14,7 @@ struct PlatformJumpButton: View {
                     Image(platform.iconAssetName)
                         .resizable()
                         .scaledToFit()
-                        .frame(width: 40, height: 40)
+                        .frame(width: showsTitle ? 40 : 44, height: showsTitle ? 40 : 44)
                         .scaleEffect(platform.iconDisplayScale)
                         .saturation(isEnabled ? 1 : 0)
                         .opacity(isEnabled ? 1 : SideBVisualStyle.disabledOpacity)
@@ -37,7 +37,7 @@ struct PlatformJumpButton: View {
                 }
             }
             .frame(maxWidth: .infinity)
-            .frame(height: showsTitle ? 68 : 64)
+            .frame(height: showsTitle ? 68 : 70)
         }
         .buttonStyle(.plain)
         .disabled(!isEnabled || isLoading)
