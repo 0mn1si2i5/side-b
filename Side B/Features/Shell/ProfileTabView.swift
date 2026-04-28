@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ProfileTabView: View {
     @Environment(AuthState.self) private var authState
+    @AppStorage(SideBVisualStyle.appAppearanceStorageKey) private var appAppearanceRawValue = AppAppearance.system.rawValue
     @State private var isUpdatingPlatform = false
     @State private var selectedPlatform: MusicPlatform?
 
@@ -64,6 +65,18 @@ struct ProfileTabView: View {
                 }
 
                 Section {
+                    Picker("外观", selection: $appAppearanceRawValue) {
+                        ForEach(AppAppearance.allCases) { appearance in
+                            Text(appearance.displayName)
+                                .tag(appearance.rawValue)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                } header: {
+                    Text("显示")
+                }
+
+                Section {
                     Button(role: .destructive) {
                         Task { await authState.logout() }
                     } label: {
@@ -76,7 +89,8 @@ struct ProfileTabView: View {
                 }
             }
         }
-        .navigationTitle("我的")
+        .navigationTitle("设置")
+        .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             selectedPlatform = authState.currentUser?.preferredPlatform
         }

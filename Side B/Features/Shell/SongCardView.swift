@@ -31,7 +31,7 @@ struct SongCardView: View {
                 Text(track.sourcePlatformName)
                     .font(.caption)
                     .fontWeight(.medium)
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(.sideBLinkBlue)
             }
 
             Spacer(minLength: 0)

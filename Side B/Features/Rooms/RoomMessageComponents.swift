@@ -55,12 +55,12 @@ struct MessageRowView: View {
                         if let text = message.text {
                             Text(text)
                                 .font(.body)
-                                .foregroundStyle(isCurrentUser ? .white : .primary)
+                                .foregroundStyle(.primary)
                         }
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 10)
-                    .background(isCurrentUser ? Color.accentColor : Color(.secondarySystemBackground))
+                    .background(isCurrentUser ? Color(.tertiarySystemBackground) : Color(.secondarySystemBackground))
                     .clipShape(RoundedRectangle(cornerRadius: 18))
                 }
 
@@ -142,47 +142,47 @@ struct MessageRowView: View {
 private func replyQuoteBlock(originalMessage: Message) -> some View {
         HStack(spacing: 6) {
             RoundedRectangle(cornerRadius: 1.5)
-                .fill(Color.accentColor.opacity(isCurrentUser ? 0.7 : 1))
+                .fill(Color.secondary.opacity(0.65))
                 .frame(width: 3)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(originalMessage.senderName)
                     .font(.caption2)
                     .fontWeight(.semibold)
-                    .foregroundStyle(isCurrentUser ? .white.opacity(0.8) : .secondary)
+                    .foregroundStyle(.secondary)
 
                 if let text = originalMessage.text {
                     Text(text)
                         .font(.caption2)
-                        .foregroundStyle(isCurrentUser ? .white.opacity(0.7) : .secondary)
+                        .foregroundStyle(.secondary)
                         .lineLimit(2)
                 } else if let track = originalMessage.track {
                     Text("🎵 \(track.title)")
                         .font(.caption2)
-                        .foregroundStyle(isCurrentUser ? .white.opacity(0.7) : .secondary)
+                        .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
             }
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
-        .background(isCurrentUser ? Color.white.opacity(0.15) : Color(.tertiarySystemBackground))
+        .background(Color(.tertiarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
     private var replyQuotePlaceholder: some View {
         HStack(spacing: 6) {
             RoundedRectangle(cornerRadius: 1.5)
-                .fill(Color.accentColor.opacity(isCurrentUser ? 0.7 : 1))
+                .fill(Color.secondary.opacity(0.65))
                 .frame(width: 3)
 
             Text("引用的消息")
                 .font(.caption2)
-                .foregroundStyle(isCurrentUser ? .white.opacity(0.7) : .secondary)
+                .foregroundStyle(.secondary)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
-        .background(isCurrentUser ? Color.white.opacity(0.15) : Color(.tertiarySystemBackground))
+        .background(Color(.tertiarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 }
@@ -241,17 +241,17 @@ struct CompactSongAttachmentView: View {
                 Text(track.title)
                     .font(.subheadline)
                     .fontWeight(.semibold)
-                    .foregroundStyle(isCurrentUser ? .white : .primary)
+                    .foregroundStyle(.primary)
                     .lineLimit(1)
 
                 Text(track.artistName)
                     .font(.caption)
-                    .foregroundStyle(isCurrentUser ? .white.opacity(0.8) : .secondary)
+                    .foregroundStyle(.secondary)
                     .lineLimit(1)
 
                 Text(track.sourcePlatformName)
                     .font(.caption2)
-                    .foregroundStyle(isCurrentUser ? .white.opacity(0.7) : .secondary)
+                    .foregroundStyle(.sideBLinkBlue)
             }
 
             Spacer(minLength: 0)
@@ -262,19 +262,24 @@ struct CompactSongAttachmentView: View {
                 } label: {
                     Image(systemName: "plus")
                         .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(.primary)
                         .frame(width: 30, height: 30)
-                        .background(Circle().fill(Color.blue))
+                        .background(.thinMaterial)
+                        .clipShape(Circle())
+                        .overlay {
+                            Circle()
+                                .stroke(SideBVisualStyle.surfaceBorder, lineWidth: 1)
+                        }
                 }
                 .buttonStyle(.plain)
             }
         }
         .padding(10)
-        .background(isCurrentUser ? Color.accentColor.opacity(0.16) : Color.white.opacity(0.88))
+        .background(isCurrentUser ? Color(.tertiarySystemBackground) : Color.white.opacity(0.88))
         .overlay {
             RoundedRectangle(cornerRadius: 14)
                 .stroke(
-                    isCurrentUser ? Color.accentColor.opacity(0.32) : Color.black.opacity(0.12),
+                    isCurrentUser ? Color.secondary.opacity(0.20) : Color.black.opacity(0.12),
                     lineWidth: 1.5
                 )
         }
@@ -288,16 +293,7 @@ struct CompactSongAttachmentView: View {
                 .fill(isCurrentUser ? Color.white.opacity(0.18) : Color.secondary.opacity(0.12))
 
             if let artworkURL = track.artworkURL {
-                AsyncImage(url: artworkURL) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFill()
-                    default:
-                        placeholderArtwork
-                    }
-                }
+                CachedArtworkImage(url: artworkURL, placeholderFontSize: 14)
             } else {
                 placeholderArtwork
             }

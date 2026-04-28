@@ -45,9 +45,10 @@ struct RoomsListView: View {
                 viewModel.loadRooms()
             }
         }
-        .navigationTitle("聊天室")
+        .navigationTitle("房间")
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
                     showingCreateRoom = true
                 } label: {
@@ -81,8 +82,8 @@ struct RoomsListView: View {
                             .fontWeight(.medium)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
-                            .background(Color.blue.opacity(0.15))
-                            .foregroundStyle(.blue)
+                            .background(Color.secondary.opacity(0.14))
+                            .foregroundStyle(.secondary)
                             .clipShape(Capsule())
                     }
 

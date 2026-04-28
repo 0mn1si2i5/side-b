@@ -37,7 +37,7 @@ enum AvatarService {
     }
 
     private static let configs: [String: AvatarConfig] = [
-        "avatar_1":  AvatarConfig(symbolName: "person.circle.fill",       backgroundColor: .blue),
+        "avatar_1":  AvatarConfig(symbolName: "person.circle.fill",       backgroundColor: .gray),
         "avatar_2":  AvatarConfig(symbolName: "person.crop.circle.fill",    backgroundColor: .purple),
         "avatar_3":  AvatarConfig(symbolName: "figure.walk.circle.fill",    backgroundColor: .green),
         "avatar_4":  AvatarConfig(symbolName: "person.wave.2.circle.fill",  backgroundColor: .orange),

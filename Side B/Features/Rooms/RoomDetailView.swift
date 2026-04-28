@@ -6,6 +6,12 @@ struct RoomDetailView: View {
     @Environment(AuthState.self) private var authState
     @State private var pendingIncomingMessageCount = 0
     @State private var isAtBottom = true
+    @FocusState private var focusedComposerField: ComposerField?
+
+    private enum ComposerField {
+        case message
+        case link
+    }
 
     init(room: Room) {
         self.room = room
@@ -68,6 +74,20 @@ struct RoomDetailView: View {
             }
             .onDisappear {
                 viewModel.onDisappear()
+            }
+            .alert("操作失败", isPresented: Binding(
+                get: { viewModel.errorMessage != nil && !viewModel.messages.isEmpty },
+                set: { isPresented in
+                    if !isPresented {
+                        viewModel.errorMessage = nil
+                    }
+                }
+            )) {
+                Button("确定", role: .cancel) {
+                    viewModel.errorMessage = nil
+                }
+            } message: {
+                Text(viewModel.errorMessage ?? "")
             }
         }
     }
@@ -279,12 +299,16 @@ struct RoomDetailView: View {
             HStack(spacing: 12) {
                 Button {
                     viewModel.toggleLinkInput()
+                    let nextField: ComposerField = viewModel.isShowingLinkInput ? .link : .message
+                    DispatchQueue.main.async {
+                        focusedComposerField = nextField
+                    }
                 } label: {
                     Image(systemName: viewModel.isShowingLinkInput ? "message" : "link")
                         .frame(width: 20, height: 20)
                 }
                 .buttonStyle(.bordered)
-                .tint(viewModel.isShowingLinkInput ? .blue : .gray)
+                .tint(viewModel.isShowingLinkInput ? .primary : .gray)
 
                 Group {
                     if viewModel.isShowingLinkInput {
@@ -293,6 +317,8 @@ struct RoomDetailView: View {
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
                             .textFieldStyle(.roundedBorder)
+                            .focused($focusedComposerField, equals: .link)
+                            .frame(minHeight: 44)
                             .disabled(viewModel.isSending)
                             .submitLabel(.send)
                             .onSubmit {
@@ -302,6 +328,8 @@ struct RoomDetailView: View {
                         TextField("发送消息", text: $viewModel.draftText, axis: .vertical)
                             .lineLimit(1...5)
                             .textFieldStyle(.roundedBorder)
+                            .focused($focusedComposerField, equals: .message)
+                            .frame(minHeight: 44)
                             .disabled(viewModel.isSending)
                             .submitLabel(.send)
                             .onSubmit {
@@ -313,7 +341,7 @@ struct RoomDetailView: View {
                 Button(viewModel.isShowingLinkInput ? "分享" : "发送") {
                     submitComposer()
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.bordered)
                 .disabled(activeComposerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isSending)
                 .overlay {
                     if viewModel.isSending {
@@ -325,8 +353,8 @@ struct RoomDetailView: View {
             }
         }
         .padding(.horizontal)
-        .padding(.top, 10)
-        .padding(.bottom, 12)
+        .padding(.top, 12)
+        .padding(.bottom, 18)
         .background(.regularMaterial)
     }
 
@@ -426,7 +454,7 @@ struct RoomDetailView: View {
         case .idle:
             return .clear
         case .resolving:
-            return Color.blue.opacity(0.12)
+            return Color.secondary.opacity(0.12)
         case .resolved:
             return Color.green.opacity(0.12)
         case .fallbackMock:
@@ -441,7 +469,7 @@ struct RoomDetailView: View {
         case .idle:
             return .secondary
         case .resolving:
-            return .blue
+            return .secondary
         case .resolved:
             return .green
         case .fallbackMock:

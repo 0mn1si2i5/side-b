@@ -52,7 +52,7 @@ enum ResolverServiceFactory {
         #endif
     }
 
-    /// Save a base URL to UserDefaults for production use without Xcode env vars.
+    /// Save a base URL to UserDefaults for local testing or custom deployments.
     static func persistBaseURL(_ url: URL) {
         UserDefaults.standard.set(url.absoluteString, forKey: userDefaultsKey)
     }
@@ -79,6 +79,6 @@ enum ResolverServiceFactory {
             return url
         }
 
-        return nil
+        return APIConfiguration.baseURL?.appendingPathComponent("api")
     }
 }

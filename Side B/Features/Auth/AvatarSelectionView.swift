@@ -11,16 +11,16 @@ struct AvatarSelectionView: View {
     @Binding var selectedAvatar: String
 
     private let columns = [
-        GridItem(.adaptive(minimum: 80, maximum: 100), spacing: 16),
+        GridItem(.adaptive(minimum: 52, maximum: 64), spacing: 10),
     ]
 
     var body: some View {
-        LazyVGrid(columns: columns, spacing: 16) {
+        LazyVGrid(columns: columns, spacing: 10) {
             ForEach(AvatarService.availableAvatars, id: \.self) { name in
                 avatarCell(name: name)
             }
         }
-        .padding()
+        .padding(.vertical, 4)
     }
 
     private func avatarCell(name: String) -> some View {
@@ -37,12 +37,12 @@ struct AvatarSelectionView: View {
                         .resizable()
                         .aspectRatio(contentMode: .fit)
                         .foregroundStyle(config.backgroundColor.swiftUIColor)
-                        .padding(16)
+                        .padding(12)
                 }
                 .overlay {
                     if isSelected {
                         Circle()
-                            .strokeBorder(Color.blue, lineWidth: 3)
+                            .strokeBorder(Color.primary.opacity(0.7), lineWidth: 3)
                     }
                 }
                 .aspectRatio(1, contentMode: .fit)

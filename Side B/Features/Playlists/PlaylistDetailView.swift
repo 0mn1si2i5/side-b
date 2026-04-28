@@ -139,7 +139,7 @@ private struct PlaylistSongRowView: View {
                     Text(track.sourcePlatformName)
                         .font(.caption)
                         .fontWeight(.medium)
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(.sideBLinkBlue)
                 }
             }
 
@@ -154,13 +154,7 @@ private struct PlaylistSongRowView: View {
                 .fill(Color.secondary.opacity(0.15))
 
             if let artworkURL = track?.artworkURL {
-                AsyncImage(url: artworkURL) { image in
-                    image
-                        .resizable()
-                        .scaledToFill()
-                } placeholder: {
-                    placeholderIcon
-                }
+                CachedArtworkImage(url: artworkURL, placeholderFontSize: 20)
             } else {
                 placeholderIcon
             }

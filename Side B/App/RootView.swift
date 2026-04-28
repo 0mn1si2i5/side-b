@@ -2,9 +2,14 @@ import SwiftUI
 
 struct RootView: View {
     @State private var authState = AuthState()
+    @AppStorage(SideBVisualStyle.appAppearanceStorageKey) private var appAppearanceRawValue = AppAppearance.system.rawValue
 
     private var isConfigured: Bool {
         APIConfiguration.baseURL != nil && ResolverServiceFactory.isConfigured
+    }
+
+    private var appAppearance: AppAppearance {
+        AppAppearance(rawValue: appAppearanceRawValue) ?? .system
     }
 
     var body: some View {
@@ -20,6 +25,8 @@ struct RootView: View {
             }
         }
         .environment(authState)
+        .tint(.primary)
+        .preferredColorScheme(appAppearance.colorScheme)
         .task {
             guard isConfigured else { return }
             await authState.checkAuthStatus()
@@ -57,14 +64,14 @@ struct MainTabView: View {
                 RoomsListView()
             }
             .tabItem {
-                Label("聊天室", systemImage: "bubble.left.and.bubble.right.fill")
+                Label("房间", systemImage: "square.grid.2x2")
             }
 
             NavigationStack {
                 ProfileTabView()
             }
             .tabItem {
-                Label("我的", systemImage: "person")
+                Label("设置", systemImage: "slider.horizontal.3")
             }
         }
     }

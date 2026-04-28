@@ -2,6 +2,7 @@ import Foundation
 import os
 
 private let logger = Logger(subsystem: "com.sideb.app", category: "SongDetailViewModel")
+private let platformDisplayOrder: [MusicPlatform] = [.spotify, .appleMusic, .qqMusic, .neteaseMusic]
 
 struct PlatformSlot: Hashable {
     let platform: MusicPlatform
@@ -39,6 +40,7 @@ final class SongDetailViewModel {
     var platformFeedbackMessage = ""
     var isShowingPlatformFeedback = false
     var showingAddToPlaylistSheet = false
+    var showingSendToRoomSheet = false
     var showAddSuccessToast = false
     var addSuccessMessage = ""
 
@@ -49,8 +51,8 @@ final class SongDetailViewModel {
 
     init(
         track: Track,
-        resolver: any MusicResolverService = ResolverServiceFactory.makeDefaultService()!,
-        persistenceStore: PlatformLinkPersistenceStore = .shared,
+        resolver: any MusicResolverService,
+        persistenceStore: PlatformLinkPersistenceStore,
         onTrackUpdated: ((Track) -> Void)? = nil,
         navigationService: PlatformNavigationService = DefaultPlatformNavigationService()
     ) {
@@ -64,7 +66,7 @@ final class SongDetailViewModel {
     // MARK: - Computed Properties
 
     var platformSlots: [PlatformSlot] {
-        MusicPlatform.allCases.map { platform in
+        platformDisplayOrder.map { platform in
             let state = displayTrack.platformLinkState(for: platform)
             let link = displayTrack.platformLink(for: platform)
             return PlatformSlot(platform: platform, state: state, link: link)
@@ -94,6 +96,7 @@ final class SongDetailViewModel {
         Task { [weak self] in
             guard let self else { return }
             let resolver = self.resolver
+            let logger = Logger(subsystem: "com.sideb.app", category: "SongDetailViewModel")
             await withTaskGroup(of: (MusicPlatform, SinglePlatformLinkResolutionResponse?).self) { group in
                 for platform in pendingPlatforms {
                     group.addTask {

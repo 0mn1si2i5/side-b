@@ -6,12 +6,13 @@ import os
 enum APIConfiguration {
     private static let environmentKey = "SIDEB_API_BASE_URL"
     private static let userDefaultsKey = "SideB_APIBaseURL"
+    private static let productionBaseURL = URL(string: "https://sideb.omnis1215.org")!
 
     /// Programmatically override the API base URL at runtime.
     /// Takes precedence over environment variables and UserDefaults.
     static var configuredBaseURL: URL?
 
-    /// Save a base URL to UserDefaults for production use without Xcode env vars.
+    /// Save a base URL to UserDefaults for local testing or custom deployments.
     static func persistBaseURL(_ url: URL) {
         UserDefaults.standard.set(url.absoluteString, forKey: userDefaultsKey)
     }
@@ -31,7 +32,7 @@ enum APIConfiguration {
             return url
         }
 
-        return nil
+        return productionBaseURL
     }
 }
 

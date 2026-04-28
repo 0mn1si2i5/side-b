@@ -122,20 +122,14 @@ final class RemoteWebSocketService: WebSocketServiceProtocol {
         let task = session.webSocketTask(with: url)
         self.webSocketTask = task
         task.resume()
+        setConnectionState(.connected)
+        retryCount = 0
+        startReceiving()
 
         do {
-            let firstMessage = try await task.receive()
-            if case .string(let text) = firstMessage {
-                handleRawMessage(text)
-            }
-            setConnectionState(.connected)
-            retryCount = 0
-            startReceiving()
+            try await task.send(.string("{\"type\":\"ping\"}"))
         } catch {
-            task.cancel(with: .abnormalClosure, reason: Data())
-            webSocketTask = nil
-            setConnectionState(.disconnected)
-            scheduleReconnect()
+            handleDisconnection()
         }
     }
 

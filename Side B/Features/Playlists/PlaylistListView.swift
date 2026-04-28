@@ -46,6 +46,7 @@ struct PlaylistListView: View {
             }
             .listStyle(.insetGrouped)
             .navigationTitle("歌曲")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
@@ -121,7 +122,7 @@ struct PlaylistListView: View {
                                 .fontWeight(.medium)
                         }
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.bordered)
                     .disabled(viewModel.linkInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isResolving)
                 }
             }
@@ -151,7 +152,7 @@ struct PlaylistListView: View {
                     } label: {
                         Label("加入歌单", systemImage: "plus.circle")
                     }
-                    .tint(.blue)
+                    .tint(.secondary)
                 }
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                     Button(role: .destructive) {
@@ -170,7 +171,7 @@ struct PlaylistListView: View {
                 } label: {
                     Text(viewModel.showAllRecentlyResolved ? "收起" : "查看全部 (\(viewModel.recentlyResolved.count))")
                         .font(.subheadline)
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(.sideBLinkBlue)
                 }
             }
         } header: {
@@ -196,22 +197,7 @@ private struct RecentlyResolvedRowView: View {
                         .fill(Color.secondary.opacity(0.15))
 
                     if let artworkURL = track.artworkURL {
-                        AsyncImage(url: artworkURL) { phase in
-                            switch phase {
-                            case .success(let image):
-                                image
-                                    .resizable()
-                                    .scaledToFill()
-                            case .failure, .empty:
-                                Image(systemName: "music.note")
-                                    .font(.system(size: 16))
-                                    .foregroundStyle(.secondary)
-                            @unknown default:
-                                Image(systemName: "music.note")
-                                    .font(.system(size: 16))
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
+                        CachedArtworkImage(url: artworkURL, placeholderFontSize: 16)
                     } else {
                         Image(systemName: "music.note")
                             .font(.system(size: 16))
@@ -234,7 +220,7 @@ private struct RecentlyResolvedRowView: View {
 
                     Text(track.sourcePlatformName)
                         .font(.caption2)
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(.sideBLinkBlue)
                 }
 
                 Spacer(minLength: 0)
