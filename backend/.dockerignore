@@ -1,0 +1,30 @@
+# Python caches and virtual environments
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+*.egg-info/
+
+# Local vendored dependencies are for development fallback only.
+# Docker installs clean dependencies from requirements.txt.
+vendor/
+
+# Local runtime data must be mounted as a Docker volume.
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# Local-only config and editor files
+.env
+.env.*
+!.env.example
+.DS_Store
+
+# Tests are not needed in the production image.
+tests/
+requirements-dev.txt

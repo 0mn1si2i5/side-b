@@ -81,6 +81,8 @@ docker compose logs -f api
 
 The API container runs migrations on startup through `backend/entrypoint.sh`.
 
+The backend Docker build intentionally excludes local `backend/vendor/`, virtualenvs, caches, and SQLite files. Runtime dependencies come from `backend/requirements.txt`, and runtime data comes from the `sideb-data` volume.
+
 ## 5. Smoke Tests
 
 From the server:
