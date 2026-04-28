@@ -67,6 +67,9 @@ final class PlaylistListViewModel {
                     TrackCache.shared.save(track: track)
                     RecentlyResolvedStore.shared.add(track.persistenceIdentity ?? "")
 
+                    if let identity = track.persistenceIdentity {
+                        recentlyResolved.removeAll { $0.persistenceIdentity == identity }
+                    }
                     recentlyResolved.insert(track, at: 0)
 
                     if recentlyResolved.count > 50 {
@@ -138,9 +141,14 @@ final class PlaylistListViewModel {
         var tracks: [Track] = []
         for identity in identities {
             if let track = TrackCache.shared.track(for: identity) {
-                tracks.append(track)
+                tracks.append(PlatformLinkPersistenceStore.shared.restore(track: track) ?? track)
             }
         }
+
+        guard persistenceIdentities(for: tracks) != persistenceIdentities(for: recentlyResolved) else {
+            return
+        }
+
         recentlyResolved = tracks
     }
 
@@ -170,7 +178,14 @@ final class PlaylistListViewModel {
     func updateRecentlyResolvedTrack(_ updatedTrack: Track) {
         if let index = recentlyResolved.firstIndex(where: { $0.id == updatedTrack.id }) {
             recentlyResolved[index] = updatedTrack
+        } else if let identity = updatedTrack.persistenceIdentity,
+                  let index = recentlyResolved.firstIndex(where: { $0.persistenceIdentity == identity }) {
+            recentlyResolved[index] = updatedTrack
         }
         TrackCache.shared.save(track: updatedTrack)
+    }
+
+    private func persistenceIdentities(for tracks: [Track]) -> [String] {
+        tracks.compactMap(\.persistenceIdentity)
     }
 }
