@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import os
 import sys
+import threading
 from typing import Any
 
 
@@ -52,13 +53,31 @@ async def _search_tracks_async(query_text: str, limit: int) -> list[dict]:
         return [_track_to_dict(track) for track in response.song]
 
 
+def _run_async_client_call(coro):
+    result: dict[str, Any] = {}
+
+    def _runner() -> None:
+        try:
+            result["value"] = asyncio.run(coro)
+        except BaseException as exc:  # pragma: no cover - re-raised in caller thread
+            result["error"] = exc
+
+    thread = threading.Thread(target=_runner, daemon=True)
+    thread.start()
+    thread.join()
+
+    if "error" in result:
+        raise result["error"]
+    return result.get("value")
+
+
 def fetch_track_detail(track_mid: str) -> dict:
-    track_payload = asyncio.run(_fetch_track_detail_async(track_mid))
+    track_payload = _run_async_client_call(_fetch_track_detail_async(track_mid))
     if not isinstance(track_payload, dict) or not track_payload.get("mid"):
         raise ValueError("Invalid QQ Music song detail response")
     return track_payload
 
 
 def search_tracks(query_text: str, limit: int = 10) -> list[dict]:
-    track_payloads = asyncio.run(_search_tracks_async(query_text, limit))
+    track_payloads = _run_async_client_call(_search_tracks_async(query_text, limit))
     return track_payloads if isinstance(track_payloads, list) else []

@@ -6,11 +6,10 @@ struct CreateRoomView: View {
 
     var body: some View {
         Form {
-            roomTypeSection
             detailsSection
             createButtonSection
         }
-        .navigationTitle("新建聊天")
+        .navigationTitle("新建聊天室")
         .navigationBarTitleDisplayMode(.inline)
         .alert(
             "创建失败",
@@ -51,37 +50,21 @@ struct CreateRoomView: View {
         }
     }
 
-    private var roomTypeSection: some View {
-        Section {
-            Picker("类型", selection: $viewModel.roomType) {
-                Text("私聊").tag(RoomType.direct)
-                Text("群聊").tag(RoomType.group)
-            }
-            .pickerStyle(.segmented)
-        } header: {
-            Text("聊天类型")
-        }
-    }
-
     private var detailsSection: some View {
         Section {
-            if viewModel.roomType == .group {
-                TextField("房间名称", text: $viewModel.roomName)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-            }
+            TextField("房间名称（可选）", text: $viewModel.roomName)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
 
-            if viewModel.roomType == .direct {
-                TextField("对方用户名", text: $viewModel.memberUsername)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-            } else {
-                TextField("成员用户名（逗号分隔）", text: $viewModel.memberUsernamesText)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-            }
+            TextField("邀请成员（可选，逗号分隔用户名）", text: $viewModel.memberUsernamesText)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+
+            Text("可以先创建只有自己的聊天室，之后在房间管理中再邀请别人。")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
         } header: {
-            Text(viewModel.roomType == .group ? "群聊信息" : "私聊信息")
+            Text("聊天室信息")
         }
     }
 }

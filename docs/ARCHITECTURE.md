@@ -2,7 +2,7 @@
 
 ## 总体目标
 
-Side B 的目标不是做播放器，而是做一套可部署的多平台歌曲解析与分享系统。
+Side B 是一套可部署的多平台歌曲解析与分享系统。
 
 当前正式架构方向：
 
@@ -27,7 +27,7 @@ Side B 的目标不是做播放器，而是做一套可部署的多平台歌曲�
 - 平台按钮渲染与跳转
 - 调用 resolver API
 
-不负责：
+后端承担：
 
 - 平台链接推导
 - metadata 获取
@@ -40,18 +40,20 @@ Side B 的目标不是做播放器，而是做一套可部署的多平台歌曲�
 负责：
 
 - 输入解析
+- 用户认证、房间、消息与实时广播
 - 来源平台识别
 - metadata 获取
 - canonical track 构建
 - 跨平台目标链接匹配
 - 缓存与超时控制
-- 后续用户、聊天室、歌单域能力
+- 个人服务器部署所需的迁移、配置与运行边界
 
 ## 当前 backend 结构
 
 当前仓库已按以下结构收口：
 
-- `backend/routes`
+- `backend/app/routers`
+- `backend/app/services`
 - `backend/services`
 - `backend/resolvers`
 - `backend/models`
@@ -136,20 +138,36 @@ Side B 的目标不是做播放器，而是做一套可部署的多平台歌曲�
 
 当前 resolver 路径已采用两阶段模型：
 
-- `POST /resolve`
+- `POST /api/resolve`
   - 支持 metadata-only
   - 解析成功即可创建歌曲卡片
-- `POST /resolve-platform-link`
+- `POST /api/resolve-platform-link`
   - 单独解析某一个目标平台
-- `POST /resolve-platform-links`
+- `POST /api/resolve-platform-links`
   - 批量解析接口，保留为后端能力
+
+### 4. 用户、房间与消息
+
+当前已有最小后端域模型：
+
+- `POST /api/auth/register` / `POST /api/auth/login`：极简账号系统，JWT 鉴权
+- `GET/POST /api/rooms`：单一 Room 模型；用户可先创建仅包含自己的聊天室，再邀请成员
+- `GET/POST /api/rooms/{room_id}/messages`：历史消息与持久化发送入口
+- `WS /ws/rooms/{room_id}`：服务端广播通道
+
+消息同步方案：
+
+- 所有消息必须先经 REST API 持久化，再由后端广播
+- iOS 重进房间以 REST 历史消息为准
+- WebSocket v1 使用进程内连接管理，Docker 默认单 worker
+- 一对一和多人聊天都是成员数量不同的 Room
 
 ## 当前客户端交互模型
 
 ### 发歌阶段
 
 - 只依赖 metadata 成功
-- 一旦 canonical track 构建成功，就立即创建歌曲卡片
+- 一旦 canonical track 构建成功，就通过消息 API 持久化歌曲消息
 - 不等待所有平台按钮同步完成
 
 ### 详情页阶段
@@ -163,7 +181,7 @@ Side B 的目标不是做播放器，而是做一套可部署的多平台歌曲�
   - `ready`
   - `unavailable`
   - `failed`
-- 某一个平台超时或失败，不影响其他平台继续补全
+- 某一个平台超时或失败时，其他平台继续补全
 
 ## 平台接入方式
 
@@ -186,7 +204,6 @@ Side B 的目标不是做播放器，而是做一套可部署的多平台歌曲�
 ### QQ 音乐
 
 - 直接集成 `QQMusicApi` Python 库
-- 不额外起独立 HTTP 服务
 - share 短链由 resolver 内部解析
 
 ## 当前失败语义
@@ -199,7 +216,7 @@ Side B 的目标不是做播放器，而是做一套可部署的多平台歌曲�
 
 ## 下一阶段架构重点
 
-1. 首页歌单系统
-2. 用户、聊天室、歌单域后端化
-3. 平台补全缓存的淘汰/清理策略
-4. 进一步推进客户端脱离 mock fallback
+1. 保持本地启动、实机调试、测试闭环稳定
+2. 完成个人服务器 Docker 部署、域名、HTTPS 与 SQLite volume 备份策略
+3. 平台补全缓存的淘汰、清理与诊断能力
+4. 保持 DEBUG mock fallback 作为本地开发兜底

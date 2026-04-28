@@ -47,13 +47,6 @@ struct RoomManagementView: View {
             }
 
             HStack {
-                Text("类型")
-                Spacer()
-                Text(viewModel.room.type == .direct ? "私聊" : "群聊")
-                    .foregroundStyle(.secondary)
-            }
-
-            HStack {
                 Text("成员")
                 Spacer()
                 Text("\(viewModel.room.memberIDs.count) 人")

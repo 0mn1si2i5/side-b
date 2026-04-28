@@ -20,62 +20,29 @@ struct SongDetailView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 16) {
                 artworkSection
+                    .frame(maxWidth: .infinity)
+                    .aspectRatio(1, contentMode: .fit)
+
+                trackInfoSection
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(viewModel.displayTrack.title)
-                        .font(.title2)
-                        .fontWeight(.bold)
-
-                    Text(viewModel.displayTrack.artistName)
-                        .font(.title3)
-                        .foregroundStyle(.secondary)
-
-                    if let albumTitle = viewModel.displayTrack.albumTitle {
-                        Text("专辑：\(albumTitle)")
-                            .font(.body)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    Text("来源：\(viewModel.displayTrack.sourcePlatformName)")
-                        .font(.body)
-                        .foregroundStyle(.secondary)
-                }
-
-                VStack(alignment: .leading, spacing: 12) {
                     Text("打开方式")
                         .font(.headline)
 
-                    ForEach(viewModel.platformSlotRows, id: \.self) { row in
-                        HStack(spacing: 12) {
-                            ForEach(row, id: \.platform) { slot in
-                                PlatformJumpButton(
-                                    title: slot.title,
-                                    isEnabled: slot.isEnabled,
-                                    isLoading: slot.isLoading
-                                ) {
-                                    handlePlatformSlotTap(slot)
-                                }
+                    HStack(spacing: 10) {
+                        ForEach(viewModel.platformSlots, id: \.platform) { slot in
+                            PlatformJumpButton(
+                                platform: slot.platform,
+                                isEnabled: slot.isEnabled,
+                                isLoading: slot.isLoading
+                            ) {
+                                handlePlatformSlotTap(slot)
                             }
                         }
                     }
                 }
-
-                Button {
-                    viewModel.showingAddToPlaylistSheet = true
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "plus.circle")
-                        Text("添加到歌单")
-                    }
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.blue)
             }
             .padding()
         }
@@ -99,6 +66,45 @@ struct SongDetailView: View {
         .toast(isPresented: $viewModel.showAddSuccessToast, message: viewModel.addSuccessMessage)
     }
 
+    private var trackInfoSection: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            HStack(alignment: .top, spacing: 10) {
+                Text(viewModel.displayTrack.title)
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .lineLimit(3)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Spacer(minLength: 4)
+
+                Button {
+                    viewModel.showingAddToPlaylistSheet = true
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 30, height: 30)
+                        .background(Color.blue)
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("添加到歌单")
+            }
+
+            Text(viewModel.displayTrack.artistName)
+                .font(.title3)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+
+            if let albumTitle = viewModel.displayTrack.albumTitle {
+                Text(albumTitle)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+        }
+    }
+
     private var artworkSection: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 24)
@@ -120,8 +126,6 @@ struct SongDetailView: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .frame(maxWidth: .infinity)
-        .aspectRatio(1, contentMode: .fit)
         .clipShape(RoundedRectangle(cornerRadius: 24))
     }
 

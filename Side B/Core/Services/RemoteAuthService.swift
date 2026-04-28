@@ -86,14 +86,7 @@ struct RemoteAuthService: AuthServiceProtocol {
         guard let token = tokenStore.load() else {
             throw AuthServiceError.notAuthenticated
         }
-        let platformValue: String?
-        switch platform {
-        case .appleMusic: platformValue = "apple_music"
-        case .spotify: platformValue = "spotify"
-        case .qqMusic: platformValue = "qq_music"
-        case .neteaseMusic: platformValue = "netease_music"
-        case nil: platformValue = nil
-        }
+        let platformValue = platform?.apiValue
         let body = UpdateProfileRequestBody(preferredPlatform: platformValue)
         let (data, response) = try await sendRequest(
             path: "/api/auth/me",
@@ -180,7 +173,7 @@ private struct UserResponseBody: Decodable {
             username: username,
             displayName: displayName,
             avatarName: avatarName,
-            preferredPlatform: preferredPlatform.flatMap { MusicPlatform(rawValue: $0) }
+            preferredPlatform: preferredPlatform.flatMap { MusicPlatform(apiValue: $0) }
         )
     }
 }

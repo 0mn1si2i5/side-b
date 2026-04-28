@@ -104,6 +104,12 @@ final class RoomDetailViewModel {
             }
         }
 
+        webSocketService.onMessageDeleted = { [weak self] messageId in
+            Task { @MainActor in
+                self?.handleDeletedMessage(messageId)
+            }
+        }
+
         webSocketService.onRoomUpdated = { _ in
         }
     }
@@ -132,7 +138,12 @@ final class RoomDetailViewModel {
 
     private func handleIncomingEmojiReaction(_ reaction: EmojiReaction) {
         guard let index = messages.firstIndex(where: { $0.id == reaction.messageId }) else { return }
+        guard !messages[index].emojiReactions.contains(where: { $0.id == reaction.id }) else { return }
         messages[index].emojiReactions.append(reaction)
+    }
+
+    private func handleDeletedMessage(_ messageId: UUID) {
+        messages.removeAll { $0.id == messageId }
     }
 
     func sendResolvedTrackMessage(senderName: String = "You") {
@@ -147,7 +158,7 @@ final class RoomDetailViewModel {
             guard let self else { return }
             do {
                 let response = try await resolver.resolveMetadata(request: ResolverRequest(rawLink: normalizedLink))
-                finishResolvedTrackMessage(response: response, senderName: senderName)
+                await finishResolvedTrackMessage(response: response, senderName: senderName)
             } catch {
                 linkResolutionState = .failed
                 linkResolutionMessage = localizedErrorMessage(for: error)
@@ -163,47 +174,26 @@ final class RoomDetailViewModel {
         beginSendingState()
 
         let replyID = replyToMessageID
-
-        let newMessage = Message(
-            senderName: senderName,
-            text: trimmedDraft,
-            track: quotedTrack,
-            replyToMessageID: replyID,
-            sentAt: Date()
-        )
-
-        messages.append(newMessage)
         draftText = ""
         clearQuotedTrack()
         cancelReply()
 
-        if connectionState == .connected {
-            if replyID != nil {
-                Task { [weak self] in
-                    guard let self else { return }
-                    do {
-                        _ = try await messageService.sendMessage(
-                            roomId: roomId,
-                            contentType: "text",
-                            textContent: trimmedDraft,
-                            trackData: nil,
-                            replyToId: replyID
-                        )
-                    } catch {
-                        logger.error("sendMessage failed: \(error)")
-                        errorMessage = localizedErrorMessage(for: error)
-                    }
-                }
-            } else {
-                Task { [weak self] in
-                    guard let self else { return }
-                    do {
-                        try await webSocketService.send(text: trimmedDraft)
-                    } catch {
-                        logger.error("ws send failed: \(error)")
-                        errorMessage = localizedErrorMessage(for: error)
-                    }
-                }
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer { isSending = false }
+
+            do {
+                let sentMessage = try await messageService.sendMessage(
+                    roomId: roomId,
+                    contentType: "text",
+                    textContent: trimmedDraft,
+                    trackData: nil,
+                    replyToId: replyID
+                )
+                handleIncomingMessage(sentMessage)
+            } catch {
+                logger.error("sendMessage failed: \(error)")
+                errorMessage = localizedErrorMessage(for: error)
             }
         }
     }
@@ -273,15 +263,11 @@ final class RoomDetailViewModel {
 
     private func beginSendingState() {
         isSending = true
-
-        Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 350_000_000)
-            self?.isSending = false
-        }
     }
 
-    private func finishResolvedTrackMessage(response: ResolverResponse, senderName: String) {
+    private func finishResolvedTrackMessage(response: ResolverResponse, senderName: String) async {
         defer { isSending = false }
+        _ = senderName
 
         switch response.parsingResult {
         case .unsupportedLink:
@@ -309,19 +295,23 @@ final class RoomDetailViewModel {
         #endif
 
         let resolvedTrack = persistenceStore.restore(track: response.resolvedTrack.track) ?? response.resolvedTrack.track
-        let newMessage = Message(
-            senderName: senderName,
-            text: nil as String?,
-            track: resolvedTrack,
-            sentAt: Date()
-        )
 
-        messages.append(newMessage)
-        persistenceStore.save(track: resolvedTrack)
-        TrackCache.shared.save(track: resolvedTrack)
-        if let identity = resolvedTrack.persistenceIdentity {
-            RecentlyResolvedStore.shared.add(identity)
+        do {
+            let sentMessage = try await messageService.sendSongMessage(roomId: roomId, track: resolvedTrack)
+            handleIncomingMessage(sentMessage)
+            persistenceStore.save(track: resolvedTrack)
+            TrackCache.shared.save(track: resolvedTrack)
+            if let identity = resolvedTrack.persistenceIdentity {
+                RecentlyResolvedStore.shared.add(identity)
+            }
+        } catch {
+            logger.error("sendSongMessage failed: \(error)")
+            linkResolutionState = .failed
+            linkResolutionMessage = "歌曲已解析，但发送失败：\(localizedErrorMessage(for: error))"
+            errorMessage = localizedErrorMessage(for: error)
+            return
         }
+
         linkInput = ""
         isShowingLinkInput = false
         quotedTrack = nil

@@ -25,6 +25,16 @@ struct RoomDetailView: View {
             }
             .navigationTitle(room.name)
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink {
+                        RoomManagementView(room: room)
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                    }
+                    .accessibilityLabel("房间管理")
+                }
+            }
             .safeAreaInset(edge: .top) {
                 connectionBanner
             }

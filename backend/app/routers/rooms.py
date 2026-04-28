@@ -153,6 +153,16 @@ def _require_membership(db: Session, room_id: str, user_id: str):
         )
 
 
+def _require_message_in_room(db: Session, room_id: str, message_id: str):
+    message = message_service.get_message_by_id(db, message_id)
+    if message is None or message.room_id != room_id or message.deleted_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Message not found",
+        )
+    return message
+
+
 @router.get("", response_model=list[RoomResponse])
 def list_rooms(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     rooms = room_service.get_rooms_for_user(db, user.id)
@@ -327,6 +337,8 @@ async def create_message(
             status_code=status.HTTP_404_NOT_FOUND, detail="Room not found"
         )
     _require_membership(db, room_id, user.id)
+    if req.replyToId is not None:
+        _require_message_in_room(db, room_id, req.replyToId)
     msg = message_service.create_message(
         db=db,
         room_id=room_id,
@@ -359,11 +371,7 @@ async def delete_message(
             status_code=status.HTTP_404_NOT_FOUND, detail="Room not found"
         )
     _require_membership(db, room_id, user.id)
-    message = message_service.get_message_by_id(db, message_id)
-    if message is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Message not found"
-        )
+    message = _require_message_in_room(db, room_id, message_id)
     if message.sender_id != user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -395,6 +403,7 @@ async def add_emoji_reaction(
             status_code=status.HTTP_404_NOT_FOUND, detail="Room not found"
         )
     _require_membership(db, room_id, user.id)
+    _require_message_in_room(db, room_id, message_id)
     reaction = message_service.add_emoji_reaction(db, message_id, user.id, req.emoji)
     response = _emoji_to_response(reaction)
     await ws_manager.broadcast_to_room(

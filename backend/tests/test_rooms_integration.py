@@ -48,6 +48,21 @@ def test_create_group_room(client: TestClient):
     assert room["name"] == "Test Group"
 
 
+def test_create_self_only_room(client: TestClient):
+    user_a = register_user(client)
+    token_a = user_a["token"]
+
+    resp = client.post("/api/rooms", json={
+        "type": "group",
+        "memberUsernames": [],
+    }, headers=auth_headers(token_a))
+    assert resp.status_code == 201
+    room = resp.json()
+    assert room["type"] == "group"
+    assert room["memberUsernames"] == [user_a["user"]["username"]]
+    assert room["name"]
+
+
 def test_leave_group_room(client: TestClient):
     user_a = register_user(client)
     user_b = register_user(client)

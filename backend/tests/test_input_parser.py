@@ -35,3 +35,15 @@ class InputParserTests(unittest.TestCase):
             "分享George Michael的单曲《Careless Whisper》https://163cn.tv/44SdnwW (@网易云音乐)"
         )
         self.assertEqual(extracted, "https://163cn.tv/44SdnwW")
+
+    def test_strips_trailing_share_punctuation(self) -> None:
+        extracted = self.parser._extract_candidate_link(
+            "分享G.E.M.邓紫棋的单曲《唯一》https://163cn.tv/5ZcJvPj。"
+        )
+        self.assertEqual(extracted, "https://163cn.tv/5ZcJvPj")
+
+    def test_extracts_link_before_inline_platform_suffix(self) -> None:
+        extracted = self.parser._extract_candidate_link(
+            "Chappell Roan《Good Luck, Babe!》 https://c6.y.qq.com/base/fcgi-bin/u?__=j28aK3RMajsm) @QQ音乐"
+        )
+        self.assertEqual(extracted, "https://c6.y.qq.com/base/fcgi-bin/u?__=j28aK3RMajsm")

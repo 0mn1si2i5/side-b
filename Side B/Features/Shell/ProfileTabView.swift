@@ -3,6 +3,7 @@ import SwiftUI
 struct ProfileTabView: View {
     @Environment(AuthState.self) private var authState
     @State private var isUpdatingPlatform = false
+    @State private var selectedPlatform: MusicPlatform?
 
     var body: some View {
         List {
@@ -37,9 +38,10 @@ struct ProfileTabView: View {
                 }
 
                 Section {
-                    Picker("常用平台", selection: Binding(
-                        get: { user.preferredPlatform },
+                    Picker("常用平台", selection: Binding<MusicPlatform?>(
+                        get: { selectedPlatform },
                         set: { newPlatform in
+                            selectedPlatform = newPlatform
                             Task { await updatePlatform(newPlatform) }
                         }
                     )) {
@@ -75,11 +77,19 @@ struct ProfileTabView: View {
             }
         }
         .navigationTitle("我的")
+        .onAppear {
+            selectedPlatform = authState.currentUser?.preferredPlatform
+        }
+        .onChange(of: authState.currentUser) { _, newUser in
+            guard !isUpdatingPlatform else { return }
+            selectedPlatform = newUser?.preferredPlatform
+        }
     }
 
     private func updatePlatform(_ platform: MusicPlatform?) async {
         isUpdatingPlatform = true
         await authState.updatePreferredPlatform(platform)
+        selectedPlatform = authState.currentUser?.preferredPlatform
         isUpdatingPlatform = false
     }
 }

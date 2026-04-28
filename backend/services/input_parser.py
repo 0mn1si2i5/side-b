@@ -50,8 +50,14 @@ class InputParser:
         if not raw_input:
             return raw_input
 
-        match = re.search(r"https?://[^\s)）]+", raw_input)
+        match = re.search(r"https?://[^\s<>\"]+", raw_input)
         if match:
-            return match.group(0).strip()
+            return InputParser._clean_extracted_link(match.group(0))
 
-        return raw_input
+        return InputParser._clean_extracted_link(raw_input)
+
+    @staticmethod
+    def _clean_extracted_link(raw_link: str) -> str:
+        cleaned = raw_link.strip()
+        # Common share text often appends platform labels or punctuation immediately after the URL.
+        return cleaned.rstrip(" \t\r\n.,，。!！?？;；:：)]）】》>'\"")

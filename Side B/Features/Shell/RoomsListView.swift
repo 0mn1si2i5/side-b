@@ -76,16 +76,14 @@ struct RoomsListView: View {
                         Text(room.name)
                             .font(.headline)
 
-                        if room.type == .direct {
-                            Text("私聊")
-                                .font(.caption2)
-                                .fontWeight(.medium)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(Color.blue.opacity(0.15))
-                                .foregroundStyle(.blue)
-                                .clipShape(Capsule())
-                        }
+                        Text("\(room.memberUsernames.count) 人")
+                            .font(.caption2)
+                            .fontWeight(.medium)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.blue.opacity(0.15))
+                            .foregroundStyle(.blue)
+                            .clipShape(Capsule())
                     }
 
                     if let latestTrack = room.latestTrack {

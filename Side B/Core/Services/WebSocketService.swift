@@ -18,6 +18,7 @@ protocol WebSocketServiceProtocol {
     var connectionState: WebSocketConnectionState { get }
     var onMessageReceived: ((Message) -> Void)? { get set }
     var onEmojiReactionReceived: ((EmojiReaction) -> Void)? { get set }
+    var onMessageDeleted: ((UUID) -> Void)? { get set }
     var onRoomUpdated: ((Room) -> Void)? { get set }
     var onConnectionStateChanged: ((WebSocketConnectionState) -> Void)? { get set }
 
@@ -48,6 +49,7 @@ final class RemoteWebSocketService: WebSocketServiceProtocol {
 
     var onMessageReceived: ((Message) -> Void)?
     var onEmojiReactionReceived: ((EmojiReaction) -> Void)?
+    var onMessageDeleted: ((UUID) -> Void)?
     var onRoomUpdated: ((Room) -> Void)?
     var onConnectionStateChanged: ((WebSocketConnectionState) -> Void)?
 
@@ -204,6 +206,8 @@ final class RemoteWebSocketService: WebSocketServiceProtocol {
             handleNewMessage(json)
         case "emoji_reaction":
             handleEmojiReaction(json)
+        case "message_deleted":
+            handleMessageDeleted(json)
         case "room_updated":
             handleRoomUpdated(json)
         case "connected":
@@ -215,32 +219,16 @@ final class RemoteWebSocketService: WebSocketServiceProtocol {
 
     private func handleNewMessage(_ json: [String: Any]) {
         guard let dataDict = json["data"] as? [String: Any] else { return }
-
-        let idStr = dataDict["id"] as? String ?? ""
-        let id = UUID(uuidString: idStr) ?? { logger.warning("Invalid UUID string: \(idStr)"); return UUID() }()
-        let senderId = dataDict["senderId"] as? String ?? ""
-        let senderName = dataDict["senderName"] as? String ?? senderId
-        let contentType = dataDict["contentType"] as? String ?? "text"
-        let textContent = dataDict["textContent"] as? String
-        let trackData = dataDict["trackData"] as? String
-        let createdAtStr = dataDict["createdAt"] as? String ?? ""
-
-        let track: Track? = trackData.flatMap { parseTrackData($0) }
-
-        let sentAt = Self.dateFormatter.date(from: createdAtStr) ?? Date()
-
-        let contentTypeEnum = MessageType(rawValue: contentType) ?? .text
-        let message = Message(
-            id: id,
-            senderName: senderName,
-            senderID: UUID(uuidString: senderId),
-            contentType: contentTypeEnum,
-            text: contentTypeEnum == .text ? textContent : nil,
-            track: track,
-            sentAt: sentAt
-        )
-
-        onMessageReceived?(message)
+        do {
+            let data = try JSONSerialization.data(withJSONObject: dataDict)
+            guard let message = try JSONDecoder().decode(MessageDTO.self, from: data).toDomain() else {
+                logger.error("message decode returned nil")
+                return
+            }
+            onMessageReceived?(message)
+        } catch {
+            logger.error("message decode failed: \(error)")
+        }
     }
 
     private func handleEmojiReaction(_ json: [String: Any]) {
@@ -266,6 +254,18 @@ final class RemoteWebSocketService: WebSocketServiceProtocol {
         )
 
         onEmojiReactionReceived?(reaction)
+    }
+
+    private func handleMessageDeleted(_ json: [String: Any]) {
+        guard
+            let dataDict = json["data"] as? [String: Any],
+            let messageIdString = dataDict["messageId"] as? String,
+            let messageId = UUID(uuidString: messageIdString)
+        else {
+            return
+        }
+
+        onMessageDeleted?(messageId)
     }
 
     private func handleRoomUpdated(_ json: [String: Any]) {
@@ -390,6 +390,7 @@ final class MockWebSocketService: WebSocketServiceProtocol {
 
     var onMessageReceived: ((Message) -> Void)?
     var onEmojiReactionReceived: ((EmojiReaction) -> Void)?
+    var onMessageDeleted: ((UUID) -> Void)?
     var onRoomUpdated: ((Room) -> Void)?
     var onConnectionStateChanged: ((WebSocketConnectionState) -> Void)?
 

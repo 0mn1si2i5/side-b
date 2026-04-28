@@ -8,4 +8,4 @@ if ! alembic upgrade head; then
 fi
 
 echo "Starting Side B API server..."
-exec uvicorn app.main:app --host 0.0.0.0 --port 8788 --workers ${UVICORN_WORKERS:-2}
+exec uvicorn app.main:app --host 0.0.0.0 --port 8788 --workers ${UVICORN_WORKERS:-1}

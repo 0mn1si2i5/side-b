@@ -2,6 +2,7 @@
 
 import time
 
+from starlette.websockets import WebSocketDisconnect
 from fastapi.testclient import TestClient
 
 from tests.conftest import auth_headers, register_user
@@ -57,3 +58,11 @@ def test_invalid_token_returns_401(client: TestClient):
     headers_expired = {"Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0IiwiZXhwIjoxfQ.fake"}
     resp2 = client.get("/api/auth/me", headers=headers_expired)
     assert resp2.status_code == 401
+
+
+def test_websocket_rejects_missing_token(client: TestClient):
+    try:
+        with client.websocket_connect("/ws/rooms/not-a-room"):
+            assert False, "WebSocket should reject missing token"
+    except WebSocketDisconnect as exc:
+        assert exc.code == 4001

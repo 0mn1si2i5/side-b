@@ -47,6 +47,8 @@ struct AvatarSelectionView: View {
                 }
                 .aspectRatio(1, contentMode: .fit)
         }
+        .buttonStyle(.plain)
+        .contentShape(Circle())
         .accessibilityLabel(name)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }

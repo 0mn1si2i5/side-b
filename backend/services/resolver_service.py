@@ -74,7 +74,24 @@ class ResolverService:
             }
 
         context = self.build_context(preferred_market)
-        source_canonical = parse_result.adapter.fetch_canonical_track(parse_result.parsed_source, context)
+        try:
+            source_canonical = parse_result.adapter.fetch_canonical_track(parse_result.parsed_source, context)
+        except Exception as exc:
+            logger.warning(
+                "%s source metadata fetch failed: %s",
+                parse_result.adapter.platform,
+                exc,
+            )
+            return {
+                "status_code": 502,
+                "body": {
+                    "error": f"{parse_result.adapter.platform} metadata is unavailable",
+                    "detail": str(exc),
+                    "parsingResult": self._build_parsed_result(parse_result.parsed_source),
+                    "metadataStatus": "failed",
+                    "resolverVersion": RESOLVER_VERSION,
+                },
+            }
         canonical_track, diagnostic = self._promote_to_spotify_if_available(source_canonical, context)
         body = self._build_resolver_response(
             parsed_source=parse_result.parsed_source,
@@ -137,12 +154,16 @@ class ResolverService:
             }
 
         context = self.build_context(preferred_market)
-        platform_link = resolve_platform_link(
-            canonical_track,
-            context,
-            target_platform,
-            resolvers=self.target_resolvers,
-        )
+        try:
+            platform_link = resolve_platform_link(
+                canonical_track,
+                context,
+                target_platform,
+                resolvers=self.target_resolvers,
+            )
+        except Exception as exc:
+            logger.warning("%s platform link resolution failed: %s", target_platform, exc)
+            platform_link = None
 
         if platform_link and not platform_link.get("isSource"):
             resolved_url = platform_link.get("destinationURL")
@@ -314,7 +335,12 @@ class ResolverService:
             if time.time() - cached_at < SPOTIFY_TOKEN_CACHE_TTL_SECONDS:
                 return cached_token
 
-        access_token = fetch_spotify_access_token(client_id, client_secret)
+        try:
+            access_token = fetch_spotify_access_token(client_id, client_secret)
+        except Exception as e:
+            logger.warning("Spotify access token fetch failed: %s", e)
+            return None
+
         _spotify_token_cache["token"] = access_token
         _spotify_token_cache["fetched_at"] = time.time()
         return access_token

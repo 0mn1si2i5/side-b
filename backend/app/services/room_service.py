@@ -34,18 +34,22 @@ def create_room(
         if existing_dm:
             return existing_dm
 
-    # For direct rooms, auto-generate name from the other user's display name
-    if room_type == "direct" and not name:
-        other_user = db.query(User).filter(User.username == member_usernames[0]).first()
-        if other_user:
-            name = other_user.display_name or other_user.username
+    creator = db.query(User).filter(User.id == created_by).first()
+
+    # New v1 room creation allows a self-only room first, then members can be invited later.
+    if not name:
+        if room_type == "direct" and member_usernames:
+            other_user = db.query(User).filter(User.username == member_usernames[0]).first()
+            if other_user:
+                name = other_user.display_name or other_user.username
+        if not name and creator:
+            name = f"{creator.display_name or creator.username}的聊天室"
 
     room = Room(name=name, type=room_type, created_by=created_by)
     db.add(room)
     db.flush()
 
     all_usernames = set(member_usernames)
-    creator = db.query(User).filter(User.id == created_by).first()
     if creator:
         all_usernames.add(creator.username)
 

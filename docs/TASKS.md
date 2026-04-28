@@ -11,7 +11,7 @@
 
 - [x] 新增正式 `InputParser` 统一入口
 - [x] 定义 `ParsedSource / CanonicalTrack / ResolverContext`
-- [x] 收口 backend 为 `routes / services / resolvers / models / platform_clients / utils`
+- [x] 收口 backend 为 `app/routers`、`app/services`、`services`、`resolvers`、`models`、`platform_clients`、`utils`
 - [x] 将入口脚本瘦身为 app entry / route bootstrap
 - [x] 固化失败与降级语义
 - [x] 建立 metadata-only 与平台链接异步补全两阶段主链路
@@ -84,42 +84,47 @@
 ### 8.2 后端化
 
 - [x] Room / Message 后端模型
-- [ ] 双人聊天室与多人聊天室统一模型
-- [x] 明确不引入私信域
-- [ ] 房间消息 API
-- [ ] 持久化与同步策略
+- [x] 单一 Room 模型：支持先创建仅包含自己的聊天室，再邀请成员
+- [x] Room 作为唯一消息承载单元
+- [x] 房间消息 API
+- [x] 持久化与同步策略：REST 持久化，WebSocket 广播
 
 ## Phase 9：用户系统
 
 ### 9.1 极简用户模型
 
-- [ ] 用户注册 / 登录（极简，不需要复杂验证）
-- [ ] 用户资料：昵称 + 头像（从预提供图像池选择，暂不支持上传）
-- [ ] 用户偏好音乐平台展示
+- [x] 用户注册 / 登录（极简，不需要复杂验证）
+- [x] 用户资料：昵称 + 头像（从预提供图像池选择，暂不支持上传）
+- [x] 用户偏好音乐平台展示
 
 ### 9.2 聊天室权限
 
-- [ ] 通过输入对方账号创建聊天室
-- [ ] 第一个建立聊天室的用户负责起名
-- [ ] 任何用户可更改聊天室名称
-- [ ] 任何用户可邀请新成员
-- [ ] 任何用户可解散聊天室
-- [x] 明确不引入好友系统
-- [x] 明确不引入邀请 / 同意流程
+- [x] 创建仅包含自己的聊天室
+- [x] 创建时可选填房间名与邀请成员用户名
+- [x] 任何成员可更改聊天室名称
+- [x] 任何成员可邀请新成员
+- [x] 任何成员可解散聊天室
+- [x] 成员管理直接通过房间邀请完成
 
 ## Phase 10：客户端完善
 
 - [x] iOS 接入正式 backend API
 - [x] 完善加载态、错误态、重试
 - [x] 完善歌曲详情与平台按钮体验
-- [ ] 推进客户端脱离本地 mock
+- [x] 注册头像选择与 Profile 常用平台选择可用
+- [x] 创建聊天室入口使用单一 Room 创建流程
+- [ ] 保持 DEBUG mock fallback 作为后端不可用时的开发兜底
 
-## Phase 11：部署与上线
+## Phase 11：部署与上线（当前主线）
 
-- [ ] backend 部署到 VPS / 云服务器
+- [x] FastAPI 本地运行基线：`SIDEB_API_BASE_URL` / `FASTAPI_*` / `DATABASE_URL` / `JWT_SECRET`
+- [x] Docker 默认 SQLite volume 与单 Uvicorn worker
+- [x] nginx `/api/auth/` 限流路径与 `/health` healthcheck
+- [ ] backend 部署到个人服务器
 - [ ] 配置域名
 - [ ] 配置 HTTPS
-- [ ] 运行环境与服务结构稳定化
+- [ ] 制定 SQLite volume 备份与恢复流程
+- [ ] 验证真机到服务器 API / WebSocket / resolver 全链路
 
 ## Phase 12：后续扩展
 
@@ -127,6 +132,13 @@
 - [ ] 多端支持
 - [ ] 数据分析与指标
 
-## Phase 13：稳定性修复与结构整理（进行中）
+## Phase 13：稳定性修复与结构整理
 
-- [ ] 执行 stability plan：`.sisyphus/plans/stabilization-cleanup.md`
+- [x] 统一本地配置变量：`SIDEB_API_BASE_URL` / `FASTAPI_*`
+- [x] 修复消息主路径：REST 持久化，WebSocket 只接收广播
+- [x] 修复 Docker 单 worker 与 nginx `/api/auth/` 路径
+- [x] 支持从分享文案中提取干净音乐链接
+- [x] resolver 第三方服务失败时返回可诊断错误，避免裸 500
+- [x] 完成后端依赖安装后的 pytest 验证
+- [x] 完成 Swift smoke test 验证
+- [ ] 完成可用 Xcode 环境下的 Debug build 验证

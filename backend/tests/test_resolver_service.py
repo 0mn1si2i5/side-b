@@ -37,14 +37,23 @@ class FakeAdapter:
         )
 
 
+class FailingMetadataAdapter(FakeAdapter):
+    platform = "QQ 音乐"
+
+    def fetch_canonical_track(self, parsed_source, context):
+        raise RuntimeError("third-party service unavailable")
+
+
 class FakeInputParser(InputParser):
+    def __init__(self, adapter=None):
+        self.adapter = adapter or FakeAdapter()
+
     def parse(self, raw_input: str):
-        adapter = FakeAdapter()
         return InputParseResult(
             kind="parsed",
             raw_input=raw_input,
-            adapter=adapter,
-            parsed_source=adapter.parse_source_link(raw_input),
+            adapter=self.adapter,
+            parsed_source=self.adapter.parse_source_link(raw_input),
         )
 
 
@@ -73,3 +82,17 @@ class ResolverServiceTests(unittest.TestCase):
         response = service.resolve("Maroon Taylor Swift", preferred_market=None, include_platform_links=False)
         self.assertEqual(response["status_code"], 400)
         self.assertIn("reserved", response["body"]["error"])
+
+    def test_source_metadata_failure_returns_diagnostic_response(self) -> None:
+        adapter = FailingMetadataAdapter()
+        service = FakeResolverService(
+            input_parser=FakeInputParser(adapter),
+            source_adapters=[adapter],
+            target_resolvers=[],
+        )
+
+        response = service.resolve("https://c6.y.qq.com/test", preferred_market=None, include_platform_links=False)
+
+        self.assertEqual(response["status_code"], 502)
+        self.assertEqual(response["body"]["metadataStatus"], "failed")
+        self.assertIn("QQ", response["body"]["error"])
