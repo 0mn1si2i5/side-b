@@ -9,7 +9,7 @@ protocol MessageServiceProtocol {
 
 enum MessageServiceError: Error {
     case invalidHTTPResponse
-    case unsuccessfulStatusCode(Int)
+    case unsuccessfulStatusCode(Int, URL)
     case malformedPayload
     case notAuthenticated
 }
@@ -34,9 +34,9 @@ struct RemoteMessageService: MessageServiceProtocol {
     }
 
     func fetchMessages(roomId: UUID, limit: Int = 50, before: UUID? = nil) async throws -> [Message] {
-        var path = "/api/rooms/\(roomId.uuidString)/messages?limit=\(limit)"
+        var path = "/api/rooms/\(roomId.sideBPathID)/messages?limit=\(limit)"
         if let before {
-            path += "&before=\(before.uuidString)"
+            path += "&before=\(before.sideBPathID)"
         }
         let (data, response) = try await sendRequest(path: path, method: "GET")
         try validate(response: response)
@@ -55,10 +55,10 @@ struct RemoteMessageService: MessageServiceProtocol {
             contentType: contentType,
             textContent: textContent,
             trackData: trackDataString,
-            replyToId: replyToId?.uuidString
+            replyToId: replyToId?.sideBPathID
         )
         let (data, response) = try await sendRequest(
-            path: "/api/rooms/\(roomId.uuidString)/messages", method: "POST", body: body
+            path: "/api/rooms/\(roomId.sideBPathID)/messages", method: "POST", body: body
         )
         try validate(response: response)
         let dto = try decoder.decode(MessageDTO.self, from: data)
@@ -75,7 +75,7 @@ struct RemoteMessageService: MessageServiceProtocol {
     func addEmojiReaction(roomId: UUID, messageId: UUID, emoji: String) async throws -> EmojiReaction {
         let body = AddEmojiBody(emoji: emoji)
         let (data, response) = try await sendRequest(
-            path: "/api/rooms/\(roomId.uuidString)/messages/\(messageId.uuidString)/reactions",
+            path: "/api/rooms/\(roomId.sideBPathID)/messages/\(messageId.sideBPathID)/reactions",
             method: "POST",
             body: body
         )
@@ -94,7 +94,7 @@ struct RemoteMessageService: MessageServiceProtocol {
             throw MessageServiceError.notAuthenticated
         }
 
-        let url = baseURL.appending(path: path)
+        let url = baseURL.appendingSideBPath(path)
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -116,7 +116,7 @@ struct RemoteMessageService: MessageServiceProtocol {
 
     private func validate(response: HTTPURLResponse) throws {
         guard (200...299).contains(response.statusCode) else {
-            throw MessageServiceError.unsuccessfulStatusCode(response.statusCode)
+            throw MessageServiceError.unsuccessfulStatusCode(response.statusCode, response.url ?? baseURL)
         }
     }
 }
@@ -143,5 +143,3 @@ struct MockMessageService: MessageServiceProtocol {
         EmojiReaction(messageId: messageId, userId: UUID(), emoji: emoji)
     }
 }
-
-

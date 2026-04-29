@@ -53,6 +53,8 @@ struct ConfigurationErrorView: View {
 }
 
 struct MainTabView: View {
+    @State private var roomNavigationPath: [Room] = []
+
     var body: some View {
         TabView {
             PlaylistListView()
@@ -60,8 +62,8 @@ struct MainTabView: View {
                     Label("歌曲", systemImage: "music.note.list")
                 }
 
-            NavigationStack {
-                RoomsListView()
+            NavigationStack(path: $roomNavigationPath) {
+                RoomsListView(navigationPath: $roomNavigationPath)
             }
             .tabItem {
                 Label("房间", systemImage: "square.grid.2x2")

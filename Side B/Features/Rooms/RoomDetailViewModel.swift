@@ -24,6 +24,7 @@ final class RoomDetailViewModel {
     private(set) var linkResolutionMessage: String?
     var isLoading = false
     var errorMessage: String?
+    var actionErrorMessage: String?
     var replyToMessageID: UUID?
     var replyToMessagePreview: String?
 
@@ -86,7 +87,7 @@ final class RoomDetailViewModel {
                     return message.updatingTrack(restoredTrack)
                 }
         } catch {
-            errorMessage = localizedErrorMessage(for: error)
+            logger.error("loadInitialMessages failed while preserving current room view: \(error)")
         }
         isLoading = false
     }
@@ -193,7 +194,7 @@ final class RoomDetailViewModel {
                 handleIncomingMessage(sentMessage)
             } catch {
                 logger.error("sendMessage failed: \(error)")
-                errorMessage = localizedErrorMessage(for: error)
+                actionErrorMessage = localizedErrorMessage(for: error)
             }
         }
     }
@@ -241,7 +242,7 @@ final class RoomDetailViewModel {
                     messages[index].emojiReactions.append(reaction)
                 }
             } catch {
-                errorMessage = localizedErrorMessage(for: error)
+                actionErrorMessage = localizedErrorMessage(for: error)
             }
         }
     }
@@ -308,7 +309,7 @@ final class RoomDetailViewModel {
             logger.error("sendSongMessage failed: \(error)")
             linkResolutionState = .failed
             linkResolutionMessage = "歌曲已解析，但发送失败：\(localizedErrorMessage(for: error))"
-            errorMessage = localizedErrorMessage(for: error)
+            actionErrorMessage = localizedErrorMessage(for: error)
             return
         }
 

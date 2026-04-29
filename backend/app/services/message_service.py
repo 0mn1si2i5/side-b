@@ -17,7 +17,8 @@ def get_messages(
         before_msg = db.query(Message).filter(Message.id == before).first()
         if before_msg:
             q = q.filter(Message.created_at < before_msg.created_at)
-    return q.order_by(Message.created_at.desc()).limit(limit).all()
+    newest_messages = q.order_by(Message.created_at.desc()).limit(limit).all()
+    return list(reversed(newest_messages))
 
 
 def get_message_by_id(db: Session, message_id: str) -> Message | None:

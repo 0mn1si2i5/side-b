@@ -104,3 +104,8 @@ def test_dissolve_room(client: TestClient):
 
     get_resp = client.get(f"/api/rooms/{room_id}", headers=auth_headers(token_a))
     assert get_resp.status_code == 404
+
+    list_resp = client.get("/api/rooms", headers=auth_headers(token_a))
+    assert list_resp.status_code == 200
+    room_ids = [r["id"] for r in list_resp.json()]
+    assert room_id not in room_ids

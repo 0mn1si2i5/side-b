@@ -3,9 +3,15 @@ import SwiftUI
 struct RoomManagementView: View {
     @State private var viewModel: RoomManagementViewModel
     @Environment(\.dismiss) private var dismiss
+    private let onDissolved: () -> Void
 
-    init(room: Room, service: any RoomServiceProtocol = RoomServiceFactory.makeDefaultService()!) {
+    init(
+        room: Room,
+        service: any RoomServiceProtocol = RoomServiceFactory.makeDefaultService()!,
+        onDissolved: @escaping () -> Void = {}
+    ) {
         _viewModel = State(initialValue: RoomManagementViewModel(room: room, service: service))
+        self.onDissolved = onDissolved
     }
 
     var body: some View {
@@ -32,6 +38,7 @@ struct RoomManagementView: View {
         )
         .onChange(of: viewModel.isDissolved) { _, isDissolved in
             if isDissolved {
+                onDissolved()
                 dismiss()
             }
         }

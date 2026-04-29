@@ -30,4 +30,24 @@ final class RoomsListViewModel {
             }
         }
     }
+
+    func refreshRooms() {
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                let rooms = try await service.fetchRooms()
+                state = .loaded(rooms)
+            } catch {
+                if case .loaded = state {
+                    return
+                }
+                state = .failed(localizedErrorMessage(for: error))
+            }
+        }
+    }
+
+    func removeRoom(id: UUID) {
+        guard case .loaded(let rooms) = state else { return }
+        state = .loaded(rooms.filter { $0.id != id })
+    }
 }

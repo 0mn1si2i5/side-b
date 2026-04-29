@@ -111,38 +111,30 @@ final class RemoteWebSocketService: WebSocketServiceProtocol {
             return
         }
 
-        let wsURL = buildWebSocketURL(roomId: roomId, token: token)
-        guard let url = wsURL else {
+        guard let request = buildWebSocketRequest(roomId: roomId, token: token) else {
             setConnectionState(.disconnected)
             return
         }
 
         setConnectionState(.connecting)
 
-        let task = session.webSocketTask(with: url)
+        let task = session.webSocketTask(with: request)
         self.webSocketTask = task
         task.resume()
-        setConnectionState(.connected)
         retryCount = 0
         startReceiving()
-
-        do {
-            try await task.send(.string("{\"type\":\"ping\"}"))
-        } catch {
-            handleDisconnection()
-        }
     }
 
     // MARK: - URL Construction
 
-    private func buildWebSocketURL(roomId: UUID, token: String) -> URL? {
+    private func buildWebSocketRequest(roomId: UUID, token: String) -> URLRequest? {
         var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)
         guard let host = components?.host else { return nil }
 
         let scheme = components?.scheme == "https" ? "wss" : "ws"
         let port = components?.port
 
-        let path = "/ws/rooms/\(roomId.uuidString)"
+        let path = "/ws/rooms/\(roomId.sideBPathID)"
 
         components = URLComponents()
         components?.scheme = scheme
@@ -153,7 +145,10 @@ final class RemoteWebSocketService: WebSocketServiceProtocol {
             components?.port = port
         }
 
-        return components?.url
+        guard let url = components?.url else { return nil }
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        return request
     }
 
     // MARK: - Receiving
@@ -205,7 +200,7 @@ final class RemoteWebSocketService: WebSocketServiceProtocol {
         case "room_updated":
             handleRoomUpdated(json)
         case "connected":
-            break
+            setConnectionState(.connected)
         default:
             break
         }

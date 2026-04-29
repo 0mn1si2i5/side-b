@@ -65,9 +65,9 @@ final class PlaylistListViewModel {
                 let track = response.resolvedTrack.track
                 if !track.title.isEmpty {
                     TrackCache.shared.save(track: track)
-                    RecentlyResolvedStore.shared.add(track.persistenceIdentity ?? "")
 
                     if let identity = track.persistenceIdentity {
+                        RecentlyResolvedStore.shared.add(identity)
                         recentlyResolved.removeAll { $0.persistenceIdentity == identity }
                     }
                     recentlyResolved.insert(track, at: 0)

@@ -14,7 +14,7 @@ protocol RoomServiceProtocol {
 
 enum RoomServiceError: Error {
     case invalidHTTPResponse
-    case unsuccessfulStatusCode(Int)
+    case unsuccessfulStatusCode(Int, URL)
     case malformedPayload
     case notAuthenticated
 }
@@ -56,7 +56,7 @@ struct RemoteRoomService: RoomServiceProtocol {
     func renameRoom(id: UUID, newName: String) async throws -> Room {
         let body = RenameRoomBody(name: newName)
         let (data, response) = try await sendRequest(
-            path: "/api/rooms/\(id.uuidString)", method: "PUT", body: body
+            path: "/api/rooms/\(id.sideBPathID)", method: "PUT", body: body
         )
         try validate(response: response)
         let dto = try decoder.decode(RoomDTO.self, from: data)
@@ -66,7 +66,7 @@ struct RemoteRoomService: RoomServiceProtocol {
     func addMember(roomId: UUID, username: String) async throws -> Room {
         let body = AddMemberBody(username: username)
         let (_, response) = try await sendRequest(
-            path: "/api/rooms/\(roomId.uuidString)/members", method: "POST", body: body
+            path: "/api/rooms/\(roomId.sideBPathID)/members", method: "POST", body: body
         )
         try validate(response: response)
         return try await fetchRoom(id: roomId)
@@ -74,14 +74,14 @@ struct RemoteRoomService: RoomServiceProtocol {
 
     func dissolveRoom(id: UUID) async throws {
         let (_, response) = try await sendRequest(
-            path: "/api/rooms/\(id.uuidString)", method: "DELETE"
+            path: "/api/rooms/\(id.sideBPathID)", method: "DELETE"
         )
         try validate(response: response)
     }
 
     func fetchRoomMessages(roomId: UUID) async throws -> [Message] {
         let (data, response) = try await sendRequest(
-            path: "/api/rooms/\(roomId.uuidString)/messages", method: "GET"
+            path: "/api/rooms/\(roomId.sideBPathID)/messages", method: "GET"
         )
         try validate(response: response)
         let dtos = try decoder.decode([MessageDTO].self, from: data)
@@ -92,7 +92,7 @@ struct RemoteRoomService: RoomServiceProtocol {
 
     private func fetchRoom(id: UUID) async throws -> Room {
         let (data, response) = try await sendRequest(
-            path: "/api/rooms/\(id.uuidString)", method: "GET"
+            path: "/api/rooms/\(id.sideBPathID)", method: "GET"
         )
         try validate(response: response)
         let dto = try decoder.decode(RoomDTO.self, from: data)
@@ -108,7 +108,7 @@ struct RemoteRoomService: RoomServiceProtocol {
             throw RoomServiceError.notAuthenticated
         }
 
-        let url = baseURL.appending(path: path)
+        let url = baseURL.appendingSideBPath(path)
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -130,7 +130,7 @@ struct RemoteRoomService: RoomServiceProtocol {
 
     private func validate(response: HTTPURLResponse) throws {
         guard (200...299).contains(response.statusCode) else {
-            throw RoomServiceError.unsuccessfulStatusCode(response.statusCode)
+            throw RoomServiceError.unsuccessfulStatusCode(response.statusCode, response.url ?? baseURL)
         }
     }
 }
@@ -207,6 +207,4 @@ private struct RenameRoomBody: Encodable {
 private struct AddMemberBody: Encodable {
     let username: String
 }
-
-
 

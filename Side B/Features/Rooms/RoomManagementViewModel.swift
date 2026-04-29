@@ -75,6 +75,11 @@ final class RoomManagementViewModel {
             do {
                 try await service.dissolveRoom(id: room.id)
                 isDissolved = true
+                NotificationCenter.default.post(
+                    name: .sideBRoomDissolved,
+                    object: nil,
+                    userInfo: [RoomNotificationKey.roomID: room.id]
+                )
             } catch {
                 errorMessage = "解散失败：\(error.localizedDescription)"
             }

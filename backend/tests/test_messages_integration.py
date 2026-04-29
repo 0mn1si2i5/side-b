@@ -20,7 +20,7 @@ def test_send_text_message(client: TestClient):
     user_a, _, room_id = _setup_room(client)
     headers = auth_headers(user_a["token"])
 
-    resp = client.post(f"/api/rooms/{room_id}/messages", json={
+    resp = client.post(f"/api/rooms/{room_id.upper()}/messages", json={
         "contentType": "text",
         "textContent": "Hello, world!",
     }, headers=headers)
@@ -29,7 +29,7 @@ def test_send_text_message(client: TestClient):
     assert msg["contentType"] == "text"
     assert msg["textContent"] == "Hello, world!"
 
-    list_resp = client.get(f"/api/rooms/{room_id}/messages", headers=headers)
+    list_resp = client.get(f"/api/rooms/{room_id.upper()}/messages", headers=headers)
     assert list_resp.status_code == 200
     msg_ids = [m["id"] for m in list_resp.json()]
     assert msg["id"] in msg_ids
@@ -52,6 +52,55 @@ def test_send_song_message(client: TestClient):
     assert list_resp.status_code == 200
     persisted = next(m for m in list_resp.json() if m["id"] == msg["id"])
     assert "Test Song" in persisted["trackData"]
+
+
+def test_forwarded_song_message_persists_track_payload(client: TestClient):
+    user_a, _, room_id = _setup_room(client)
+    headers = auth_headers(user_a["token"])
+    track_data = (
+        '{"title":"Forwarded Song","artist_name":"Forward Artist",'
+        '"source_platform":"Spotify","source_url":"https://open.spotify.com/track/test"}'
+    )
+
+    send_resp = client.post(f"/api/rooms/{room_id}/messages", json={
+        "contentType": "song",
+        "trackData": track_data,
+    }, headers=headers)
+    assert send_resp.status_code == 201
+    message_id = send_resp.json()["id"]
+
+    history_resp = client.get(f"/api/rooms/{room_id}/messages", headers=headers)
+    assert history_resp.status_code == 200
+    persisted = next(m for m in history_resp.json() if m["id"] == message_id)
+    assert persisted["contentType"] == "song"
+    assert "Forwarded Song" in persisted["trackData"]
+    assert "source_platform" in persisted["trackData"]
+
+
+def test_message_history_returns_oldest_to_newest(client: TestClient):
+    user_a, _, room_id = _setup_room(client)
+    headers = auth_headers(user_a["token"])
+
+    first_resp = client.post(f"/api/rooms/{room_id}/messages", json={
+        "contentType": "text",
+        "textContent": "first",
+    }, headers=headers)
+    second_resp = client.post(f"/api/rooms/{room_id}/messages", json={
+        "contentType": "text",
+        "textContent": "second",
+    }, headers=headers)
+    third_resp = client.post(f"/api/rooms/{room_id}/messages", json={
+        "contentType": "text",
+        "textContent": "third",
+    }, headers=headers)
+
+    assert first_resp.status_code == 201
+    assert second_resp.status_code == 201
+    assert third_resp.status_code == 201
+
+    history_resp = client.get(f"/api/rooms/{room_id}/messages?limit=3", headers=headers)
+    assert history_resp.status_code == 200
+    assert [m["textContent"] for m in history_resp.json()] == ["first", "second", "third"]
 
 
 def test_send_reply_message_persists_reply_id(client: TestClient):

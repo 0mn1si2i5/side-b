@@ -2,19 +2,17 @@ import SwiftUI
 
 struct RoomDetailView: View {
     let room: Room
+    private let onDissolved: () -> Void
     @State private var viewModel: RoomDetailViewModel
     @Environment(AuthState.self) private var authState
     @State private var pendingIncomingMessageCount = 0
     @State private var isAtBottom = true
-    @FocusState private var focusedComposerField: ComposerField?
+    @State private var linkFeedbackDismissTask: Task<Void, Never>?
+    @FocusState private var isComposerFocused: Bool
 
-    private enum ComposerField {
-        case message
-        case link
-    }
-
-    init(room: Room) {
+    init(room: Room, onDissolved: @escaping () -> Void = {}) {
         self.room = room
+        self.onDissolved = onDissolved
         _viewModel = State(initialValue: RoomDetailViewModel(roomId: room.id))
     }
 
@@ -23,8 +21,8 @@ struct RoomDetailView: View {
             ZStack {
                 if viewModel.isLoading && viewModel.messages.isEmpty {
                     loadingView
-                } else if let errorMessage = viewModel.errorMessage, viewModel.messages.isEmpty {
-                    errorView(message: errorMessage)
+                } else if viewModel.messages.isEmpty {
+                    emptyRoomView
                 } else {
                     messageList(proxy: proxy)
                 }
@@ -34,7 +32,9 @@ struct RoomDetailView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink {
-                        RoomManagementView(room: room)
+                        RoomManagementView(room: room) {
+                            onDissolved()
+                        }
                     } label: {
                         Image(systemName: "ellipsis.circle")
                     }
@@ -76,18 +76,28 @@ struct RoomDetailView: View {
                 viewModel.onDisappear()
             }
             .alert("操作失败", isPresented: Binding(
-                get: { viewModel.errorMessage != nil && !viewModel.messages.isEmpty },
+                get: { viewModel.actionErrorMessage != nil },
                 set: { isPresented in
                     if !isPresented {
-                        viewModel.errorMessage = nil
+                        viewModel.actionErrorMessage = nil
                     }
                 }
             )) {
                 Button("确定", role: .cancel) {
-                    viewModel.errorMessage = nil
+                    viewModel.actionErrorMessage = nil
                 }
             } message: {
-                Text(viewModel.errorMessage ?? "")
+                Text(viewModel.actionErrorMessage ?? "")
+            }
+            .onChange(of: viewModel.linkResolutionState) { _, state in
+                scheduleLinkFeedbackDismissIfNeeded(for: state)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .sideBRoomDissolved)) { notification in
+                guard let dissolvedRoomID = notification.userInfo?[RoomNotificationKey.roomID] as? UUID,
+                      dissolvedRoomID == room.id else {
+                    return
+                }
+                onDissolved()
             }
         }
     }
@@ -103,24 +113,21 @@ struct RoomDetailView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private func errorView(message: String) -> some View {
-        VStack(spacing: 16) {
-            Image(systemName: "exclamationmark.triangle")
-                .font(.largeTitle)
+    private var emptyRoomView: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "bubble.left.and.bubble.right")
+                .font(.title)
                 .foregroundStyle(.secondary)
 
-            Text(message)
+            Text("还没有消息")
+                .font(.headline)
+
+            Text("发送文字或分享一首歌，开始这个房间。")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-
-            Button("重试") {
-                viewModel.errorMessage = nil
-                viewModel.onAppear()
-            }
-            .buttonStyle(.bordered)
         }
-        .padding()
+        .padding(.horizontal, 32)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
@@ -298,51 +305,45 @@ struct RoomDetailView: View {
 
             HStack(spacing: 12) {
                 Button {
+                    let shouldRestoreFocus = isComposerFocused
                     viewModel.toggleLinkInput()
-                    let nextField: ComposerField = viewModel.isShowingLinkInput ? .link : .message
-                    DispatchQueue.main.async {
-                        focusedComposerField = nextField
+                    if shouldRestoreFocus {
+                        isComposerFocused = true
                     }
                 } label: {
                     Image(systemName: viewModel.isShowingLinkInput ? "message" : "link")
                         .frame(width: 20, height: 20)
                 }
                 .buttonStyle(.bordered)
-                .tint(viewModel.isShowingLinkInput ? .primary : .gray)
+                .tint(Color.secondary.opacity(0.35))
 
-                Group {
-                    if viewModel.isShowingLinkInput {
-                        TextField("粘贴音乐链接", text: $viewModel.linkInput, axis: .vertical)
-                            .lineLimit(1...5)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                            .textFieldStyle(.roundedBorder)
-                            .focused($focusedComposerField, equals: .link)
-                            .frame(minHeight: 44)
-                            .disabled(viewModel.isSending)
-                            .submitLabel(.send)
-                            .onSubmit {
-                                submitComposer()
-                            }
-                    } else {
-                        TextField("发送消息", text: $viewModel.draftText, axis: .vertical)
-                            .lineLimit(1...5)
-                            .textFieldStyle(.roundedBorder)
-                            .focused($focusedComposerField, equals: .message)
-                            .frame(minHeight: 44)
-                            .disabled(viewModel.isSending)
-                            .submitLabel(.send)
-                            .onSubmit {
-                                submitComposer()
-                            }
-                    }
+                TextField(
+                    viewModel.isShowingLinkInput ? "粘贴音乐链接" : "发送消息",
+                    text: activeComposerTextBinding,
+                    axis: .vertical
+                )
+                .lineLimit(1...5)
+                .textInputAutocapitalization(viewModel.isShowingLinkInput ? .never : .sentences)
+                .autocorrectionDisabled(viewModel.isShowingLinkInput)
+                .textFieldStyle(.roundedBorder)
+                .focused($isComposerFocused)
+                .frame(minHeight: 44)
+                .disabled(viewModel.isSending)
+                .submitLabel(.send)
+                .onSubmit {
+                    submitComposer()
                 }
 
                 Button(viewModel.isShowingLinkInput ? "分享" : "发送") {
                     submitComposer()
                 }
-                .buttonStyle(.bordered)
-                .disabled(activeComposerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isSending)
+                .buttonStyle(.plain)
+                .fontWeight(.medium)
+                .frame(minWidth: 58, minHeight: 42)
+                .background(composerActionButtonColor.opacity(isComposerActionEnabled ? 1 : 0.18))
+                .foregroundStyle(isComposerActionEnabled ? Color.white : Color.secondary)
+                .clipShape(Capsule())
+                .disabled(!isComposerActionEnabled)
                 .overlay {
                     if viewModel.isSending {
                         ProgressView()
@@ -373,26 +374,37 @@ struct RoomDetailView: View {
                 .foregroundStyle(feedbackForegroundColor)
 
             Spacer(minLength: 0)
-
-            if viewModel.linkResolutionState != .resolving {
-                Button {
-                    viewModel.clearLinkResolutionFeedback()
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.caption2)
-                        .foregroundStyle(feedbackForegroundColor.opacity(0.8))
-                }
-                .buttonStyle(.plain)
-            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .background(feedbackBackgroundColor)
         .clipShape(RoundedRectangle(cornerRadius: 14))
+        .transition(.move(edge: .top).combined(with: .opacity))
     }
 
     private var activeComposerText: String {
         viewModel.isShowingLinkInput ? viewModel.linkInput : viewModel.draftText
+    }
+
+    private var isComposerActionEnabled: Bool {
+        !activeComposerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !viewModel.isSending
+    }
+
+    private var composerActionButtonColor: Color {
+        isComposerActionEnabled ? .sideBLinkBlue : Color.secondary
+    }
+
+    private var activeComposerTextBinding: Binding<String> {
+        Binding(
+            get: { activeComposerText },
+            set: { newValue in
+                if viewModel.isShowingLinkInput {
+                    viewModel.linkInput = newValue
+                } else {
+                    viewModel.draftText = newValue
+                }
+            }
+        )
     }
 
     private func shouldShowMetadata(for index: Int) -> Bool {
@@ -414,6 +426,22 @@ struct RoomDetailView: View {
             viewModel.sendResolvedTrackMessage()
         } else {
             viewModel.sendTextMessage()
+        }
+    }
+
+    private func scheduleLinkFeedbackDismissIfNeeded(for state: LinkResolutionState) {
+        linkFeedbackDismissTask?.cancel()
+        guard state != .idle, state != .resolving else { return }
+
+        linkFeedbackDismissTask = Task { @MainActor in
+            do {
+                try await Task.sleep(nanoseconds: 3_000_000_000)
+            } catch {
+                return
+            }
+            withAnimation(.easeInOut(duration: 0.2)) {
+                viewModel.clearLinkResolutionFeedback()
+            }
         }
     }
 

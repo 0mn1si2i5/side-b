@@ -131,7 +131,20 @@ final class SendTrackToRoomViewModel {
         Task { [weak self] in
             guard let self else { return }
             do {
-                _ = try await messageService.sendSongMessage(roomId: room.id, track: track)
+                let sentMessage = try await messageService.sendSongMessage(roomId: room.id, track: track)
+                if let sentTrack = sentMessage.track {
+                    PlatformLinkPersistenceStore.shared.save(track: sentTrack)
+                    TrackCache.shared.save(track: sentTrack)
+                    if let identity = sentTrack.persistenceIdentity {
+                        RecentlyResolvedStore.shared.add(identity)
+                    }
+                } else {
+                    PlatformLinkPersistenceStore.shared.save(track: track)
+                    TrackCache.shared.save(track: track)
+                    if let identity = track.persistenceIdentity {
+                        RecentlyResolvedStore.shared.add(identity)
+                    }
+                }
                 sendingRoomID = nil
                 onSuccess()
             } catch {

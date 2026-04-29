@@ -122,12 +122,24 @@ struct PlaylistListView: View {
                                 .fontWeight(.medium)
                         }
                     }
-                    .buttonStyle(.bordered)
-                    .disabled(viewModel.linkInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isResolving)
+                    .buttonStyle(.plain)
+                    .frame(minWidth: 62, minHeight: 42)
+                    .background(resolveButtonColor.opacity(isResolveButtonEnabled ? 1 : 0.18))
+                    .foregroundStyle(isResolveButtonEnabled ? Color.white : Color.secondary)
+                    .clipShape(Capsule())
+                    .disabled(!isResolveButtonEnabled)
                 }
             }
             .padding(.vertical, 8)
         }
+    }
+
+    private var isResolveButtonEnabled: Bool {
+        !viewModel.linkInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !viewModel.isResolving
+    }
+
+    private var resolveButtonColor: Color {
+        isResolveButtonEnabled ? .sideBLinkBlue : Color.secondary
     }
 
     // MARK: - Recently Resolved Section

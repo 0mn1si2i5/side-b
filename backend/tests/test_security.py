@@ -66,3 +66,27 @@ def test_websocket_rejects_missing_token(client: TestClient):
             assert False, "WebSocket should reject missing token"
     except WebSocketDisconnect as exc:
         assert exc.code == 4001
+
+
+def test_websocket_accepts_authorization_header_for_room_member(client: TestClient):
+    user_a = register_user(client)
+    user_b = register_user(client)
+    room_resp = client.post(
+        "/api/rooms",
+        json={
+            "type": "group",
+            "name": "WS Test Room",
+            "memberUsernames": [user_b["user"]["username"]],
+        },
+        headers=auth_headers(user_a["token"]),
+    )
+    assert room_resp.status_code == 201
+    room_id = room_resp.json()["id"]
+
+    with client.websocket_connect(
+        f"/ws/rooms/{room_id.upper()}",
+        headers=auth_headers(user_a["token"]),
+    ) as websocket:
+        message = websocket.receive_json()
+
+    assert message == {"type": "connected", "data": {"roomId": room_id}}

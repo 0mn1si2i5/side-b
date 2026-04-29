@@ -91,6 +91,13 @@ class EmojiReactionResponse(BaseModel):
         from_attributes = True
 
 
+def _normalize_uuid_or_404(value: str, detail: str = "Resource not found") -> str:
+    try:
+        return str(UUID(value))
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
+
+
 def _room_to_response(room, db: Session) -> RoomResponse:
     members = room_service.get_room_members(db, room.id)
     member_user_ids = [m.user_id for m in members]
@@ -196,6 +203,7 @@ def get_room(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    room_id = _normalize_uuid_or_404(room_id, "Room not found")
     room = room_service.get_room(db, room_id)
     if room is None:
         raise HTTPException(
@@ -212,6 +220,7 @@ def update_room(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    room_id = _normalize_uuid_or_404(room_id, "Room not found")
     room = room_service.get_room(db, room_id)
     if room is None:
         raise HTTPException(
@@ -228,6 +237,7 @@ def dissolve_room(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    room_id = _normalize_uuid_or_404(room_id, "Room not found")
     room = room_service.get_room(db, room_id)
     if room is None:
         raise HTTPException(
@@ -245,6 +255,7 @@ def leave_room_endpoint(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    room_id = _normalize_uuid_or_404(room_id, "Room not found or not a member")
     result = room_service.leave_room(db, room_id, user.id)
     if result is None:
         room = db.query(Room).filter(Room.id == room_id).first()
@@ -271,6 +282,7 @@ def add_member(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    room_id = _normalize_uuid_or_404(room_id, "Room not found")
     room = room_service.get_room(db, room_id)
     if room is None:
         raise HTTPException(
@@ -292,6 +304,7 @@ def list_members(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    room_id = _normalize_uuid_or_404(room_id, "Room not found")
     room = room_service.get_room(db, room_id)
     if room is None:
         raise HTTPException(
@@ -310,6 +323,7 @@ def list_messages(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    room_id = _normalize_uuid_or_404(room_id, "Room not found")
     room = room_service.get_room(db, room_id)
     if room is None:
         raise HTTPException(
@@ -331,6 +345,7 @@ async def create_message(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    room_id = _normalize_uuid_or_404(room_id, "Room not found")
     room = room_service.get_room(db, room_id)
     if room is None:
         raise HTTPException(
@@ -338,6 +353,7 @@ async def create_message(
         )
     _require_membership(db, room_id, user.id)
     if req.replyToId is not None:
+        req.replyToId = _normalize_uuid_or_404(req.replyToId, "Message not found")
         _require_message_in_room(db, room_id, req.replyToId)
     msg = message_service.create_message(
         db=db,
@@ -365,6 +381,8 @@ async def delete_message(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    room_id = _normalize_uuid_or_404(room_id, "Room not found")
+    message_id = _normalize_uuid_or_404(message_id, "Message not found")
     room = room_service.get_room(db, room_id)
     if room is None:
         raise HTTPException(
@@ -397,6 +415,8 @@ async def add_emoji_reaction(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    room_id = _normalize_uuid_or_404(room_id, "Room not found")
+    message_id = _normalize_uuid_or_404(message_id, "Message not found")
     room = room_service.get_room(db, room_id)
     if room is None:
         raise HTTPException(

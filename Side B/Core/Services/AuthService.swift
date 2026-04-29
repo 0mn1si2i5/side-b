@@ -138,11 +138,11 @@ private func extractStatusCode(from error: Error) -> Int? {
         return code
     }
     if let roomError = error as? RoomServiceError,
-       case .unsuccessfulStatusCode(let code) = roomError {
+       case .unsuccessfulStatusCode(let code, _) = roomError {
         return code
     }
     if let messageError = error as? MessageServiceError,
-       case .unsuccessfulStatusCode(let code) = messageError {
+       case .unsuccessfulStatusCode(let code, _) = messageError {
         return code
     }
     return nil

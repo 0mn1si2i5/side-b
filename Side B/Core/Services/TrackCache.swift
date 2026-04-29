@@ -11,6 +11,8 @@ struct CachedTrack: Codable {
     let sourceURLString: String?
     let isrc: String?
     let artworkURLString: String?
+    let platformLinks: [CachedPlatformLink]
+    let platformLinkStatuses: [CachedPlatformLinkStatus]
     let cachedAt: Date
 
     init(
@@ -24,6 +26,8 @@ struct CachedTrack: Codable {
         sourceURLString: String? = nil,
         isrc: String? = nil,
         artworkURLString: String? = nil,
+        platformLinks: [CachedPlatformLink] = [],
+        platformLinkStatuses: [CachedPlatformLinkStatus] = [],
         cachedAt: Date
     ) {
         self.persistenceIdentity = persistenceIdentity
@@ -36,6 +40,8 @@ struct CachedTrack: Codable {
         self.sourceURLString = sourceURLString
         self.isrc = isrc
         self.artworkURLString = artworkURLString
+        self.platformLinks = platformLinks
+        self.platformLinkStatuses = platformLinkStatuses
         self.cachedAt = cachedAt
     }
 
@@ -50,7 +56,62 @@ struct CachedTrack: Codable {
         self.sourceURLString = track.sourceURL?.absoluteString
         self.isrc = track.isrc
         self.artworkURLString = track.artworkURL?.absoluteString
+        self.platformLinks = track.platformLinks.map(CachedPlatformLink.init)
+        self.platformLinkStatuses = track.platformLinkStatuses.map(CachedPlatformLinkStatus.init)
         self.cachedAt = Date()
+    }
+}
+
+struct CachedPlatformLink: Codable {
+    let platformRaw: String
+    let destinationURLString: String
+    let isSource: Bool
+
+    init(platformRaw: String, destinationURLString: String, isSource: Bool) {
+        self.platformRaw = platformRaw
+        self.destinationURLString = destinationURLString
+        self.isSource = isSource
+    }
+
+    init(platformLink: PlatformLink) {
+        platformRaw = platformLink.platform.rawValue
+        destinationURLString = platformLink.destinationURL.absoluteString
+        isSource = platformLink.isSource
+    }
+
+    func toPlatformLink() -> PlatformLink? {
+        guard
+            let platform = MusicPlatform(rawValue: platformRaw),
+            let url = URL(string: destinationURLString)
+        else {
+            return nil
+        }
+        return PlatformLink(platform: platform, destinationURL: url, isSource: isSource)
+    }
+}
+
+struct CachedPlatformLinkStatus: Codable {
+    let platformRaw: String
+    let stateRaw: String
+
+    init(platformRaw: String, stateRaw: String) {
+        self.platformRaw = platformRaw
+        self.stateRaw = stateRaw
+    }
+
+    init(status: PlatformLinkStatusEntry) {
+        platformRaw = status.platform.rawValue
+        stateRaw = status.state.rawValue
+    }
+
+    func toStatus() -> PlatformLinkStatusEntry? {
+        guard
+            let platform = MusicPlatform(rawValue: platformRaw),
+            let state = PlatformLinkLoadState(rawValue: stateRaw)
+        else {
+            return nil
+        }
+        return PlatformLinkStatusEntry(platform: platform, state: state)
     }
 }
 
@@ -132,9 +193,8 @@ final class TrackCache: TrackCacheProtocol {
         let sourceURL = cachedTrack.sourceURLString.flatMap { URL(string: $0) }
         let artworkURL = cachedTrack.artworkURLString.flatMap { URL(string: $0) }
 
-        // Build platform links: only include source platform link if URL is available
-        var platformLinks: [PlatformLink] = []
-        if let sourceURL = sourceURL {
+        var platformLinks = cachedTrack.platformLinks.compactMap { $0.toPlatformLink() }
+        if let sourceURL = sourceURL, !platformLinks.contains(where: { $0.platform == sourcePlatform }) {
             platformLinks.append(PlatformLink(
                 platform: sourcePlatform,
                 destinationURL: sourceURL,
@@ -142,11 +202,15 @@ final class TrackCache: TrackCacheProtocol {
             ))
         }
 
-        // Create deferred platform link statuses (.idle for all platforms)
+        let cachedStatuses = cachedTrack.platformLinkStatuses.compactMap { $0.toStatus() }
         let platformLinkStatuses = MusicPlatform.allCases.map { platform in
+            if let cachedStatus = cachedStatuses.first(where: { $0.platform == platform }) {
+                return cachedStatus
+            }
+
             let state: PlatformLinkLoadState
-            if platform == sourcePlatform {
-                state = sourceURL != nil ? .ready : .idle
+            if platform == sourcePlatform || platformLinks.contains(where: { $0.platform == platform }) {
+                state = .ready
             } else {
                 state = .idle
             }

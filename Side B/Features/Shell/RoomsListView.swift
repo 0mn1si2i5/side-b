@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct RoomsListView: View {
+    @Binding var navigationPath: [Room]
     @State private var viewModel = RoomsListViewModel()
     @State private var showingCreateRoom = false
 
@@ -65,13 +66,26 @@ struct RoomsListView: View {
                 CreateRoomView()
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .sideBRoomDissolved)) { notification in
+            guard let dissolvedRoomID = notification.userInfo?[RoomNotificationKey.roomID] as? UUID else {
+                return
+            }
+            navigationPath.removeAll()
+            viewModel.removeRoom(id: dissolvedRoomID)
+            viewModel.refreshRooms()
+        }
+        .navigationDestination(for: Room.self) { room in
+            RoomDetailView(room: room) {
+                navigationPath.removeAll()
+                viewModel.removeRoom(id: room.id)
+                viewModel.refreshRooms()
+            }
+        }
     }
 
     private func roomsList(rooms: [Room]) -> some View {
         List(rooms) { room in
-            NavigationLink {
-                RoomDetailView(room: room)
-            } label: {
+            NavigationLink(value: room) {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
                         Text(room.name)
