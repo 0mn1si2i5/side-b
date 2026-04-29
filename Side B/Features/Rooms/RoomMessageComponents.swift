@@ -11,11 +11,6 @@ struct MessageRowView: View {
     let onEmojiReaction: (String) -> Void
     let onFindOriginalMessage: (UUID) -> Message?
 
-    @State private var showingAddToPlaylistSheet = false
-    @State private var selectedTrack: Track? = nil
-    @State private var showAddSuccessToast = false
-    @State private var addSuccessMessage = ""
-
     var body: some View {
         HStack(alignment: .bottom, spacing: 0) {
             if isCurrentUser {
@@ -29,16 +24,18 @@ struct MessageRowView: View {
                             Text(message.senderName)
                                 .font(.caption)
                                 .fontWeight(.semibold)
+                                .foregroundStyle(.primary.opacity(0.72))
                         }
 
                         Text(message.sentAt.formatted(date: .omitted, time: .shortened))
                             .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.secondary.opacity(0.82))
 
                         if isCurrentUser {
                             Text(message.senderName)
                                 .font(.caption)
                                 .fontWeight(.semibold)
+                                .foregroundStyle(.primary.opacity(0.72))
                         }
                     }
                 }
@@ -60,8 +57,16 @@ struct MessageRowView: View {
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 10)
-                    .background(isCurrentUser ? Color(.tertiarySystemBackground) : Color(.secondarySystemBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: 18))
+                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(isCurrentUser ? Color.primary.opacity(0.035) : Color.white.opacity(0.08))
+                    }
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke(Color.white.opacity(0.16), lineWidth: 1)
+                    }
+                    .shadow(color: Color.black.opacity(0.045), radius: 8, y: 3)
                 }
 
                 if let track = message.track {
@@ -73,11 +78,7 @@ struct MessageRowView: View {
                     } label: {
                         CompactSongAttachmentView(
                             track: track,
-                            isCurrentUser: isCurrentUser,
-                            onAddToPlaylist: {
-                                selectedTrack = track
-                                showingAddToPlaylistSheet = true
-                            }
+                            isCurrentUser: isCurrentUser
                         )
                     }
                     .buttonStyle(.plain)
@@ -96,15 +97,6 @@ struct MessageRowView: View {
                 Spacer(minLength: 44)
             }
         }
-        .sheet(isPresented: $showingAddToPlaylistSheet) {
-            if let track = selectedTrack {
-                AddToPlaylistView(track: track, isPresented: $showingAddToPlaylistSheet) { playlist in
-                    addSuccessMessage = "已添加到「\(playlist.name)」"
-                    showAddSuccessToast = true
-                }
-            }
-        }
-        .toast(isPresented: $showAddSuccessToast, message: addSuccessMessage)
         .contextMenu {
             Button {
                 onReply()
@@ -166,8 +158,11 @@ private func replyQuoteBlock(originalMessage: Message) -> some View {
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
-        .background(Color(.tertiarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+        }
     }
 
     private var replyQuotePlaceholder: some View {
@@ -182,8 +177,11 @@ private func replyQuoteBlock(originalMessage: Message) -> some View {
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
-        .background(Color(.tertiarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+        }
     }
 }
 
@@ -210,17 +208,10 @@ struct EmojiReactionsView: View {
                     }
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(
-                        Capsule()
-                            .fill(isCurrentUser
-                                  ? Color.white.opacity(0.2)
-                                  : Color(.tertiarySystemBackground))
-                    )
+                    .background(.thinMaterial, in: Capsule())
                     .overlay(
                         Capsule()
-                            .stroke(isCurrentUser
-                                    ? Color.white.opacity(0.15)
-                                    : Color.black.opacity(0.06), lineWidth: 0.5)
+                            .stroke(Color.white.opacity(0.15), lineWidth: 0.5)
                     )
                 }
             }
@@ -231,66 +222,49 @@ struct EmojiReactionsView: View {
 struct CompactSongAttachmentView: View {
     let track: Track
     let isCurrentUser: Bool
-    var onAddToPlaylist: (() -> Void)? = nil
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 14) {
             artworkThumbnail
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(track.title)
-                    .font(.subheadline)
+                    .font(.headline)
                     .fontWeight(.semibold)
                     .foregroundStyle(.primary)
-                    .lineLimit(1)
+                    .lineLimit(2)
 
                 Text(track.artistName)
-                    .font(.caption)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
 
                 Text(track.sourcePlatformName)
-                    .font(.caption2)
+                    .font(.caption)
+                    .fontWeight(.medium)
                     .foregroundStyle(.sideBLinkBlue)
             }
 
             Spacer(minLength: 0)
-
-            if let onAddToPlaylist {
-                Button {
-                    onAddToPlaylist()
-                } label: {
-                    Image(systemName: "plus")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(.primary)
-                        .frame(width: 30, height: 30)
-                        .background(.thinMaterial)
-                        .clipShape(Circle())
-                        .overlay {
-                            Circle()
-                                .stroke(SideBVisualStyle.surfaceBorder, lineWidth: 1)
-                        }
-                }
-                .buttonStyle(.plain)
-            }
         }
-        .padding(10)
-        .background(isCurrentUser ? Color(.tertiarySystemBackground) : Color.white.opacity(0.88))
+        .padding(12)
+        .frame(minWidth: 260, maxWidth: 330)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(
-                    isCurrentUser ? Color.secondary.opacity(0.20) : Color.black.opacity(0.12),
-                    lineWidth: 1.5
-                )
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Color.white.opacity(isCurrentUser ? 0.08 : 0.12))
         }
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-        .shadow(color: Color.black.opacity(isCurrentUser ? 0.04 : 0.03), radius: 4, y: 1)
+        .overlay {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Color.white.opacity(0.18), lineWidth: 1)
+        }
+        .shadow(color: Color.black.opacity(0.10), radius: 12, y: 6)
     }
 
     private var artworkThumbnail: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 10)
-                .fill(isCurrentUser ? Color.white.opacity(0.18) : Color.secondary.opacity(0.12))
+            RoundedRectangle(cornerRadius: 14)
+                .fill(.thinMaterial)
 
             if let artworkURL = track.artworkURL {
                 CachedArtworkImage(url: artworkURL, placeholderFontSize: 14)
@@ -298,8 +272,12 @@ struct CompactSongAttachmentView: View {
                 placeholderArtwork
             }
         }
-        .frame(width: 42, height: 42)
-        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .frame(width: 68, height: 68)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color.white.opacity(0.16), lineWidth: 1)
+        }
     }
 
     private var placeholderArtwork: some View {

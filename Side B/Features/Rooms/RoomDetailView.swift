@@ -5,6 +5,8 @@ struct RoomDetailView: View {
     private let onDissolved: () -> Void
     @State private var viewModel: RoomDetailViewModel
     @Environment(AuthState.self) private var authState
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
     @State private var pendingIncomingMessageCount = 0
     @State private var isAtBottom = true
     @State private var linkFeedbackDismissTask: Task<Void, Never>?
@@ -19,28 +21,24 @@ struct RoomDetailView: View {
     var body: some View {
         ScrollViewReader { proxy in
             ZStack {
-                if viewModel.isLoading && viewModel.messages.isEmpty {
-                    loadingView
-                } else if viewModel.messages.isEmpty {
-                    emptyRoomView
-                } else {
-                    messageList(proxy: proxy)
-                }
-            }
-            .navigationTitle(room.name)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    NavigationLink {
-                        RoomManagementView(room: room) {
-                            onDissolved()
+                roomAtmosphereBackground
+
+                VStack(spacing: 0) {
+                    topBar
+
+                    ZStack {
+                        if viewModel.isLoading && viewModel.messages.isEmpty {
+                            loadingView
+                        } else if viewModel.messages.isEmpty {
+                            emptyRoomView
+                        } else {
+                            messageList(proxy: proxy)
                         }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
                     }
-                    .accessibilityLabel("房间管理")
                 }
             }
+            .navigationBarBackButtonHidden(true)
+            .toolbar(.hidden, for: .navigationBar)
             .safeAreaInset(edge: .top) {
                 connectionBanner
             }
@@ -102,6 +100,133 @@ struct RoomDetailView: View {
         }
     }
 
+    private var topBar: some View {
+        HStack(spacing: 12) {
+            Button {
+                dismiss()
+            } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .frame(width: 44, height: 44)
+                    .sideBGlassCircle()
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("返回")
+
+            Spacer(minLength: 12)
+
+            VStack(spacing: 3) {
+                Text(room.name)
+                    .font(.headline)
+                    .lineLimit(1)
+
+                if let subtitle = roomSubtitle {
+                    Text(subtitle)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+            .frame(maxWidth: .infinity)
+
+            Spacer(minLength: 12)
+
+            NavigationLink {
+                RoomManagementView(room: room) {
+                    onDissolved()
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .frame(width: 44, height: 44)
+                    .sideBGlassCircle()
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("房间管理")
+        }
+        .padding(.horizontal, 18)
+        .padding(.top, 10)
+        .padding(.bottom, 12)
+    }
+
+    private var roomSubtitle: String? {
+        let memberCount = max(room.memberUsernames.count, room.memberIDs.count)
+        let songCount = Set(viewModel.messages.compactMap { $0.track?.persistenceIdentity }).count
+        if songCount > 0 && memberCount > 0 {
+            return "\(songCount) 首歌 · \(memberCount) 位成员"
+        }
+        if memberCount > 0 {
+            return "\(memberCount) 位成员"
+        }
+        return nil
+    }
+
+    private var roomAtmosphereBackground: some View {
+        GeometryReader { proxy in
+            ZStack {
+                if let artworkURL = latestArtworkURL {
+                    CachedArtworkImage(url: artworkURL, placeholderFontSize: 1)
+                        .frame(width: proxy.size.width, height: proxy.size.height)
+                        .scaleEffect(1.20)
+                        .clipped()
+                        .blur(radius: 52, opaque: true)
+                        .saturation(0.46)
+                        .opacity(colorScheme == .dark ? 0.50 : 0.58)
+                } else {
+                    LinearGradient(
+                        colors: fallbackBackgroundColors,
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                }
+
+                LinearGradient(
+                    colors: backgroundOverlayColors,
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            }
+        }
+        .ignoresSafeArea()
+    }
+
+    private var latestArtworkURL: URL? {
+        viewModel.messages.reversed().compactMap { $0.track?.artworkURL }.first
+            ?? room.latestTrack?.artworkURL
+    }
+
+    private var fallbackBackgroundColors: [Color] {
+        if colorScheme == .dark {
+            return [
+                Color.black,
+                Color(white: 0.15),
+                Color(white: 0.06)
+            ]
+        }
+        return [
+            Color(white: 0.94),
+            Color(white: 0.88),
+            Color(white: 0.97)
+        ]
+    }
+
+    private var backgroundOverlayColors: [Color] {
+        if colorScheme == .dark {
+            return [
+                Color.black.opacity(0.64),
+                Color.black.opacity(0.46),
+                Color.black.opacity(0.70)
+            ]
+        }
+        return [
+            Color.white.opacity(0.42),
+            Color.white.opacity(0.30),
+            Color.white.opacity(0.56)
+        ]
+    }
+
     private var loadingView: some View {
         VStack(spacing: 16) {
             ProgressView()
@@ -144,7 +269,7 @@ struct RoomDetailView: View {
             }
             .padding(.vertical, 6)
             .frame(maxWidth: .infinity)
-            .background(Color(.systemBackground))
+            .background(.thinMaterial)
         case .disconnected:
             if !viewModel.isLoading {
                 HStack(spacing: 6) {
@@ -156,7 +281,7 @@ struct RoomDetailView: View {
                 .foregroundStyle(.red)
                 .padding(.vertical, 6)
                 .frame(maxWidth: .infinity)
-                .background(Color(.systemBackground))
+                .background(.thinMaterial)
             }
         case .connected:
             EmptyView()
@@ -204,8 +329,9 @@ struct RoomDetailView: View {
                         isAtBottom = false
                     }
             }
-            .padding(.top, 8)
+            .padding(.top, 10)
         }
+        .scrollContentBackground(.hidden)
         .onChange(of: viewModel.messages.count) { _, _ in
             guard let latestMessage = viewModel.messages.last else { return }
 
@@ -268,8 +394,11 @@ struct RoomDetailView: View {
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 10)
-                .background(Color(.secondarySystemBackground))
-                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(SideBVisualStyle.surfaceBorder, lineWidth: 1)
+                }
             }
 
             if let quotedTrack = viewModel.quotedTrack {
@@ -299,8 +428,11 @@ struct RoomDetailView: View {
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 10)
-                .background(Color(.secondarySystemBackground))
-                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(SideBVisualStyle.surfaceBorder, lineWidth: 1)
+                }
             }
 
             HStack(spacing: 12) {
@@ -314,8 +446,9 @@ struct RoomDetailView: View {
                     Image(systemName: viewModel.isShowingLinkInput ? "message" : "link")
                         .frame(width: 20, height: 20)
                 }
-                .buttonStyle(.bordered)
-                .tint(Color.secondary.opacity(0.35))
+                .buttonStyle(.plain)
+                .frame(width: 42, height: 42)
+                .sideBGlassCircle()
 
                 TextField(
                     viewModel.isShowingLinkInput ? "粘贴音乐链接" : "发送消息",
@@ -325,7 +458,14 @@ struct RoomDetailView: View {
                 .lineLimit(1...5)
                 .textInputAutocapitalization(viewModel.isShowingLinkInput ? .never : .sentences)
                 .autocorrectionDisabled(viewModel.isShowingLinkInput)
-                .textFieldStyle(.roundedBorder)
+                .textFieldStyle(.plain)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
+                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(SideBVisualStyle.surfaceBorder, lineWidth: 1)
+                }
                 .focused($isComposerFocused)
                 .frame(minHeight: 44)
                 .disabled(viewModel.isSending)
@@ -340,9 +480,13 @@ struct RoomDetailView: View {
                 .buttonStyle(.plain)
                 .fontWeight(.medium)
                 .frame(minWidth: 58, minHeight: 42)
-                .background(composerActionButtonColor.opacity(isComposerActionEnabled ? 1 : 0.18))
+                .background(composerActionButtonColor.opacity(isComposerActionEnabled ? 1 : 0.12))
                 .foregroundStyle(isComposerActionEnabled ? Color.white : Color.secondary)
                 .clipShape(Capsule())
+                .overlay {
+                    Capsule()
+                        .stroke(SideBVisualStyle.surfaceBorder, lineWidth: isComposerActionEnabled ? 0 : 1)
+                }
                 .disabled(!isComposerActionEnabled)
                 .overlay {
                     if viewModel.isSending {
@@ -353,10 +497,17 @@ struct RoomDetailView: View {
                 }
             }
         }
-        .padding(.horizontal)
+        .padding(.horizontal, 14)
         .padding(.top, 12)
-        .padding(.bottom, 18)
-        .background(.regularMaterial)
+        .padding(.bottom, 14)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .stroke(Color.white.opacity(0.18), lineWidth: 1)
+        }
+        .shadow(color: Color.black.opacity(0.10), radius: 18, y: 9)
+        .padding(.horizontal, 12)
+        .padding(.bottom, 8)
     }
 
     private var linkResolutionFeedback: some View {

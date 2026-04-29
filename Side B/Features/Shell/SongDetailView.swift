@@ -99,6 +99,7 @@ struct SongDetailView: View {
                 .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
         }
         .buttonStyle(.plain)
+        .offset(y: 18)
         .accessibilityLabel("返回")
     }
 
