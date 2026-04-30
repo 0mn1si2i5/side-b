@@ -1,5 +1,4 @@
 import Foundation
-import os
 
 protocol MusicResolverService {
     func resolve(request: ResolverRequest) async throws -> ResolverResponse
@@ -11,7 +10,6 @@ protocol MusicResolverService {
 }
 
 enum ResolverServiceFactory {
-    private static let logger = Logger(subsystem: "com.sideb.app", category: "ServiceFactory")
     private static let apiBaseURLKey = "SIDEB_API_BASE_URL"
     private static let legacyResolverURLKey = "SIDEB_RESOLVER_BASE_URL"
     private static let userDefaultsKey = "SideB_ResolverBaseURL"
@@ -21,21 +19,10 @@ enum ResolverServiceFactory {
     static var configuredBaseURL: URL?
 
     /// Whether the resolver has a valid base URL configured.
-    static var isConfigured: Bool {
-        resolverBaseURL != nil
-    }
+    static var isConfigured: Bool { true }
 
-    static func makeDefaultService() -> (any MusicResolverService)? {
+    static func makeDefaultService() -> any MusicResolverService {
         let baseURL = resolverBaseURL
-
-        guard let baseURL else {
-            #if DEBUG
-            return MockMusicResolverService()
-            #else
-            logger.error("ResolverServiceFactory: No resolver base URL configured. Set SIDEB_API_BASE_URL or SIDEB_RESOLVER_BASE_URL.")
-            return nil
-            #endif
-        }
 
         let configuration = ResolverHTTPConfiguration(baseURL: baseURL)
         let apiClient = ResolverHTTPAPIClient(configuration: configuration)
@@ -57,9 +44,9 @@ enum ResolverServiceFactory {
         UserDefaults.standard.set(url.absoluteString, forKey: userDefaultsKey)
     }
 
-    // SIDEB_API_BASE_URL routes are at /api/resolve, so /api must be appended.
-    // SIDEB_RESOLVER_BASE_URL routes are at /resolve directly (no prefix needed).
-    private static var resolverBaseURL: URL? {
+    // The FastAPI backend exposes resolver routes under /api.
+    // SIDEB_RESOLVER_BASE_URL remains as a legacy direct resolver override.
+    private static var resolverBaseURL: URL {
         if let configured = configuredBaseURL {
             return configured
         }
@@ -79,6 +66,6 @@ enum ResolverServiceFactory {
             return url
         }
 
-        return APIConfiguration.baseURL?.appendingPathComponent("api")
+        return APIConfiguration.baseURL.appendingPathComponent("api")
     }
 }

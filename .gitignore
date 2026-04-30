@@ -1,14 +1,25 @@
 .build/
 .env
 backend/.env
+backend/.venv/
+backend/.pytest_cache/
+backend/.ruff_cache/
 backend/__pycache__/
 backend/vendor/
 *.pyc
+__pycache__/
+.DS_Store
+**/.DS_Store
+.pytest_cache/
+.ruff_cache/
 *.pem
 *.key
 *.crt
 .sisyphus/
 .claude/
 backend/data/*.db
+backend/*.db
 *.db
 docker-compose.override.yml
+Side B.xcodeproj/xcuserdata/
+Side B.xcodeproj/project.xcworkspace/xcuserdata/

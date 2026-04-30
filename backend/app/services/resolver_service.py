@@ -1,10 +1,4 @@
-"""
-Service wrapper that reuses the existing resolver logic from the ThreadingHTTPServer.
-
-The core resolution functions are imported from the existing modules so that
-behaviour stays identical between the old server (port 8787) and the new
-FastAPI endpoints (port 8788).
-"""
+"""FastAPI adapter around the shared music resolver pipeline."""
 
 from __future__ import annotations
 
@@ -45,7 +39,7 @@ def build_canonical_track_from_payload(payload: dict) -> CanonicalTrack | None:
     )
 
 
-# Module-level singleton – the same instance the old server uses.
+# Module-level singleton shared by resolver routes.
 _resolver = ResolverService()
 
 
@@ -63,8 +57,7 @@ def resolve(
 def resolve_platform_links(payload: dict) -> dict:
     """Resolve platform links for an already-known canonical track.
 
-    Accepts the same payload shape that the old ``/resolve-platform-links``
-    endpoint expects, builds a ``CanonicalTrack``, and delegates to
+    Builds a ``CanonicalTrack`` from the API payload and delegates to
     ``ResolverService.resolve_platform_links``.
     """
     canonical_track = build_canonical_track_from_payload(payload)
@@ -83,8 +76,7 @@ def resolve_platform_links(payload: dict) -> dict:
 def resolve_platform_link(payload: dict) -> dict:
     """Resolve a single platform link for a canonical track.
 
-    Accepts the same payload shape that the old ``/resolve-platform-link``
-    endpoint expects, builds a ``CanonicalTrack``, and delegates to
+    Builds a ``CanonicalTrack`` from the API payload and delegates to
     ``ResolverService.resolve_platform_link``.
     """
     target_platform = payload.get("targetPlatform")

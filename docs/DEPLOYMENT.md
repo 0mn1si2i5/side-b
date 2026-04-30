@@ -1,34 +1,33 @@
-# Deployment Checklist
+# Deployment
 
-Side B v1 deploys as a small Docker Compose stack for a personal server.
+Side B v1 使用 Docker Compose 部署到个人服务器。
 
-Runtime services:
+## Services
 
-- `api`: Side B FastAPI backend. It owns auth, rooms, messages, WebSocket, resolver orchestration, SQLite migrations, and QQ Music access through `qqmusic-api-python`.
-- `netease`: Netease-compatible API service on port `3000`. The backend reaches it through `NETEASE_API_BASE_URL`.
-- `nginx`: public HTTP/HTTPS entrypoint, reverse proxy, rate limits, and `/health`.
-- `certbot`: on-demand Let's Encrypt certificate issuer/renewer, enabled through the `certbot` Compose profile.
+- `api`：FastAPI backend，负责 auth、profile、rooms、messages、WebSocket、resolver orchestration 和 Alembic migration。
+- `netease`：网易云音乐兼容 API，backend 通过 `NETEASE_API_BASE_URL` 访问。
+- `nginx`：公网 HTTP/HTTPS 入口、反向代理、限流和 `/health`。
+- `certbot`：Let's Encrypt 证书申请和续期。
 
-## 1. Server Prerequisites
+## Requirements
 
-- Docker and Docker Compose plugin installed.
-- Ports `80` and `443` open on the server firewall.
-- A domain A/AAAA record pointing to the server.
-- A deploy directory containing this repository and a private `backend/.env`.
-- Enough disk for the SQLite volume and backups.
+- Docker 和 Docker Compose plugin。
+- 服务器开放 80/443。
+- 域名 A/AAAA 记录指向服务器。
+- 仓库已 clone 到服务器。
+- 私有 `backend/.env` 已配置。
+- SQLite volume 有备份策略。
 
-## 2. Environment
-
-Create `backend/.env` from the example:
+## Environment
 
 ```bash
 cp backend/.env.example backend/.env
 ```
 
-Required production values:
+生产必填：
 
 ```env
-JWT_SECRET=<generate_with_python_secrets_token_hex_32>
+JWT_SECRET=<python_secrets_token_hex_32>
 SPOTIFY_CLIENT_ID=<spotify_client_id>
 SPOTIFY_CLIENT_SECRET=<spotify_client_secret>
 DATABASE_URL=sqlite:///./data/sideb.db
@@ -38,60 +37,47 @@ NETEASE_REQUEST_TIMEOUT=10
 UVICORN_WORKERS=1
 ```
 
-Compose sets:
+Compose 内部使用：
 
 ```env
 NETEASE_API_BASE_URL=http://netease:3000
 ```
 
-Keep `UVICORN_WORKERS=1` for v1. WebSocket connection management is process-local.
+保持 `UVICORN_WORKERS=1`，因为当前 WebSocket 连接管理在进程内。
 
-## 3. Netease API Service
+## Deploy Or Update
 
-The backend expects a Netease-compatible HTTP API with endpoints used by:
-
-- `/cloudsearch`
-- `/song/detail`
-- `/song/url`
-- `/check/music`
-
-For local testing, run `api-enhanced` on `127.0.0.1:3000` and set `NETEASE_API_BASE_URL=http://127.0.0.1:3000`.
-
-For Docker deployment, run the Netease service inside the compose network under service name `netease`, and keep the backend value as `http://netease:3000`.
-
-The default compose file uses:
-
-```yaml
-image: moefurina/ncm-api:latest
-```
-
-## 4. First Deploy
-
-Build and start:
+首次部署：
 
 ```bash
 docker compose up -d --build
 ```
 
-Check container status:
+服务器拉取新代码：
+
+```bash
+git pull
+docker compose up -d --build api nginx
+```
+
+只改 iOS 代码或文档时，服务器后端不需要重启。改后端 Python、requirements、Dockerfile、nginx、compose 或 `.env` 后，需要 rebuild/restart 对应服务。
+
+查看状态：
 
 ```bash
 docker compose ps
 docker compose logs -f api
 ```
 
-The API container runs migrations on startup through `backend/entrypoint.sh`.
+`api` 容器启动时会运行：
 
-The backend Docker build intentionally excludes local `backend/vendor/`, virtualenvs, caches, and SQLite files. Runtime dependencies come from `backend/requirements.txt`, and runtime data comes from the `sideb-data` volume.
+```bash
+alembic upgrade head
+```
 
-## 5. HTTPS Certificate
+## HTTPS
 
-The Compose stack mounts two certificate-related volumes:
-
-- `certbot-www`: shared webroot for HTTP-01 challenges.
-- `letsencrypt`: persisted Let's Encrypt account and certificate data.
-
-After DNS points to the server and port `80` is reachable, issue the first certificate:
+DNS 指向服务器且 80 可访问后，申请证书：
 
 ```bash
 docker compose --profile certbot run --rm certbot certonly \
@@ -102,34 +88,34 @@ docker compose --profile certbot run --rm certbot certonly \
   --no-eff-email
 ```
 
-Then start or reload nginx:
+重启 nginx：
 
 ```bash
 docker compose up -d --build nginx
 ```
 
-Install a renewal cron on the server:
+续期 cron 示例：
 
 ```bash
 17 3 * * * cd /path/to/Side-B && docker compose --profile certbot run --rm certbot renew --quiet --webroot -w /var/www/certbot && docker compose kill -s HUP nginx >/dev/null 2>&1
 ```
 
-## 6. Smoke Tests
+## Smoke Tests
 
-From the server:
+服务器本机：
 
 ```bash
 curl -f http://127.0.0.1/health
 curl -f http://127.0.0.1:8788/health
 ```
 
-From your local machine after DNS/HTTPS is ready:
+公网：
 
 ```bash
 curl -f https://<your-domain>/health
 ```
 
-Auth smoke test:
+注册：
 
 ```bash
 curl -s -X POST https://<your-domain>/api/auth/register \
@@ -137,7 +123,7 @@ curl -s -X POST https://<your-domain>/api/auth/register \
   -d '{"username":"deploytest1","password":"TestPass123!","displayName":"Deploy Test","avatarName":"avatar_1"}'
 ```
 
-Resolver smoke test:
+解析：
 
 ```bash
 curl -s -X POST https://<your-domain>/api/resolve \
@@ -145,38 +131,27 @@ curl -s -X POST https://<your-domain>/api/resolve \
   -d '{"rawLink":"分享G.E.M.邓紫棋的单曲《唯一》https://163cn.tv/5ZcJvPj (@网易云音乐)","includePlatformLinks":true}'
 ```
 
-Expected resolver behavior:
+验收点：
 
-- Source metadata succeeds for Spotify / Apple Music / Netease / QQ links when credentials and third-party services are healthy.
-- Target platform misses hide that platform button instead of failing the whole card.
-- Netease failures should be isolated to Netease source or Netease target mapping.
+- `/health` 通过 nginx 和 api 都返回 ok。
+- `/api/auth/register`、`/api/auth/login`、`/api/auth/me` 可用。
+- `/api/resolve` 能解析至少一个 Spotify 或 Apple Music 链接。
+- Netease service healthy 时网易云链接可解析。
+- QQ Music 依赖安装后 QQ 链接可解析。
+- 真机可连接 WebSocket，并收到房间消息广播。
 
-## 7. iOS Production Pointing
+## SQLite Data
 
-Set the scheme or app configuration to:
+默认数据库位于 Docker volume `sideb-data` 中的 `/app/data/sideb.db`。
 
-```text
-SIDEB_API_BASE_URL=https://<your-domain>
-```
-
-For LAN testing before domain cutover:
-
-```text
-SIDEB_API_BASE_URL=http://<server-lan-ip>
-```
-
-## 8. SQLite Volume Backup
-
-The default database lives in Docker volume `sideb-data` at `/app/data/sideb.db`.
-
-Create a backup:
+备份：
 
 ```bash
 docker compose exec api python -c "import sqlite3; src=sqlite3.connect('/app/data/sideb.db'); dst=sqlite3.connect('/app/data/sideb-backup.db'); src.backup(dst); dst.close(); src.close()"
 docker cp sideb-api:/app/data/sideb-backup.db ./sideb-backup-$(date +%Y%m%d-%H%M%S).db
 ```
 
-Restore during maintenance:
+恢复：
 
 ```bash
 docker compose down
@@ -184,32 +159,27 @@ docker compose run --rm --no-deps --entrypoint sh -v "$PWD":/backup api -c "cp /
 docker compose up -d
 ```
 
-Verify after restore:
+本地开发清库后重建：
 
 ```bash
-docker compose logs api
-curl -f http://127.0.0.1/health
+rm -f backend/*.db backend/data/*.db
+cd backend
+alembic upgrade head
 ```
 
-## 9. Operational Checks
+## Repository Hygiene
 
-- `docker compose ps` shows `api`, `netease`, and `nginx` healthy.
-- `docker compose logs api` has no migration errors.
-- `/health` returns success through nginx.
-- The Let's Encrypt certificate exists in the `letsencrypt` volume and auto-renewal is installed.
-- `/api/auth/register` and `/api/auth/login` work.
-- `/api/resolve` works for at least one Spotify or Apple Music link.
-- Netease link resolution works when the `netease` service is healthy.
-- QQ link resolution works from inside the `api` container.
-- WebSocket connects with one API worker.
+- `backend/vendor/` 不部署、不提交，依赖由 `backend/requirements.txt` 安装。
+- `.env`、本地 DB、虚拟环境、缓存、Xcode `xcuserdata/` 不进入 Git。
+- Xcode Scheme 中的个人 `SIDEB_API_BASE_URL` 不提交。
 
-## 10. Rollback
+## Rollback
 
-For code rollback:
+代码回滚：
 
 ```bash
-git checkout <previous-commit>
+git checkout <known-good-revision>
 docker compose up -d --build
 ```
 
-For data rollback, restore the SQLite backup before starting the new containers.
+数据回滚需要先恢复 SQLite backup，再启动容器。

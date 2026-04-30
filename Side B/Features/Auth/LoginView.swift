@@ -3,6 +3,8 @@ import UIKit
 
 struct LoginView: View {
     @Bindable var viewModel: AuthViewModel
+    @AppStorage(AuthPreferenceKeys.rememberPassword) private var rememberPassword = true
+    @AppStorage(AuthPreferenceKeys.lastUsername) private var lastUsername = ""
     @State private var username = ""
     @State private var password = ""
 
@@ -20,9 +22,15 @@ struct LoginView: View {
                         .textContentType(.password)
                         .sideBAuthFieldStyle()
 
+                    rememberPasswordToggle
+
                     primaryButton(title: "登录", isLoading: viewModel.isLoading) {
                         Task {
-                            await viewModel.login(username: username, password: password)
+                            await viewModel.login(
+                                username: username,
+                                password: password,
+                                rememberPassword: rememberPassword
+                            )
                         }
                     }
                     .disabled(viewModel.isLoading || username.isEmpty || password.isEmpty)
@@ -56,6 +64,11 @@ struct LoginView: View {
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
+        .onAppear {
+            if username.isEmpty {
+                username = lastUsername
+            }
+        }
         .alert(
             "登录失败",
             isPresented: .init(
@@ -81,6 +94,27 @@ struct LoginView: View {
                 .font(.body)
                 .foregroundStyle(.secondary)
         }
+    }
+
+    private var rememberPasswordToggle: some View {
+        Button {
+            rememberPassword.toggle()
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: rememberPassword ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.primary)
+
+                Text("记住密码")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.primary)
+
+                Spacer()
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .padding(.vertical, 2)
     }
 
     private var authBackground: some View {

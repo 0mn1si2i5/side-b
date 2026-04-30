@@ -1,4 +1,7 @@
 import Foundation
+import os
+
+private let recentlyResolvedLogger = Logger(subsystem: "com.sideb.app", category: "RecentlyResolvedStore")
 
 struct RecentlyResolvedEntry: Codable {
     let persistenceIdentity: String
@@ -70,7 +73,7 @@ final class RecentlyResolvedStore: RecentlyResolvedStoreProtocol {
         do {
             return try decoder.decode([RecentlyResolvedEntry].self, from: data)
         } catch {
-            print("[RecentlyResolvedStore] decode failed:", error)
+            recentlyResolvedLogger.error("decode failed: \(error.localizedDescription, privacy: .public)")
             return []
         }
     }
@@ -80,7 +83,7 @@ final class RecentlyResolvedStore: RecentlyResolvedStoreProtocol {
         do {
             data = try encoder.encode(entries)
         } catch {
-            print("[RecentlyResolvedStore] encode failed:", error)
+            recentlyResolvedLogger.error("encode failed: \(error.localizedDescription, privacy: .public)")
             return
         }
         userDefaults.set(data, forKey: storageKey)

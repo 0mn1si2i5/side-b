@@ -5,7 +5,7 @@ struct RootView: View {
     @AppStorage(SideBVisualStyle.appAppearanceStorageKey) private var appAppearanceRawValue = AppAppearance.system.rawValue
 
     private var isConfigured: Bool {
-        APIConfiguration.baseURL != nil && ResolverServiceFactory.isConfigured
+        ResolverServiceFactory.isConfigured
     }
 
     private var appAppearance: AppAppearance {

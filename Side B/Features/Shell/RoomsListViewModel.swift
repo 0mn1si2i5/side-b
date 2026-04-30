@@ -14,7 +14,7 @@ final class RoomsListViewModel {
 
     private let service: any RoomServiceProtocol
 
-    init(service: any RoomServiceProtocol = RoomServiceFactory.makeDefaultService()!) {
+    init(service: any RoomServiceProtocol = RoomServiceFactory.makeDefaultService()) {
         self.service = service
     }
 

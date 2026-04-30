@@ -172,6 +172,7 @@ struct PlaylistListView: View {
                     } label: {
                         Label("移除", systemImage: "trash")
                     }
+                    .tint(Color(.systemRed))
                 }
             }
 

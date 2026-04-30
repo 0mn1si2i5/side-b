@@ -101,8 +101,8 @@ final class SendTrackToRoomViewModel {
     private let messageService: any MessageServiceProtocol
 
     init(
-        roomService: any RoomServiceProtocol = RoomServiceFactory.makeDefaultService()!,
-        messageService: any MessageServiceProtocol = MessageServiceFactory.makeDefaultService()!
+        roomService: any RoomServiceProtocol = RoomServiceFactory.makeDefaultService(),
+        messageService: any MessageServiceProtocol = MessageServiceFactory.makeDefaultService()
     ) {
         self.roomService = roomService
         self.messageService = messageService

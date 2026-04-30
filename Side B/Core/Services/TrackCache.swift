@@ -1,4 +1,7 @@
 import Foundation
+import os
+
+private let trackCacheLogger = Logger(subsystem: "com.sideb.app", category: "TrackCache")
 
 struct CachedTrack: Codable {
     let persistenceIdentity: String
@@ -169,7 +172,7 @@ final class TrackCache: TrackCacheProtocol {
         do {
             return try decoder.decode([String: CachedTrack].self, from: data)
         } catch {
-            print("[TrackCache] decode failed:", error)
+            trackCacheLogger.error("decode failed: \(error.localizedDescription, privacy: .public)")
             return [:]
         }
     }
@@ -179,7 +182,7 @@ final class TrackCache: TrackCacheProtocol {
         do {
             data = try encoder.encode(records)
         } catch {
-            print("[TrackCache] encode failed:", error)
+            trackCacheLogger.error("encode failed: \(error.localizedDescription, privacy: .public)")
             return
         }
         userDefaults.set(data, forKey: storageKey)

@@ -18,6 +18,8 @@ protocol AuthServiceProtocol {
 
     func logout() async throws
 
+    func clearStoredToken()
+
     var isLoggedIn: Bool { get }
 }
 

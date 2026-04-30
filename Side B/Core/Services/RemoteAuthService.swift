@@ -129,6 +129,10 @@ struct RemoteAuthService: AuthServiceProtocol {
         tokenStore.delete()
     }
 
+    func clearStoredToken() {
+        tokenStore.delete()
+    }
+
     private func sendRequest(
         path: String,
         method: String = "POST",

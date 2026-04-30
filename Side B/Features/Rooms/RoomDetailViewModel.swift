@@ -38,9 +38,9 @@ final class RoomDetailViewModel {
         roomId: UUID,
         initialMessages: [Message] = [],
         persistenceStore: PlatformLinkPersistenceStore = .shared,
-        resolver: MusicResolverService = ResolverServiceFactory.makeDefaultService()!,
-        messageService: MessageServiceProtocol = MessageServiceFactory.makeDefaultService()!,
-        webSocketService: WebSocketServiceProtocol = WebSocketServiceFactory.makeDefaultService()!
+        resolver: MusicResolverService = ResolverServiceFactory.makeDefaultService(),
+        messageService: MessageServiceProtocol = MessageServiceFactory.makeDefaultService(),
+        webSocketService: WebSocketServiceProtocol = WebSocketServiceFactory.makeDefaultService()
     ) {
         self.roomId = roomId
         self.persistenceStore = persistenceStore

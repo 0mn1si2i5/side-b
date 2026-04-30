@@ -1,6 +1,0 @@
-##########################################################
-# Author: Bryan Lai
-# GitHub: laisuk
-# January, 2025
-##########################################################
-from .core import OpenCC, OpenccConfig

@@ -21,7 +21,7 @@ final class PlaylistListViewModel {
 
     private let resolver: any MusicResolverService
 
-    init(resolver: any MusicResolverService = ResolverServiceFactory.makeDefaultService()!) {
+    init(resolver: any MusicResolverService = ResolverServiceFactory.makeDefaultService()) {
         self.resolver = resolver
     }
 

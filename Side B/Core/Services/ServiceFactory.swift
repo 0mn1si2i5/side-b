@@ -1,5 +1,4 @@
 import Foundation
-import os
 
 // MARK: - Shared API Base URL Configuration
 
@@ -17,7 +16,7 @@ enum APIConfiguration {
         UserDefaults.standard.set(url.absoluteString, forKey: userDefaultsKey)
     }
 
-    static var baseURL: URL? {
+    static var baseURL: URL {
         if let configured = configuredBaseURL {
             return configured
         }
@@ -39,18 +38,8 @@ enum APIConfiguration {
 // MARK: - Auth Service Factory
 
 enum AuthServiceFactory {
-    private static let logger = Logger(subsystem: "com.sideb.app", category: "ServiceFactory")
-
-    static func makeDefaultService() -> (any AuthServiceProtocol)? {
-        guard let baseURL = APIConfiguration.baseURL else {
-            #if DEBUG
-            return MockAuthService()
-            #else
-            logger.error("AuthServiceFactory: SIDEB_API_BASE_URL not configured. Cannot create auth service.")
-            return nil
-            #endif
-        }
-
+    static func makeDefaultService() -> any AuthServiceProtocol {
+        let baseURL = APIConfiguration.baseURL
         return RemoteAuthService(baseURL: baseURL)
     }
 }
@@ -58,18 +47,8 @@ enum AuthServiceFactory {
 // MARK: - WebSocket Service Factory
 
 enum WebSocketServiceFactory {
-    private static let logger = Logger(subsystem: "com.sideb.app", category: "ServiceFactory")
-
-    static func makeDefaultService() -> (any WebSocketServiceProtocol)? {
-        guard let baseURL = APIConfiguration.baseURL else {
-            #if DEBUG
-            return MockWebSocketService()
-            #else
-            logger.error("WebSocketServiceFactory: SIDEB_API_BASE_URL not configured. Cannot create WebSocket service.")
-            return nil
-            #endif
-        }
-
+    static func makeDefaultService() -> any WebSocketServiceProtocol {
+        let baseURL = APIConfiguration.baseURL
         return RemoteWebSocketService(baseURL: baseURL)
     }
 }
@@ -77,18 +56,8 @@ enum WebSocketServiceFactory {
 // MARK: - Room Service Factory
 
 enum RoomServiceFactory {
-    private static let logger = Logger(subsystem: "com.sideb.app", category: "ServiceFactory")
-
-    static func makeDefaultService() -> (any RoomServiceProtocol)? {
-        guard let baseURL = APIConfiguration.baseURL else {
-            #if DEBUG
-            return MockRoomService()
-            #else
-            logger.error("RoomServiceFactory: SIDEB_API_BASE_URL not configured. Cannot create room service.")
-            return nil
-            #endif
-        }
-
+    static func makeDefaultService() -> any RoomServiceProtocol {
+        let baseURL = APIConfiguration.baseURL
         return RemoteRoomService(baseURL: baseURL)
     }
 }
@@ -96,18 +65,8 @@ enum RoomServiceFactory {
 // MARK: - Message Service Factory
 
 enum MessageServiceFactory {
-    private static let logger = Logger(subsystem: "com.sideb.app", category: "ServiceFactory")
-
-    static func makeDefaultService() -> (any MessageServiceProtocol)? {
-        guard let baseURL = APIConfiguration.baseURL else {
-            #if DEBUG
-            return MockMessageService()
-            #else
-            logger.error("MessageServiceFactory: SIDEB_API_BASE_URL not configured. Cannot create message service.")
-            return nil
-            #endif
-        }
-
+    static func makeDefaultService() -> any MessageServiceProtocol {
+        let baseURL = APIConfiguration.baseURL
         return RemoteMessageService(baseURL: baseURL)
     }
 }

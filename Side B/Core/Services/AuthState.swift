@@ -12,15 +12,24 @@ final class AuthState {
     var errorMessage: String?
 
     private let authService: any AuthServiceProtocol
+    private let credentialStore: KeychainCredentialStore
+    private let userDefaults: UserDefaults
 
-    init(authService: any AuthServiceProtocol = AuthServiceFactory.makeDefaultService()!) {
+    init(
+        authService: any AuthServiceProtocol = AuthServiceFactory.makeDefaultService(),
+        credentialStore: KeychainCredentialStore = KeychainCredentialStore(),
+        userDefaults: UserDefaults = .standard
+    ) {
         self.authService = authService
+        self.credentialStore = credentialStore
+        self.userDefaults = userDefaults
     }
 
     func checkAuthStatus() async {
+        errorMessage = nil
+
         guard authService.isLoggedIn else {
-            isAuthenticated = false
-            currentUser = nil
+            await attemptRememberedLogin()
             return
         }
 
@@ -33,7 +42,13 @@ final class AuthState {
         } catch {
             currentUser = nil
             isAuthenticated = false
-            errorMessage = "自动登录失败：\(error.localizedDescription)"
+
+            if classifyError(error) == .authError {
+                authService.clearStoredToken()
+                await attemptRememberedLogin(keepsLoading: true)
+            } else {
+                errorMessage = "自动登录失败：\(localizedErrorMessage(for: error))"
+            }
         }
 
         isLoading = false
@@ -70,8 +85,50 @@ final class AuthState {
         } catch {
             logger.error("logout failed: \(error)")
         }
+        credentialStore.delete()
+        userDefaults.set(false, forKey: AuthPreferenceKeys.rememberPassword)
         currentUser = nil
         isAuthenticated = false
         errorMessage = nil
+    }
+
+    private func attemptRememberedLogin(keepsLoading: Bool = false) async {
+        guard userDefaults.bool(forKey: AuthPreferenceKeys.rememberPassword),
+              let credential = credentialStore.load()
+        else {
+            isAuthenticated = false
+            currentUser = nil
+            if !keepsLoading {
+                isLoading = false
+            }
+            return
+        }
+
+        if !keepsLoading {
+            isLoading = true
+        }
+
+        do {
+            _ = try await authService.login(username: credential.username, password: credential.password)
+            let user = try await authService.getCurrentUser()
+            currentUser = user
+            isAuthenticated = true
+            errorMessage = nil
+        } catch {
+            authService.clearStoredToken()
+            if classifyError(error) == .authError {
+                credentialStore.delete()
+                userDefaults.set(false, forKey: AuthPreferenceKeys.rememberPassword)
+                userDefaults.removeObject(forKey: AuthPreferenceKeys.lastUsername)
+            } else {
+                errorMessage = "自动登录失败：\(localizedErrorMessage(for: error))"
+            }
+            currentUser = nil
+            isAuthenticated = false
+        }
+
+        if !keepsLoading {
+            isLoading = false
+        }
     }
 }

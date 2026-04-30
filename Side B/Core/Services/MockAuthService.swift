@@ -70,4 +70,8 @@ struct MockAuthService: AuthServiceProtocol {
     func logout() async throws {
         tokenStore.delete()
     }
+
+    func clearStoredToken() {
+        tokenStore.delete()
+    }
 }

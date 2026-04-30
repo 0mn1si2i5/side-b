@@ -8,7 +8,7 @@ struct SongDetailView: View {
 
     init(
         track: Track,
-        resolver: any MusicResolverService = ResolverServiceFactory.makeDefaultService()!,
+        resolver: any MusicResolverService = ResolverServiceFactory.makeDefaultService(),
         persistenceStore: PlatformLinkPersistenceStore = .shared,
         onTrackUpdated: ((Track) -> Void)? = nil
     ) {

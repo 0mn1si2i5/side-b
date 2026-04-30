@@ -1,222 +1,122 @@
 # Side B Architecture
 
-## 总体目标
+## Overview
 
-Side B 是一套可部署的多平台歌曲解析与分享系统。
+Side B 当前是一个 iOS 轻客户端 + FastAPI 模块化单体后端。
 
-当前正式架构方向：
+```text
+iOS Client -> FastAPI API -> Resolver / Auth / Rooms / Messages -> SQLite + third-party music APIs
+```
 
-`iOS Client -> Backend API -> Source Parsing -> Canonical Track -> Target Link Resolution -> iOS Display`
+后端是业务核心：负责认证、房间消息持久化、平台 secret、metadata 获取、候选搜索和跨平台匹配。iOS 负责输入、展示、缓存、跳转和实时状态呈现。
 
-整体采用：
+## iOS Client
 
-- iOS 轻客户端
-- 模块化单体 backend
-- resolver-first 架构
+主要模块：
 
-## 客户端与后端边界
+- `Features/Playlists`：歌曲页、最近解析、歌单和本地歌单存储。
+- `Features/Rooms`：房间列表、房间详情、消息输入、歌曲卡片和房间管理。
+- `Features/Auth`：登录、注册、头像选择和认证 UI。
+- `Features/Shell`：主 Tab、歌曲详情、发送歌曲到房间、设置页。
+- `Core/Services`：API service、Keychain token/credential、WebSocket、本地缓存和 resolver client。
 
-### iOS Client
+本地持久化：
 
-负责：
+- JWT token 与记住密码凭据存入 Keychain。
+- 最近解析、歌单、track cache、平台链接补全结果存入 `UserDefaults`。
+- 图片使用内存缓存和 URLSession cache。
 
-- 首页歌单 UI
-- 聊天室 UI
-- 输入歌曲链接
-- 展示歌曲卡片与详情页
-- 平台按钮渲染与跳转
-- 调用 resolver API
+## Backend
 
-后端承担：
+主要结构：
 
-- 平台链接推导
-- metadata 获取
-- 匹配策略与打分
-- 平台密钥管理
-- 第三方服务接入
+- `backend/app/routers`：FastAPI routes。
+- `backend/app/services`：auth、user、room、message、WebSocket orchestration。
+- `backend/services`：resolver 编排、input parser、source adapter 聚合。
+- `backend/resolvers`：各平台 target resolver。
+- `backend/platform_clients`：第三方 API 或第三方库封装。
+- `backend/models`：resolver domain models。
 
-### Backend
+后端运行数据：
 
-负责：
+- SQLite 是 v1 默认数据库。
+- Alembic 负责 schema migration。
+- Docker 使用 `sideb-data` volume 保存数据库。
 
-- 输入解析
-- 用户认证、房间、消息与实时广播
-- 来源平台识别
-- metadata 获取
-- canonical track 构建
-- 跨平台目标链接匹配
-- 缓存与超时控制
-- 个人服务器部署所需的迁移、配置与运行边界
+## Resolver Flow
 
-## 当前 backend 结构
+`POST /api/resolve`：
 
-当前仓库已按以下结构收口：
+- 从用户输入或分享文案中提取音乐链接。
+- 识别 source platform。
+- 获取 source metadata 并构建 canonical track。
+- 可选同步补全其他平台链接。
 
-- `backend/app/routers`
-- `backend/app/services`
-- `backend/services`
-- `backend/resolvers`
-- `backend/models`
-- `backend/platform_clients`
-- `backend/utils`
+`POST /api/resolve-platform-link`：
 
-约束：
+- 对已知 canonical track 补全单个平台链接。
+- 详情页按平台独立加载和回写本地缓存。
 
-- route 只做 HTTP 协议与 response assembly
-- service 做 orchestration
-- resolver 处理平台级 source / target 逻辑
-- platform client 封装第三方服务或第三方库
+平台策略：
 
-## 关键内部模型
+- Spotify 使用官方 API。
+- Apple Music 使用 iTunes lookup/search。
+- 网易云音乐通过 Netease-compatible API sidecar。
+- QQ 音乐通过 `qqmusic-api-python`。
+- 非源平台只有命中真实歌曲链接才显示为可点击。
 
-### ParsedSource
+## Rooms And Messages
 
-表示已识别的来源平台资源：
+Room 是唯一消息承载单元。
 
-- `platform`
-- `source_url`
-- `resource_id`
-- `resource_kind`
+- `POST /api/rooms` 创建房间。
+- `GET /api/rooms` 拉取当前用户房间列表。
+- `GET /api/rooms/{room_id}/messages` 拉取历史消息。
+- `POST /api/rooms/{room_id}/messages` 创建文本、歌曲和引用消息。
+- `WS /ws/rooms/{room_id}` 接收 `new_message`、emoji、删除和房间更新广播。
 
-### CanonicalTrack
+同步规则：
 
-表示统一歌曲对象：
+- iOS 创建消息必须先走 REST 持久化。
+- 后端持久化成功后广播给在线成员。
+- iOS 重新进入房间以 REST 历史消息为准。
+- Docker v1 使用单 worker，因为 WebSocket 连接管理在进程内。
 
-- `source_platform`
-- `source_id`
-- `source_url`
-- `title`
-- `artist_name`
-- `album_title`
-- `duration_ms`
-- `artwork_url`
-- `isrc`
+## Auth And Profile
 
-### ResolverContext
+认证能力：
 
-承载 resolver 运行上下文：
+- 注册、登录、JWT、`/api/auth/me`。
+- iOS 启动时优先用 Keychain token 恢复会话。
+- token 失效时可用 Keychain 保存的记住密码凭据静默重新登录。
+- 显式退出会清理 token 和记住密码凭据。
 
-- `preferred_market`
-- `spotify_access_token`
-- `netease_api_base_url`
-- cache stores
+用户资料：
 
-## Resolver 分层
+- `displayName`
+- `avatarName`
+- `preferredPlatform`
 
-### 1. Source Platform Adapters
+头像由预置头像池提供，不依赖上传或对象存储。
 
-每个平台 source adapter 只负责：
+## Deployment
 
-- 判断能否处理输入
-- 从链接中提取资源 ID
-- 获取 source metadata
-- 构建 canonical track
+Docker Compose 服务：
 
-当前已存在：
+- `api`：FastAPI、Alembic、resolver、QQ Music client。
+- `netease`：网易云音乐兼容 API。
+- `nginx`：公网入口、反向代理、限流、healthcheck。
+- `certbot`：证书申请和续期。
 
-- `SpotifySourceAdapter`
-- `AppleMusicSourceAdapter`
-- `NeteaseSourceAdapter`
-- `QQMusicSourceAdapter`
+关键约束：
 
-### 2. Target Platform Resolvers
+- `UVICORN_WORKERS=1`。
+- SQLite volume 需要备份策略。
+- `backend/vendor/` 不作为交付物，依赖通过 `backend/requirements.txt` 安装。
 
-每个平台 target resolver 只负责：
+## Development Direction
 
-- 接收 canonical track
-- 搜索目标平台候选
-- 返回真实歌曲链接或 `None`
-
-当前已存在：
-
-- `SpotifyTargetResolver`
-- `AppleMusicTargetResolver`
-- `NeteaseTargetResolver`
-- `QQMusicTargetResolver`
-
-### 3. Route / Orchestration
-
-当前 resolver 路径已采用两阶段模型：
-
-- `POST /api/resolve`
-  - 支持 metadata-only
-  - 解析成功即可创建歌曲卡片
-- `POST /api/resolve-platform-link`
-  - 单独解析某一个目标平台
-- `POST /api/resolve-platform-links`
-  - 批量解析接口，保留为后端能力
-
-### 4. 用户、房间与消息
-
-当前已有最小后端域模型：
-
-- `POST /api/auth/register` / `POST /api/auth/login`：极简账号系统，JWT 鉴权
-- `GET/POST /api/rooms`：单一 Room 模型；用户可先创建仅包含自己的聊天室，再邀请成员
-- `GET/POST /api/rooms/{room_id}/messages`：历史消息与持久化发送入口
-- `WS /ws/rooms/{room_id}`：服务端广播通道
-
-消息同步方案：
-
-- 所有消息必须先经 REST API 持久化，再由后端广播
-- iOS 重进房间以 REST 历史消息为准
-- WebSocket v1 使用进程内连接管理，Docker 默认单 worker
-- 一对一和多人聊天都是成员数量不同的 Room
-
-## 当前客户端交互模型
-
-### 发歌阶段
-
-- 只依赖 metadata 成功
-- 一旦 canonical track 构建成功，就通过消息 API 持久化歌曲消息
-- 不等待所有平台按钮同步完成
-
-### 详情页阶段
-
-- 四个平台位置固定存在
-- 源平台立即可点击
-- 先读本地平台链接持久化结果，再决定是否发请求
-- 其他平台独立进入以下状态：
-  - `idle`
-  - `loading`
-  - `ready`
-  - `unavailable`
-  - `failed`
-- 某一个平台超时或失败时，其他平台继续补全
-
-## 平台接入方式
-
-### Spotify
-
-- 官方 API
-- 用于 source metadata 与 target 匹配
-- 当前是 preferred canonical metadata source
-
-### Apple Music
-
-- source metadata：`iTunes lookup`
-- target mapping：`iTunes Search API + 本地 matcher`
-
-### 网易云音乐
-
-- 依赖独立 `api-enhanced` 服务
-- 通过 `NETEASE_API_BASE_URL` 接入
-
-### QQ 音乐
-
-- 直接集成 `QQMusicApi` Python 库
-- share 短链由 resolver 内部解析
-
-## 当前失败语义
-
-- 输入无法识别：不生成歌曲卡片
-- metadata 获取失败：不生成歌曲卡片
-- 某目标平台匹配失败：只是不显示该按钮
-- 源平台按钮永远显示
-- 非源平台只有真实命中才显示
-
-## 下一阶段架构重点
-
-1. 保持本地启动、实机调试、测试闭环稳定
-2. 完成个人服务器 Docker 部署、域名、HTTPS 与 SQLite volume 备份策略
-3. 平台补全缓存的淘汰、清理与诊断能力
-4. 保持 DEBUG mock fallback 作为本地开发兜底
+1. 保持本地、真机、Docker 运行闭环稳定。
+2. 固化服务器部署、HTTPS、备份和恢复。
+3. 提升 resolver 第三方失败的日志、诊断和用户反馈。
+4. 为认证恢复、房间历史、消息顺序、平台链接补全补测试。

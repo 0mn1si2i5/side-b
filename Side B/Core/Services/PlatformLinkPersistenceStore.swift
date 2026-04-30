@@ -1,4 +1,7 @@
 import Foundation
+import os
+
+private let platformLinkStoreLogger = Logger(subsystem: "com.sideb.app", category: "PlatformLinkPersistenceStore")
 
 struct PersistedPlatformLinkRecord {
     let platformLinks: [PlatformLink]
@@ -76,7 +79,7 @@ final class PlatformLinkPersistenceStore {
         do {
             return try decoder.decode([String: PersistedPlatformLinkRecordBody].self, from: data)
         } catch {
-            print("[PlatformLinkPersistenceStore] decode failed:", error)
+            platformLinkStoreLogger.error("decode failed: \(error.localizedDescription, privacy: .public)")
             return [:]
         }
     }
@@ -86,7 +89,7 @@ final class PlatformLinkPersistenceStore {
         do {
             data = try encoder.encode(records)
         } catch {
-            print("[PlatformLinkPersistenceStore] encode failed:", error)
+            platformLinkStoreLogger.error("encode failed: \(error.localizedDescription, privacy: .public)")
             return
         }
         userDefaults.set(data, forKey: storageKey)

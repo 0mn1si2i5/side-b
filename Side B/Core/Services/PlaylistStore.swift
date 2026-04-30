@@ -1,4 +1,7 @@
 import Foundation
+import os
+
+private let playlistStoreLogger = Logger(subsystem: "com.sideb.app", category: "PlaylistStore")
 
 protocol PlaylistStoreProtocol: AnyObject {
     func loadPlaylists() -> [Playlist]
@@ -138,7 +141,7 @@ final class PlaylistStore: PlaylistStoreProtocol {
         do {
             return try decoder.decode([Playlist].self, from: data)
         } catch {
-            print("[PlaylistStore] decode failed:", error)
+            playlistStoreLogger.error("decode failed: \(error.localizedDescription, privacy: .public)")
             return []
         }
     }
@@ -148,7 +151,7 @@ final class PlaylistStore: PlaylistStoreProtocol {
         do {
             data = try encoder.encode(playlists)
         } catch {
-            print("[PlaylistStore] encode failed:", error)
+            playlistStoreLogger.error("encode failed: \(error.localizedDescription, privacy: .public)")
             return
         }
         userDefaults.set(data, forKey: storageKey)

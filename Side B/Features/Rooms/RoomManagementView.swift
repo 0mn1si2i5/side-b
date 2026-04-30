@@ -7,7 +7,7 @@ struct RoomManagementView: View {
 
     init(
         room: Room,
-        service: any RoomServiceProtocol = RoomServiceFactory.makeDefaultService()!,
+        service: any RoomServiceProtocol = RoomServiceFactory.makeDefaultService(),
         onDissolved: @escaping () -> Void = {}
     ) {
         _viewModel = State(initialValue: RoomManagementViewModel(room: room, service: service))
@@ -56,12 +56,16 @@ struct RoomManagementView: View {
             HStack {
                 Text("成员")
                 Spacer()
-                Text("\(viewModel.room.memberIDs.count) 人")
+                Text("\(memberCount) 人")
                     .foregroundStyle(.secondary)
             }
         } header: {
             Text("房间信息")
         }
+    }
+
+    private var memberCount: Int {
+        max(viewModel.room.memberUsernames.count, viewModel.room.memberIDs.count)
     }
 
     private var renameSection: some View {

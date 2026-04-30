@@ -260,16 +260,7 @@ struct RoomDetailView: View {
     private var connectionBanner: some View {
         switch viewModel.connectionState {
         case .connecting:
-            HStack(spacing: 6) {
-                ProgressView()
-                    .controlSize(.small)
-                Text("连接中...")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            .padding(.vertical, 6)
-            .frame(maxWidth: .infinity)
-            .background(.thinMaterial)
+            EmptyView()
         case .disconnected:
             if !viewModel.isLoading {
                 HStack(spacing: 6) {

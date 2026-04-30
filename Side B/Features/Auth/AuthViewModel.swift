@@ -8,17 +8,23 @@ final class AuthViewModel {
     var errorMessage: String?
 
     private let authService: any AuthServiceProtocol
+    private let credentialStore: KeychainCredentialStore
+    private let userDefaults: UserDefaults
     private weak var authState: AuthState?
 
     init(
-        authService: any AuthServiceProtocol = AuthServiceFactory.makeDefaultService()!,
+        authService: any AuthServiceProtocol = AuthServiceFactory.makeDefaultService(),
+        credentialStore: KeychainCredentialStore = KeychainCredentialStore(),
+        userDefaults: UserDefaults = .standard,
         authState: AuthState? = nil
     ) {
         self.authService = authService
+        self.credentialStore = credentialStore
+        self.userDefaults = userDefaults
         self.authState = authState
     }
 
-    func login(username: String, password: String) async {
+    func login(username: String, password: String, rememberPassword: Bool = true) async {
         let trimmedUsername = username.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedPassword = password.trimmingCharacters(in: .whitespacesAndNewlines)
 
@@ -35,7 +41,12 @@ final class AuthViewModel {
         errorMessage = nil
 
         do {
-            let token = try await authService.login(username: trimmedUsername, password: trimmedPassword)
+            _ = try await authService.login(username: trimmedUsername, password: trimmedPassword)
+            try persistRememberedCredential(
+                username: trimmedUsername,
+                password: trimmedPassword,
+                rememberPassword: rememberPassword
+            )
             let user = try await authService.getCurrentUser()
             currentUser = user
             isAuthenticated = true
@@ -115,6 +126,18 @@ final class AuthViewModel {
             return "未找到请求的资源"
         case .unknown:
             return error.localizedDescription
+        }
+    }
+
+    private func persistRememberedCredential(username: String, password: String, rememberPassword: Bool) throws {
+        userDefaults.set(rememberPassword, forKey: AuthPreferenceKeys.rememberPassword)
+
+        if rememberPassword {
+            userDefaults.set(username, forKey: AuthPreferenceKeys.lastUsername)
+            try credentialStore.save(username: username, password: password)
+        } else {
+            userDefaults.removeObject(forKey: AuthPreferenceKeys.lastUsername)
+            credentialStore.delete()
         }
     }
 }
