@@ -29,6 +29,7 @@ enum AvatarService {
         "avatar_1", "avatar_2", "avatar_3", "avatar_4",
         "avatar_5", "avatar_6", "avatar_7", "avatar_8",
         "avatar_9", "avatar_10", "avatar_11", "avatar_12",
+        "avatar_13", "avatar_14", "avatar_15",
     ]
 
     struct AvatarConfig {
@@ -49,6 +50,9 @@ enum AvatarService {
         "avatar_10": AvatarConfig(symbolName: "bolt.circle.fill",          backgroundColor: .yellow),
         "avatar_11": AvatarConfig(symbolName: "moon.circle.fill",           backgroundColor: .cyan),
         "avatar_12": AvatarConfig(symbolName: "sun.max.circle.fill",       backgroundColor: .brown),
+        "avatar_13": AvatarConfig(symbolName: "sparkles",                  backgroundColor: .purple),
+        "avatar_14": AvatarConfig(symbolName: "headphones.circle.fill",     backgroundColor: .blue),
+        "avatar_15": AvatarConfig(symbolName: "music.mic.circle.fill",      backgroundColor: .orange),
     ]
 
     static func config(for name: String) -> AvatarConfig {

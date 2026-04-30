@@ -57,6 +57,16 @@ struct MockAuthService: AuthServiceProtocol {
         )
     }
 
+    func updateProfile(displayName: String?, avatarName: String?) async throws -> User {
+        User(
+            id: mockUser.id,
+            username: mockUser.username,
+            displayName: displayName ?? mockUser.displayName,
+            avatarName: avatarName ?? mockUser.avatarName,
+            preferredPlatform: mockUser.preferredPlatform
+        )
+    }
+
     func logout() async throws {
         tokenStore.delete()
     }

@@ -72,6 +72,27 @@ def update_preferred_platform(
     return user
 
 
+def update_profile(
+    db: Session,
+    user_id: str,
+    *,
+    display_name: str | None = None,
+    avatar_name: str | None = None,
+    preferred_platform: str | None = None,
+) -> User | None:
+    user = get_user_by_id(db, user_id)
+    if user is None:
+        return None
+    if display_name is not None:
+        user.display_name = display_name
+    if avatar_name is not None:
+        user.avatar_name = avatar_name
+    user.preferred_platform = preferred_platform
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 def update_password(db: Session, user_id: str, new_password: str) -> User | None:
     user = get_user_by_id(db, user_id)
     if user is None:

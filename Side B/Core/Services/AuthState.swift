@@ -53,6 +53,17 @@ final class AuthState {
         }
     }
 
+    func updateProfile(displayName: String?, avatarName: String?) async -> Bool {
+        do {
+            let user = try await authService.updateProfile(displayName: displayName, avatarName: avatarName)
+            currentUser = user
+            return true
+        } catch {
+            errorMessage = "更新个人资料失败：\(error.localizedDescription)"
+            return false
+        }
+    }
+
     func logout() async {
         do {
             try await authService.logout()

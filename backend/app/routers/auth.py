@@ -9,7 +9,7 @@ from app.services import user_service
 
 router = APIRouter()
 
-AVAILABLE_AVATARS = [f"avatar_{i}" for i in range(1, 13)]
+AVAILABLE_AVATARS = [f"avatar_{i}" for i in range(1, 16)]
 
 
 class RegisterRequest(BaseModel):
@@ -26,6 +26,8 @@ class LoginRequest(BaseModel):
 
 class UpdateProfileRequest(BaseModel):
     preferredPlatform: str | None = None
+    displayName: str | None = Field(default=None, min_length=2, max_length=20)
+    avatarName: str | None = None
 
 
 class ChangePasswordRequest(BaseModel):
@@ -116,8 +118,22 @@ def update_profile(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid platform. Choose from: {sorted(VALID_PLATFORMS)}",
         )
-    updated = user_service.update_preferred_platform(
-        db, user.id, req.preferredPlatform
+    if req.avatarName is not None and req.avatarName not in AVAILABLE_AVATARS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid avatar name. Choose from: {AVAILABLE_AVATARS}",
+        )
+    preferred_platform = (
+        req.preferredPlatform
+        if "preferredPlatform" in req.model_fields_set
+        else user.preferred_platform
+    )
+    updated = user_service.update_profile(
+        db,
+        user.id,
+        display_name=req.displayName,
+        avatar_name=req.avatarName,
+        preferred_platform=preferred_platform,
     )
     return _user_to_response(updated)
 

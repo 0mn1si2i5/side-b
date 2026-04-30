@@ -87,7 +87,33 @@ struct RemoteAuthService: AuthServiceProtocol {
             throw AuthServiceError.notAuthenticated
         }
         let platformValue = platform?.apiValue
-        let body = UpdateProfileRequestBody(preferredPlatform: platformValue)
+        let body = UpdateProfileRequestBody(
+            displayName: nil,
+            avatarName: nil,
+            preferredPlatform: platformValue,
+            encodesPreferredPlatform: true
+        )
+        let (data, response) = try await sendRequest(
+            path: "/api/auth/me",
+            method: "PUT",
+            body: body,
+            token: token
+        )
+        try validate(response: response)
+        let userBody = try decoder.decode(UserResponseBody.self, from: data)
+        return userBody.toDomain()
+    }
+
+    func updateProfile(displayName: String?, avatarName: String?) async throws -> User {
+        guard let token = tokenStore.load() else {
+            throw AuthServiceError.notAuthenticated
+        }
+        let body = UpdateProfileRequestBody(
+            displayName: displayName,
+            avatarName: avatarName,
+            preferredPlatform: nil,
+            encodesPreferredPlatform: false
+        )
         let (data, response) = try await sendRequest(
             path: "/api/auth/me",
             method: "PUT",
@@ -109,7 +135,7 @@ struct RemoteAuthService: AuthServiceProtocol {
         body: Encodable? = nil,
         token: String? = nil
     ) async throws -> (Data, HTTPURLResponse) {
-        let url = baseURL.appending(path: path)
+        let url = baseURL.appendingSideBPath(path)
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -140,7 +166,29 @@ struct RemoteAuthService: AuthServiceProtocol {
 }
 
 private struct UpdateProfileRequestBody: Encodable {
+    let displayName: String?
+    let avatarName: String?
     let preferredPlatform: String?
+    let encodesPreferredPlatform: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case displayName
+        case avatarName
+        case preferredPlatform
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(displayName, forKey: .displayName)
+        try container.encodeIfPresent(avatarName, forKey: .avatarName)
+        if encodesPreferredPlatform {
+            if let preferredPlatform {
+                try container.encode(preferredPlatform, forKey: .preferredPlatform)
+            } else {
+                try container.encodeNil(forKey: .preferredPlatform)
+            }
+        }
+    }
 }
 
 private struct RegisterRequestBody: Encodable {

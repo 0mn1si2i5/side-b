@@ -66,7 +66,7 @@ struct MainTabView: View {
                 RoomsListView(navigationPath: $roomNavigationPath)
             }
             .tabItem {
-                Label("房间", systemImage: "square.grid.2x2")
+                Label("房间", systemImage: "bubble.left.and.bubble.right.fill")
             }
 
             NavigationStack {

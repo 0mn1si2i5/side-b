@@ -4,7 +4,11 @@ struct ProfileTabView: View {
     @Environment(AuthState.self) private var authState
     @AppStorage(SideBVisualStyle.appAppearanceStorageKey) private var appAppearanceRawValue = AppAppearance.system.rawValue
     @State private var isUpdatingPlatform = false
+    @State private var isUpdatingProfile = false
     @State private var selectedPlatform: MusicPlatform?
+    @State private var showingEditProfile = false
+    @State private var draftDisplayName = ""
+    @State private var draftAvatarName = "avatar_1"
 
     var body: some View {
         List {
@@ -36,6 +40,15 @@ struct ProfileTabView: View {
                         }
                     }
                     .padding(.vertical, 4)
+
+                    Button {
+                        draftDisplayName = user.displayName
+                        draftAvatarName = user.avatarName
+                        showingEditProfile = true
+                    } label: {
+                        Label("编辑资料", systemImage: "pencil")
+                    }
+                    .disabled(isUpdatingProfile)
                 }
 
                 Section {
@@ -98,6 +111,75 @@ struct ProfileTabView: View {
             guard !isUpdatingPlatform else { return }
             selectedPlatform = newUser?.preferredPlatform
         }
+        .sheet(isPresented: $showingEditProfile) {
+            editProfileSheet
+        }
+        .alert(
+            "操作失败",
+            isPresented: .init(
+                get: { authState.errorMessage != nil },
+                set: { if !$0 { authState.errorMessage = nil } }
+            )
+        ) {
+            Button("好的", role: .cancel) {
+                authState.errorMessage = nil
+            }
+        } message: {
+            Text(authState.errorMessage ?? "")
+        }
+    }
+
+    private var editProfileSheet: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("显示名称", text: $draftDisplayName)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                } header: {
+                    Text("显示名称")
+                } footer: {
+                    Text("2 到 20 个字符。")
+                }
+
+                Section {
+                    AvatarSelectionView(selectedAvatar: $draftAvatarName)
+                        .padding(.vertical, 4)
+                } header: {
+                    Text("头像")
+                }
+            }
+            .navigationTitle("编辑资料")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") {
+                        showingEditProfile = false
+                    }
+                    .disabled(isUpdatingProfile)
+                }
+
+                ToolbarItem(placement: .confirmationAction) {
+                    Button {
+                        Task { await saveProfileChanges() }
+                    } label: {
+                        if isUpdatingProfile {
+                            ProgressView()
+                        } else {
+                            Text("保存")
+                        }
+                    }
+                    .disabled(!canSaveProfile || isUpdatingProfile)
+                }
+            }
+        }
+    }
+
+    private var canSaveProfile: Bool {
+        let trimmedName = draftDisplayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard (2...20).contains(trimmedName.count) else { return false }
+        guard let user = authState.currentUser else { return false }
+        return trimmedName != user.displayName || draftAvatarName != user.avatarName
     }
 
     private func updatePlatform(_ platform: MusicPlatform?) async {
@@ -105,5 +187,21 @@ struct ProfileTabView: View {
         await authState.updatePreferredPlatform(platform)
         selectedPlatform = authState.currentUser?.preferredPlatform
         isUpdatingPlatform = false
+    }
+
+    private func saveProfileChanges() async {
+        let trimmedName = draftDisplayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard canSaveProfile else { return }
+
+        isUpdatingProfile = true
+        let didUpdate = await authState.updateProfile(
+            displayName: trimmedName,
+            avatarName: draftAvatarName
+        )
+        isUpdatingProfile = false
+
+        if didUpdate {
+            showingEditProfile = false
+        }
     }
 }

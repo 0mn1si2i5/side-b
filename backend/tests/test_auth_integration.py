@@ -105,3 +105,53 @@ def test_logout_revokes_token(client: TestClient):
 
     me_resp = client.get("/api/auth/me", headers=headers)
     assert me_resp.status_code == 401
+
+
+def test_update_profile_display_name_avatar_and_platform(client: TestClient):
+    result = register_user(client)
+    headers = auth_headers(result["token"])
+
+    resp = client.put("/api/auth/me", json={
+        "displayName": "Renamed User",
+        "avatarName": "avatar_15",
+        "preferredPlatform": "spotify",
+    }, headers=headers)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["displayName"] == "Renamed User"
+    assert data["avatarName"] == "avatar_15"
+    assert data["preferredPlatform"] == "spotify"
+
+    me_resp = client.get("/api/auth/me", headers=headers)
+    assert me_resp.status_code == 200
+    me = me_resp.json()
+    assert me["displayName"] == "Renamed User"
+    assert me["avatarName"] == "avatar_15"
+
+
+def test_update_profile_rejects_invalid_avatar(client: TestClient):
+    result = register_user(client)
+    headers = auth_headers(result["token"])
+
+    resp = client.put("/api/auth/me", json={
+        "avatarName": "avatar_999",
+    }, headers=headers)
+    assert resp.status_code == 400
+
+
+def test_update_profile_preserves_platform_when_field_is_omitted(client: TestClient):
+    result = register_user(client)
+    headers = auth_headers(result["token"])
+
+    platform_resp = client.put("/api/auth/me", json={
+        "preferredPlatform": "apple_music",
+    }, headers=headers)
+    assert platform_resp.status_code == 200
+    assert platform_resp.json()["preferredPlatform"] == "apple_music"
+
+    name_resp = client.put("/api/auth/me", json={
+        "displayName": "Name Only",
+    }, headers=headers)
+    assert name_resp.status_code == 200
+    assert name_resp.json()["displayName"] == "Name Only"
+    assert name_resp.json()["preferredPlatform"] == "apple_music"
