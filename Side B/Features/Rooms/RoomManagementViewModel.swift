@@ -1,14 +1,15 @@
 import Foundation
 import Observation
 
-@Observable
+@MainActor @Observable
 final class RoomManagementViewModel {
     var room: Room
+    var members: [RoomMemberProfile] = []
     var newRoomName = ""
     var inviteUsername = ""
     var isLoading = false
     var errorMessage: String?
-    var showRenameSheet = false
+    var isEditingRoomName = false
     var showDissolveConfirmation = false
     var isDissolved = false
 
@@ -39,7 +40,8 @@ final class RoomManagementViewModel {
             do {
                 room = try await service.renameRoom(id: room.id, newName: name)
                 newRoomName = ""
-                showRenameSheet = false
+                isEditingRoomName = false
+                postRoomUpdated()
             } catch {
                 errorMessage = "重命名失败：\(error.localizedDescription)"
             }
@@ -59,10 +61,20 @@ final class RoomManagementViewModel {
             do {
                 room = try await service.addMember(roomId: room.id, username: username)
                 inviteUsername = ""
+                await loadMembers()
+                postRoomUpdated()
             } catch {
                 errorMessage = "邀请失败：\(error.localizedDescription)"
             }
             isLoading = false
+        }
+    }
+
+    func loadMembers() async {
+        do {
+            members = try await service.fetchMembers(roomId: room.id)
+        } catch {
+            errorMessage = "加载成员失败：\(localizedErrorMessage(for: error))"
         }
     }
 
@@ -89,5 +101,23 @@ final class RoomManagementViewModel {
 
     func clearError() {
         errorMessage = nil
+    }
+
+    func beginEditingRoomName() {
+        newRoomName = room.name
+        isEditingRoomName = true
+    }
+
+    func cancelEditingRoomName() {
+        newRoomName = ""
+        isEditingRoomName = false
+    }
+
+    private func postRoomUpdated() {
+        NotificationCenter.default.post(
+            name: .sideBRoomUpdated,
+            object: nil,
+            userInfo: [RoomNotificationKey.roomID: room.id]
+        )
     }
 }

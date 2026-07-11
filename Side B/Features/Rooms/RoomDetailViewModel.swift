@@ -13,6 +13,7 @@ enum LinkResolutionState: Equatable {
 
 @MainActor @Observable
 final class RoomDetailViewModel {
+    var room: Room
     var messages: [Message] = []
     var draftText = ""
     var linkInput = ""
@@ -22,27 +23,28 @@ final class RoomDetailViewModel {
     var connectionState: WebSocketConnectionState = .disconnected
     private(set) var linkResolutionState: LinkResolutionState = .idle
     private(set) var linkResolutionMessage: String?
+    private(set) var hasLoadedInitialMessages = false
     var isLoading = false
     var errorMessage: String?
     var actionErrorMessage: String?
     var replyToMessageID: UUID?
     var replyToMessagePreview: String?
 
-    private let roomId: UUID
+    private var roomId: UUID { room.id }
     private let resolver: MusicResolverService
     private let persistenceStore: PlatformLinkPersistenceStore
     private let messageService: MessageServiceProtocol
     private var webSocketService: WebSocketServiceProtocol
 
     init(
-        roomId: UUID,
+        room: Room,
         initialMessages: [Message] = [],
         persistenceStore: PlatformLinkPersistenceStore = .shared,
         resolver: MusicResolverService = ResolverServiceFactory.makeDefaultService(),
         messageService: MessageServiceProtocol = MessageServiceFactory.makeDefaultService(),
         webSocketService: WebSocketServiceProtocol = WebSocketServiceFactory.makeDefaultService()
     ) {
-        self.roomId = roomId
+        self.room = room
         self.persistenceStore = persistenceStore
         self.resolver = resolver
         self.messageService = messageService
@@ -75,6 +77,7 @@ final class RoomDetailViewModel {
 
     private func loadInitialMessages() async {
         isLoading = true
+        hasLoadedInitialMessages = false
         errorMessage = nil
         do {
             let fetched = try await messageService.fetchMessages(roomId: roomId, limit: 50, before: nil)
@@ -90,6 +93,7 @@ final class RoomDetailViewModel {
             logger.error("loadInitialMessages failed while preserving current room view: \(error)")
         }
         isLoading = false
+        hasLoadedInitialMessages = true
     }
 
     private func setupWebSocketCallbacks() {
@@ -111,8 +115,16 @@ final class RoomDetailViewModel {
             }
         }
 
-        webSocketService.onRoomUpdated = { _ in
+        webSocketService.onRoomUpdated = { [weak self] room in
+            Task { @MainActor in
+                self?.applyRoomUpdate(room)
+            }
         }
+    }
+
+    func applyRoomUpdate(_ updatedRoom: Room) {
+        guard updatedRoom.id == room.id else { return }
+        room = updatedRoom
     }
 
     private func observeConnectionState() {

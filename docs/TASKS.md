@@ -9,6 +9,10 @@
 - 后端支持 Spotify、Apple Music、网易云音乐、QQ 音乐 source 解析与 target link mapping。
 - Docker Compose 可启动 `api`、`netease`、`nginx`，并使用 SQLite volume 作为 v1 持久化方案。
 
+## Current Goal
+
+当前目标是推进 TestFlight N=20 熟人小规模发布。发布前稳定化主计划见 [RELEASE_PLAN.md](RELEASE_PLAN.md)。
+
 ## Active Work
 
 - [x] 修复房间消息 REST 持久化与 WebSocket 广播主路径。
@@ -22,11 +26,11 @@
 
 ## Near-Term Work
 
-- [ ] 完成可用 Xcode 环境下的 Debug build 验证。
-- [ ] 完成服务器 HTTPS、证书续期和 SQLite volume 备份恢复验收。
-- [ ] 增加部署后 smoke test 记录：auth、resolve、room message、WebSocket。
-- [ ] 为 resolver 第三方失败增加更清晰的日志和用户可理解错误。
-- [ ] 补齐自动登录、记住密码、房间消息历史和 resolver 边界测试。
+- [ ] P0 Freeze And Baseline：提交当前稳定变更，排除本地 scheme，完成后端/iOS 构建和测试。
+- [ ] P1 Production Backend Stabilization：完成服务器 HTTPS、证书续期、SQLite 备份恢复和公网 smoke test。
+- [ ] P2 iOS TestFlight Readiness：确认远程 API URL、签名、版本号、TestFlight 安装和核心流程。
+- [ ] P3 End-To-End User Flow Hardening：完成 2-3 人灰度、四平台样本、房间消息和歌曲分享回归。
+- [ ] P4 Minimal Operations：固定日志、备份、恢复、重启、回滚和最小管理脚本计划。
 
 ## Backlog
 

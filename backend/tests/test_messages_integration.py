@@ -28,6 +28,7 @@ def test_send_text_message(client: TestClient):
     msg = resp.json()
     assert msg["contentType"] == "text"
     assert msg["textContent"] == "Hello, world!"
+    assert msg["createdAt"].endswith("Z")
 
     list_resp = client.get(f"/api/rooms/{room_id.upper()}/messages", headers=headers)
     assert list_resp.status_code == 200
@@ -101,6 +102,7 @@ def test_message_history_returns_oldest_to_newest(client: TestClient):
     history_resp = client.get(f"/api/rooms/{room_id}/messages?limit=3", headers=headers)
     assert history_resp.status_code == 200
     assert [m["textContent"] for m in history_resp.json()] == ["first", "second", "third"]
+    assert all(m["createdAt"].endswith("Z") for m in history_resp.json())
 
 
 def test_send_reply_message_persists_reply_id(client: TestClient):

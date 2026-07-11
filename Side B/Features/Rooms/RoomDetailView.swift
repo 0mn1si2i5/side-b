@@ -9,13 +9,15 @@ struct RoomDetailView: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var pendingIncomingMessageCount = 0
     @State private var isAtBottom = true
+    @State private var didScrollToInitialMessages = false
+    @State private var shouldPreserveComposerFocusAfterSend = false
     @State private var linkFeedbackDismissTask: Task<Void, Never>?
     @FocusState private var isComposerFocused: Bool
 
     init(room: Room, onDissolved: @escaping () -> Void = {}) {
         self.room = room
         self.onDissolved = onDissolved
-        _viewModel = State(initialValue: RoomDetailViewModel(roomId: room.id))
+        _viewModel = State(initialValue: RoomDetailViewModel(room: room))
     }
 
     var body: some View {
@@ -66,7 +68,7 @@ struct RoomDetailView: View {
                 }
             }
             .onAppear {
-                proxy.scrollTo("bottom-anchor", anchor: .bottom)
+                didScrollToInitialMessages = false
                 pendingIncomingMessageCount = 0
                 viewModel.onAppear()
             }
@@ -90,9 +92,23 @@ struct RoomDetailView: View {
             .onChange(of: viewModel.linkResolutionState) { _, state in
                 scheduleLinkFeedbackDismissIfNeeded(for: state)
             }
+            .onChange(of: viewModel.isSending) { _, isSending in
+                if !isSending {
+                    restoreComposerFocusAfterSendIfNeeded()
+                }
+            }
+            .onChange(of: isComposerFocused) { _, isFocused in
+                if !isFocused && viewModel.isSending {
+                    shouldPreserveComposerFocusAfterSend = false
+                }
+            }
+            .onChange(of: viewModel.hasLoadedInitialMessages) { _, hasLoaded in
+                guard hasLoaded else { return }
+                scrollToInitialBottomIfNeeded(proxy: proxy)
+            }
             .onReceive(NotificationCenter.default.publisher(for: .sideBRoomDissolved)) { notification in
                 guard let dissolvedRoomID = notification.userInfo?[RoomNotificationKey.roomID] as? UUID,
-                      dissolvedRoomID == room.id else {
+                      dissolvedRoomID == viewModel.room.id else {
                     return
                 }
                 onDissolved()
@@ -117,7 +133,7 @@ struct RoomDetailView: View {
             Spacer(minLength: 12)
 
             VStack(spacing: 3) {
-                Text(room.name)
+                Text(viewModel.room.name)
                     .font(.headline)
                     .lineLimit(1)
 
@@ -133,7 +149,12 @@ struct RoomDetailView: View {
             Spacer(minLength: 12)
 
             NavigationLink {
-                RoomManagementView(room: room) {
+                RoomManagementView(
+                    room: viewModel.room,
+                    onRoomUpdated: { updatedRoom in
+                        viewModel.applyRoomUpdate(updatedRoom)
+                    }
+                ) {
                     onDissolved()
                 }
             } label: {
@@ -152,7 +173,7 @@ struct RoomDetailView: View {
     }
 
     private var roomSubtitle: String? {
-        let memberCount = max(room.memberUsernames.count, room.memberIDs.count)
+        let memberCount = max(viewModel.room.memberUsernames.count, viewModel.room.memberIDs.count)
         let songCount = Set(viewModel.messages.compactMap { $0.track?.persistenceIdentity }).count
         if songCount > 0 && memberCount > 0 {
             return "\(songCount) 首歌 · \(memberCount) 位成员"
@@ -194,7 +215,7 @@ struct RoomDetailView: View {
 
     private var latestArtworkURL: URL? {
         viewModel.messages.reversed().compactMap { $0.track?.artworkURL }.first
-            ?? room.latestTrack?.artworkURL
+            ?? viewModel.room.latestTrack?.artworkURL
     }
 
     private var fallbackBackgroundColors: [Color] {
@@ -326,6 +347,11 @@ struct RoomDetailView: View {
         .onChange(of: viewModel.messages.count) { _, _ in
             guard let latestMessage = viewModel.messages.last else { return }
 
+            if viewModel.hasLoadedInitialMessages && !didScrollToInitialMessages {
+                scrollToInitialBottomIfNeeded(proxy: proxy)
+                return
+            }
+
             if isMessageFromCurrentUser(latestMessage) {
                 withAnimation {
                     proxy.scrollTo("bottom-anchor", anchor: .bottom)
@@ -339,6 +365,17 @@ struct RoomDetailView: View {
             } else {
                 pendingIncomingMessageCount += 1
             }
+        }
+    }
+
+    private func scrollToInitialBottomIfNeeded(proxy: ScrollViewProxy) {
+        guard !didScrollToInitialMessages, !viewModel.messages.isEmpty else { return }
+        didScrollToInitialMessages = true
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 80_000_000)
+            proxy.scrollTo("bottom-anchor", anchor: .bottom)
+            pendingIncomingMessageCount = 0
+            isAtBottom = true
         }
     }
 
@@ -459,7 +496,6 @@ struct RoomDetailView: View {
                 }
                 .focused($isComposerFocused)
                 .frame(minHeight: 44)
-                .disabled(viewModel.isSending)
                 .submitLabel(.send)
                 .onSubmit {
                     submitComposer()
@@ -564,10 +600,24 @@ struct RoomDetailView: View {
     }
 
     private func submitComposer() {
+        let shouldKeepFocus = isComposerFocused
+        shouldPreserveComposerFocusAfterSend = shouldKeepFocus
         if viewModel.isShowingLinkInput {
             viewModel.sendResolvedTrackMessage()
         } else {
             viewModel.sendTextMessage()
+        }
+        if shouldKeepFocus {
+            isComposerFocused = true
+        }
+    }
+
+    private func restoreComposerFocusAfterSendIfNeeded() {
+        guard shouldPreserveComposerFocusAfterSend else { return }
+        shouldPreserveComposerFocusAfterSend = false
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 50_000_000)
+            isComposerFocused = true
         }
     }
 

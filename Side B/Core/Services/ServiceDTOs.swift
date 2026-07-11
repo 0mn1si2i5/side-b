@@ -3,6 +3,55 @@ import os
 
 private let logger = Logger(subsystem: "com.sideb.app", category: "ServiceDTOs")
 
+enum SideBDateParser {
+    private static let fractionalFormatter: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+
+    private static let standardFormatter: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
+        return f
+    }()
+
+    static func parse(_ rawValue: String) -> Date? {
+        let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+
+        for candidate in dateCandidates(for: trimmed) {
+            if let date = fractionalFormatter.date(from: candidate) ?? standardFormatter.date(from: candidate) {
+                return date
+            }
+        }
+
+        return nil
+    }
+
+    private static func dateCandidates(for value: String) -> [String] {
+        if hasExplicitTimezone(value) {
+            return [value]
+        }
+        return [value, "\(value)Z"]
+    }
+
+    private static func hasExplicitTimezone(_ value: String) -> Bool {
+        if value.hasSuffix("Z") {
+            return true
+        }
+
+        let timePart: Substring
+        if let separatorIndex = value.firstIndex(of: "T") {
+            timePart = value[value.index(after: separatorIndex)...]
+        } else {
+            timePart = Substring(value)
+        }
+
+        return timePart.contains("+") || timePart.contains("-")
+    }
+}
+
 // MARK: - Track Payload
 
 struct TrackPayload: Codable {
@@ -234,14 +283,8 @@ struct MessageDTO: Decodable {
     let replyToId: String?
     let createdAt: String
 
-    private static let dateFormatter: ISO8601DateFormatter = {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return f
-    }()
-
     func toDomain() -> Message? {
-        let date = Self.dateFormatter.date(from: createdAt) ?? Date()
+        let date = SideBDateParser.parse(createdAt) ?? Date()
 
         let contentTypeEnum = MessageType(rawValue: contentType) ?? .text
         let text: String? = contentTypeEnum == .text ? textContent : nil

@@ -226,7 +226,7 @@ struct SongDetailView: View {
             glassCircleButton(systemName: "paperplane.fill", size: 46) {
                 viewModel.showingSendToRoomSheet = true
             }
-            .accessibilityLabel("发送到聊天室")
+            .accessibilityLabel("发送到房间")
         }
     }
 

@@ -39,12 +39,6 @@ enum WebSocketServiceError: Error {
 // MARK: - Remote Implementation
 
 final class RemoteWebSocketService: WebSocketServiceProtocol {
-    private static let dateFormatter: ISO8601DateFormatter = {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return f
-    }()
-
     @Published private(set) var connectionState: WebSocketConnectionState = .disconnected
 
     var onMessageReceived: ((Message) -> Void)?
@@ -232,7 +226,7 @@ final class RemoteWebSocketService: WebSocketServiceProtocol {
         let emoji = dataDict["emoji"] as? String ?? ""
         let createdAtStr = dataDict["createdAt"] as? String ?? ""
 
-        let createdAt = Self.dateFormatter.date(from: createdAtStr) ?? Date()
+        let createdAt = SideBDateParser.parse(createdAtStr) ?? Date()
 
         let reaction = EmojiReaction(
             id: id,
@@ -263,6 +257,7 @@ final class RemoteWebSocketService: WebSocketServiceProtocol {
         let idStr = dataDict["id"] as? String ?? ""
         let id = UUID(uuidString: idStr) ?? { logger.warning("Invalid UUID string: \(idStr)"); return UUID() }()
         let name = dataDict["name"] as? String ?? ""
+        let roomCode = dataDict["roomCode"] as? String
         let type = RoomType(rawValue: dataDict["type"] as? String ?? "group") ?? .group
         let createdByStr = dataDict["createdBy"] as? String ?? ""
         let createdBy = UUID(uuidString: createdByStr) ?? { logger.warning("Invalid UUID string: \(createdByStr)"); return UUID() }()
@@ -271,6 +266,7 @@ final class RemoteWebSocketService: WebSocketServiceProtocol {
 
         let room = Room(
             id: id,
+            roomCode: roomCode,
             name: name,
             type: type,
             memberUsernames: memberUsernames,

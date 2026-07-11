@@ -69,7 +69,14 @@ NETEASE_REQUEST_TIMEOUT=10
 http://127.0.0.1:3000
 ```
 
-Docker 部署时由 compose 内的 `netease` 服务提供。
+如果使用仓库内的 compose sidecar，可以只启动网易云服务：
+
+```bash
+docker compose up -d netease
+curl -i "http://127.0.0.1:3000/song/detail?ids=2083785152"
+```
+
+本地 `uvicorn` 会通过 `NETEASE_API_BASE_URL=http://127.0.0.1:3000` 访问它。Docker 部署时，`api` 容器会通过 compose 内网的 `http://netease:3000` 访问同一个服务。
 
 ### 4. 启动 FastAPI
 
@@ -128,7 +135,9 @@ xcodebuild -list -project "Side B.xcodeproj"
 
 ## 当前开发方向
 
-1. 保持本地、真机、Docker 三套运行方式稳定。
-2. 完成个人服务器 HTTPS、备份、恢复和发布流程固化。
-3. 提升 resolver 第三方服务失败诊断、缓存清理和手工验收路径。
+当前优先目标是 TestFlight N=20 熟人小规模发布。发布前稳定化、验收、部署和运维任务以 [docs/RELEASE_PLAN.md](docs/RELEASE_PLAN.md) 为准。
+
+1. 保持本地、真机、Docker、远程 HTTPS 四套运行方式稳定。
+2. 完成服务器 HTTPS、SQLite 备份/恢复和 TestFlight 发布流程固化。
+3. 提升 resolver 第三方失败诊断、用户反馈和手工验收路径。
 4. 在不扩张复杂社交系统的前提下，继续打磨房间、歌单和歌曲详情体验。

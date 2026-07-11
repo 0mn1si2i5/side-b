@@ -35,6 +35,8 @@ services:
   netease:
     image: moefurina/ncm-api:latest
     container_name: sideb-netease
+    ports:
+      - "127.0.0.1:3000:3000"
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000"]
       interval: 30s

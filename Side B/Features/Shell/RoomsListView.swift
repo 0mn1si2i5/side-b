@@ -3,13 +3,14 @@ import SwiftUI
 struct RoomsListView: View {
     @Binding var navigationPath: [Room]
     @State private var viewModel = RoomsListViewModel()
-    @State private var showingCreateRoom = false
+    @State private var showingRoomActions = false
 
     var body: some View {
-        Group {
+        VStack(spacing: 0) {
             switch viewModel.state {
             case .idle, .loading:
                 ProgressView("加载中...")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             case .failed(let message):
                 VStack(spacing: 12) {
                     Image(systemName: "exclamationmark.triangle")
@@ -25,6 +26,7 @@ struct RoomsListView: View {
                     .buttonStyle(.bordered)
                 }
                 .padding()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             case .loaded(let rooms):
                 if rooms.isEmpty {
                     VStack(spacing: 12) {
@@ -40,6 +42,7 @@ struct RoomsListView: View {
                     roomsList(rooms: rooms)
                 }
             }
+
         }
         .task {
             if case .idle = viewModel.state {
@@ -51,19 +54,22 @@ struct RoomsListView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
-                    showingCreateRoom = true
+                    showingRoomActions = true
                 } label: {
                     Image(systemName: "plus")
                 }
+                .tint(.primary)
             }
         }
-        .sheet(isPresented: $showingCreateRoom, onDismiss: {
+        .sheet(isPresented: $showingRoomActions, onDismiss: {
             if case .loaded = viewModel.state {
                 viewModel.loadRooms()
             }
         }) {
             NavigationStack {
-                CreateRoomView()
+                CreateRoomView {
+                    viewModel.refreshRooms()
+                }
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .sideBRoomDissolved)) { notification in
@@ -72,6 +78,9 @@ struct RoomsListView: View {
             }
             navigationPath.removeAll()
             viewModel.removeRoom(id: dissolvedRoomID)
+            viewModel.refreshRooms()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .sideBRoomUpdated)) { _ in
             viewModel.refreshRooms()
         }
         .navigationDestination(for: Room.self) { room in
@@ -100,6 +109,10 @@ struct RoomsListView: View {
                             .foregroundStyle(.secondary)
                             .clipShape(Capsule())
                     }
+
+                    Text("房间号 \(room.roomCode)")
+                        .font(.caption2.monospaced())
+                        .foregroundStyle(.secondary)
 
                     if let latestTrack = room.latestTrack {
                         Text("\(latestTrack.title) · \(latestTrack.artistName)")

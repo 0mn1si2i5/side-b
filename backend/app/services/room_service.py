@@ -68,6 +68,22 @@ def get_room(db: Session, room_id: str) -> Room | None:
     return db.query(Room).filter(Room.id == room_id, Room.is_active.is_(true())).first()
 
 
+def get_room_by_code(db: Session, room_code: str) -> Room | None:
+    normalized_code = room_code.strip().lower()
+    if not normalized_code:
+        return None
+
+    matches = (
+        db.query(Room)
+        .filter(Room.id.ilike(f"{normalized_code}%"), Room.is_active.is_(true()))
+        .limit(2)
+        .all()
+    )
+    if len(matches) != 1:
+        return None
+    return matches[0]
+
+
 def rename_room(db: Session, room_id: str, name: str) -> Room | None:
     room = get_room(db, room_id)
     if room is None:
@@ -118,6 +134,10 @@ def add_member(db: Session, room_id: str, user_id: str) -> RoomMember | None:
         .first()
     )
     if existing:
+        if existing.left_at is not None:
+            existing.left_at = None
+            db.commit()
+            db.refresh(existing)
         return existing
     member = RoomMember(room_id=room_id, user_id=user_id)
     db.add(member)
@@ -138,7 +158,7 @@ def add_member_by_username(
 def get_room_members(db: Session, room_id: str) -> list[RoomMember]:
     return (
         db.query(RoomMember)
-        .filter(RoomMember.room_id == room_id)
+        .filter(RoomMember.room_id == room_id, RoomMember.left_at.is_(None))
         .order_by(RoomMember.joined_at)
         .all()
     )

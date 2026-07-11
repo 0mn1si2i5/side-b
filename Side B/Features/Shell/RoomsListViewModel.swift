@@ -50,4 +50,5 @@ final class RoomsListViewModel {
         guard case .loaded(let rooms) = state else { return }
         state = .loaded(rooms.filter { $0.id != id })
     }
+
 }

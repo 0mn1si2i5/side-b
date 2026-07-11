@@ -1,3 +1,4 @@
+from datetime import timezone
 from typing import Literal
 from uuid import UUID
 
@@ -31,6 +32,10 @@ class AddMemberRequest(BaseModel):
     username: str
 
 
+class JoinRoomRequest(BaseModel):
+    roomCode: str
+
+
 class CreateMessageRequest(BaseModel):
     contentType: Literal["text", "song", "system"]
     textContent: str | None = None
@@ -44,6 +49,7 @@ class AddEmojiRequest(BaseModel):
 
 class RoomResponse(BaseModel):
     id: str
+    roomCode: str
     name: str | None
     type: str
     createdBy: str
@@ -59,6 +65,9 @@ class MemberResponse(BaseModel):
     id: str
     roomId: str
     userId: str
+    username: str
+    displayName: str
+    avatarName: str
     joinedAt: str
 
     class Config:
@@ -98,6 +107,14 @@ def _normalize_uuid_or_404(value: str, detail: str = "Resource not found") -> st
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
 
 
+def _isoformat_utc(value) -> str:
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    else:
+        value = value.astimezone(timezone.utc)
+    return value.isoformat().replace("+00:00", "Z")
+
+
 def _room_to_response(room, db: Session) -> RoomResponse:
     members = room_service.get_room_members(db, room.id)
     member_user_ids = [m.user_id for m in members]
@@ -108,21 +125,26 @@ def _room_to_response(room, db: Session) -> RoomResponse:
             member_usernames.append(u.username)
     return RoomResponse(
         id=room.id,
+        roomCode=room.id[:8].upper(),
         name=room.name,
         type=room.type,
         createdBy=room.created_by,
-        createdAt=room.created_at.isoformat(),
+        createdAt=_isoformat_utc(room.created_at),
         isActive=room.is_active,
         memberUsernames=member_usernames,
     )
 
 
-def _member_to_response(member) -> MemberResponse:
+def _member_to_response(member, db: Session) -> MemberResponse:
+    user = user_service.get_user_by_id(db, member.user_id)
     return MemberResponse(
         id=member.id,
         roomId=member.room_id,
         userId=member.user_id,
-        joinedAt=member.joined_at.isoformat(),
+        username=user.username if user else "",
+        displayName=user.display_name if user else "Unknown",
+        avatarName=user.avatar_name if user else "avatar_1",
+        joinedAt=_isoformat_utc(member.joined_at),
     )
 
 
@@ -138,7 +160,7 @@ def _message_to_response(msg, db: Session) -> MessageResponse:
         textContent=msg.text_content,
         trackData=msg.track_data,
         replyToId=msg.reply_to_id,
-        createdAt=msg.created_at.isoformat(),
+        createdAt=_isoformat_utc(msg.created_at),
     )
 
 
@@ -148,7 +170,7 @@ def _emoji_to_response(reaction) -> EmojiReactionResponse:
         messageId=reaction.message_id,
         userId=reaction.user_id,
         emoji=reaction.emoji,
-        createdAt=reaction.created_at.isoformat(),
+        createdAt=_isoformat_utc(reaction.created_at),
     )
 
 
@@ -197,6 +219,31 @@ def create_room(
     return _room_to_response(room, db)
 
 
+@router.post("/join", response_model=RoomResponse)
+async def join_room(
+    req: JoinRoomRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    room = room_service.get_room_by_code(db, req.roomCode)
+    if room is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Room not found",
+        )
+    member = room_service.add_member(db, room.id, user.id)
+    if member is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Unable to join room",
+        )
+    response = _room_to_response(room, db)
+    await ws_manager.broadcast_to_room(
+        room.id, {"type": "room_updated", "data": response.model_dump()}
+    )
+    return response
+
+
 @router.get("/{room_id}", response_model=RoomResponse)
 def get_room(
     room_id: str,
@@ -214,7 +261,7 @@ def get_room(
 
 
 @router.put("/{room_id}", response_model=RoomResponse)
-def update_room(
+async def update_room(
     room_id: str,
     req: UpdateRoomRequest,
     user: User = Depends(get_current_user),
@@ -228,7 +275,11 @@ def update_room(
         )
     _require_membership(db, room_id, user.id)
     updated = room_service.rename_room(db, room_id, req.name)
-    return _room_to_response(updated, db)
+    response = _room_to_response(updated, db)
+    await ws_manager.broadcast_to_room(
+        room_id, {"type": "room_updated", "data": response.model_dump()}
+    )
+    return response
 
 
 @router.delete("/{room_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -276,7 +327,7 @@ def leave_room_endpoint(
     response_model=MemberResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def add_member(
+async def add_member(
     room_id: str,
     req: AddMemberRequest,
     user: User = Depends(get_current_user),
@@ -295,7 +346,11 @@ def add_member(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="User not found or already a member",
         )
-    return _member_to_response(member)
+    room_response = _room_to_response(room, db)
+    await ws_manager.broadcast_to_room(
+        room_id, {"type": "room_updated", "data": room_response.model_dump()}
+    )
+    return _member_to_response(member, db)
 
 
 @router.get("/{room_id}/members", response_model=list[MemberResponse])
@@ -312,7 +367,7 @@ def list_members(
         )
     _require_membership(db, room_id, user.id)
     members = room_service.get_room_members(db, room_id)
-    return [_member_to_response(m) for m in members]
+    return [_member_to_response(m, db) for m in members]
 
 
 @router.get("/{room_id}/messages", response_model=list[MessageResponse])

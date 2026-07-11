@@ -2,6 +2,8 @@
 
 Side B v1 使用 Docker Compose 部署到个人服务器。
 
+小规模 TestFlight 发布前的完整验收计划见 [RELEASE_PLAN.md](RELEASE_PLAN.md)。本文件只记录部署、HTTPS、smoke test、备份、恢复和回滚命令。
+
 ## Services
 
 - `api`：FastAPI backend，负责 auth、profile、rooms、messages、WebSocket、resolver orchestration 和 Alembic migration。
@@ -42,6 +44,8 @@ Compose 内部使用：
 ```env
 NETEASE_API_BASE_URL=http://netease:3000
 ```
+
+`netease` sidecar 同时绑定到宿主机 `127.0.0.1:3000`，用于本地 `uvicorn` 复用 compose sidecar；该端口只监听 localhost，不作为公网入口。
 
 保持 `UVICORN_WORKERS=1`，因为当前 WebSocket 连接管理在进程内。
 
@@ -102,6 +106,8 @@ docker compose up -d --build nginx
 
 ## Smoke Tests
 
+发布前必须通过公网 `/health`、auth、resolver、rooms 和 WebSocket 主链路验收。
+
 服务器本机：
 
 ```bash
@@ -143,6 +149,8 @@ curl -s -X POST https://<your-domain>/api/resolve \
 ## SQLite Data
 
 默认数据库位于 Docker volume `sideb-data` 中的 `/app/data/sideb.db`。
+
+TestFlight 灰度前必须至少完成一次备份和恢复演练。SQLite + Docker volume 是 N=20 熟人小规模发布的默认方案。
 
 备份：
 

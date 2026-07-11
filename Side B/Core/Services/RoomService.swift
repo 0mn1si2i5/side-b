@@ -6,8 +6,10 @@ private let logger = Logger(subsystem: "com.sideb.app", category: "RoomService")
 protocol RoomServiceProtocol {
     func fetchRooms() async throws -> [Room]
     func createRoom(name: String, type: String, memberUsernames: [String]) async throws -> Room
+    func joinRoom(code: String) async throws -> Room
     func renameRoom(id: UUID, newName: String) async throws -> Room
     func addMember(roomId: UUID, username: String) async throws -> Room
+    func fetchMembers(roomId: UUID) async throws -> [RoomMemberProfile]
     func dissolveRoom(id: UUID) async throws
     func fetchRoomMessages(roomId: UUID) async throws -> [Message]
 }
@@ -53,6 +55,14 @@ struct RemoteRoomService: RoomServiceProtocol {
         return dto.toDomain()
     }
 
+    func joinRoom(code: String) async throws -> Room {
+        let body = JoinRoomBody(roomCode: code)
+        let (data, response) = try await sendRequest(path: "/api/rooms/join", method: "POST", body: body)
+        try validate(response: response)
+        let dto = try decoder.decode(RoomDTO.self, from: data)
+        return dto.toDomain()
+    }
+
     func renameRoom(id: UUID, newName: String) async throws -> Room {
         let body = RenameRoomBody(name: newName)
         let (data, response) = try await sendRequest(
@@ -70,6 +80,15 @@ struct RemoteRoomService: RoomServiceProtocol {
         )
         try validate(response: response)
         return try await fetchRoom(id: roomId)
+    }
+
+    func fetchMembers(roomId: UUID) async throws -> [RoomMemberProfile] {
+        let (data, response) = try await sendRequest(
+            path: "/api/rooms/\(roomId.sideBPathID)/members", method: "GET"
+        )
+        try validate(response: response)
+        let dtos = try decoder.decode([RoomMemberDTO].self, from: data)
+        return dtos.compactMap { $0.toDomain() }
     }
 
     func dissolveRoom(id: UUID) async throws {
@@ -146,12 +165,20 @@ struct MockRoomService: RoomServiceProtocol {
         Room(name: name)
     }
 
+    func joinRoom(code: String) async throws -> Room {
+        Room(name: "Joined Room")
+    }
+
     func renameRoom(id: UUID, newName: String) async throws -> Room {
         Room(id: id, name: newName)
     }
 
     func addMember(roomId: UUID, username: String) async throws -> Room {
         MockData.rooms.first { $0.id == roomId } ?? Room(name: "Unknown Room")
+    }
+
+    func fetchMembers(roomId: UUID) async throws -> [RoomMemberProfile] {
+        []
     }
 
     func dissolveRoom(id: UUID) async throws {
@@ -167,6 +194,7 @@ struct MockRoomService: RoomServiceProtocol {
 
 private struct RoomDTO: Decodable {
     let id: String
+    let roomCode: String?
     let name: String?
     let type: String
     let createdBy: String
@@ -174,22 +202,49 @@ private struct RoomDTO: Decodable {
     let isActive: Bool
     let memberUsernames: [String]
 
-    private static let dateFormatter: ISO8601DateFormatter = {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return f
-    }()
-
     func toDomain() -> Room {
-        Room(
-            id: UUID(uuidString: id) ?? { logger.warning("Invalid UUID string: \(id)"); return UUID() }(),
+        let parsedID = UUID(uuidString: id) ?? { logger.warning("Invalid UUID string: \(id)"); return UUID() }()
+        return Room(
+            id: parsedID,
+            roomCode: roomCode,
             name: name ?? "Unnamed Room",
             type: RoomType(rawValue: type) ?? .group,
             memberIDs: [],
             memberUsernames: memberUsernames,
             createdBy: UUID(uuidString: createdBy) ?? { logger.warning("Invalid UUID string: \(createdBy)"); return UUID() }(),
-            createdAt: Self.dateFormatter.date(from: createdAt) ?? Date(),
+            createdAt: SideBDateParser.parse(createdAt) ?? Date(),
             isActive: isActive
+        )
+    }
+}
+
+private struct RoomMemberDTO: Decodable {
+    let id: String
+    let roomId: String
+    let userId: String
+    let username: String
+    let displayName: String
+    let avatarName: String
+    let joinedAt: String
+
+    func toDomain() -> RoomMemberProfile? {
+        guard
+            let id = UUID(uuidString: id),
+            let roomID = UUID(uuidString: roomId),
+            let userID = UUID(uuidString: userId)
+        else {
+            logger.warning("Invalid room member UUID payload")
+            return nil
+        }
+
+        return RoomMemberProfile(
+            id: id,
+            roomID: roomID,
+            userID: userID,
+            username: username,
+            displayName: displayName,
+            avatarName: avatarName,
+            joinedAt: SideBDateParser.parse(joinedAt) ?? Date()
         )
     }
 }
@@ -200,6 +255,10 @@ private struct CreateRoomBody: Encodable {
     let memberUsernames: [String]
 }
 
+private struct JoinRoomBody: Encodable {
+    let roomCode: String
+}
+
 private struct RenameRoomBody: Encodable {
     let name: String
 }
@@ -207,4 +266,3 @@ private struct RenameRoomBody: Encodable {
 private struct AddMemberBody: Encodable {
     let username: String
 }
-

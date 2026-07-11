@@ -9,12 +9,16 @@ struct ProfileTabView: View {
     @State private var showingEditProfile = false
     @State private var draftDisplayName = ""
     @State private var draftAvatarName = "avatar_1"
+    @State private var draftPreferredPlatform: MusicPlatform?
 
     var body: some View {
         List {
             if let user = authState.currentUser {
                 Section {
-                    HStack(spacing: 16) {
+                    Button {
+                        beginEditingProfile(user)
+                    } label: {
+                        HStack(spacing: 16) {
                         let avatarConfig = AvatarService.config(for: user.avatarName)
                         Image(systemName: avatarConfig.symbolName)
                             .font(.system(size: 48))
@@ -38,43 +42,16 @@ struct ProfileTabView: View {
                                     .foregroundStyle(.secondary)
                             }
                         }
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(.tertiary)
                     }
+                    }
+                    .buttonStyle(.plain)
                     .padding(.vertical, 4)
-
-                    Button {
-                        draftDisplayName = user.displayName
-                        draftAvatarName = user.avatarName
-                        showingEditProfile = true
-                    } label: {
-                        Label("编辑资料", systemImage: "pencil")
-                    }
-                    .disabled(isUpdatingProfile)
-                }
-
-                Section {
-                    Picker("常用平台", selection: Binding<MusicPlatform?>(
-                        get: { selectedPlatform },
-                        set: { newPlatform in
-                            selectedPlatform = newPlatform
-                            Task { await updatePlatform(newPlatform) }
-                        }
-                    )) {
-                        Text("未设置").tag(MusicPlatform?.none)
-                        ForEach(MusicPlatform.allCases, id: \.self) { platform in
-                            HStack {
-                                Text(platform.displayName)
-                                if isUpdatingPlatform {
-                                    Spacer()
-                                    ProgressView()
-                                        .controlSize(.small)
-                                }
-                            }
-                            .tag(MusicPlatform?.some(platform))
-                        }
-                    }
-                    .disabled(isUpdatingPlatform)
-                } header: {
-                    Text("偏好设置")
                 }
 
                 Section {
@@ -148,6 +125,19 @@ struct ProfileTabView: View {
                 } header: {
                     Text("头像")
                 }
+
+                Section {
+                    Picker("常用平台", selection: $draftPreferredPlatform) {
+                        Text("未设置").tag(MusicPlatform?.none)
+                        ForEach(MusicPlatform.allCases, id: \.self) { platform in
+                            Text(platform.displayName)
+                                .tag(MusicPlatform?.some(platform))
+                        }
+                    }
+                    .tint(.sideBLinkBlue)
+                } header: {
+                    Text("偏好设置")
+                }
             }
             .navigationTitle("编辑资料")
             .navigationBarTitleDisplayMode(.inline)
@@ -170,6 +160,7 @@ struct ProfileTabView: View {
                         }
                     }
                     .disabled(!canSaveProfile || isUpdatingProfile)
+                    .tint(.sideBLinkBlue)
                 }
             }
         }
@@ -179,7 +170,16 @@ struct ProfileTabView: View {
         let trimmedName = draftDisplayName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard (2...20).contains(trimmedName.count) else { return false }
         guard let user = authState.currentUser else { return false }
-        return trimmedName != user.displayName || draftAvatarName != user.avatarName
+        return trimmedName != user.displayName
+            || draftAvatarName != user.avatarName
+            || draftPreferredPlatform != user.preferredPlatform
+    }
+
+    private func beginEditingProfile(_ user: User) {
+        draftDisplayName = user.displayName
+        draftAvatarName = user.avatarName
+        draftPreferredPlatform = user.preferredPlatform
+        showingEditProfile = true
     }
 
     private func updatePlatform(_ platform: MusicPlatform?) async {
@@ -198,6 +198,9 @@ struct ProfileTabView: View {
             displayName: trimmedName,
             avatarName: draftAvatarName
         )
+        if didUpdate, draftPreferredPlatform != authState.currentUser?.preferredPlatform {
+            await authState.updatePreferredPlatform(draftPreferredPlatform)
+        }
         isUpdatingProfile = false
 
         if didUpdate {

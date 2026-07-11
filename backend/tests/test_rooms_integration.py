@@ -46,6 +46,7 @@ def test_create_group_room(client: TestClient):
     room = resp.json()
     assert room["type"] == "group"
     assert room["name"] == "Test Group"
+    assert len(room["roomCode"]) == 8
 
 
 def test_create_self_only_room(client: TestClient):
@@ -109,3 +110,45 @@ def test_dissolve_room(client: TestClient):
     assert list_resp.status_code == 200
     room_ids = [r["id"] for r in list_resp.json()]
     assert room_id not in room_ids
+
+
+def test_join_room_by_room_code(client: TestClient):
+    user_a = register_user(client)
+    user_b = register_user(client)
+    token_a = user_a["token"]
+    token_b = user_b["token"]
+
+    room_resp = _create_group_room(client, token_a, [], name="Joinable Room")
+    assert room_resp.status_code == 201
+    room = room_resp.json()
+
+    join_resp = client.post(
+        "/api/rooms/join",
+        json={"roomCode": room["roomCode"].lower()},
+        headers=auth_headers(token_b),
+    )
+    assert join_resp.status_code == 200
+    joined = join_resp.json()
+    assert user_b["user"]["username"] in joined["memberUsernames"]
+
+    list_resp = client.get("/api/rooms", headers=auth_headers(token_b))
+    assert list_resp.status_code == 200
+    assert room["id"] in [r["id"] for r in list_resp.json()]
+
+
+def test_list_members_includes_profile_fields(client: TestClient):
+    user_a = register_user(client)
+    user_b = register_user(client)
+    token_a = user_a["token"]
+
+    room_resp = _create_group_room(client, token_a, [user_b["user"]["username"]])
+    assert room_resp.status_code == 201
+    room_id = room_resp.json()["id"]
+
+    members_resp = client.get(f"/api/rooms/{room_id}/members", headers=auth_headers(token_a))
+    assert members_resp.status_code == 200
+    members = members_resp.json()
+    usernames = {m["username"] for m in members}
+    assert user_a["user"]["username"] in usernames
+    assert user_b["user"]["username"] in usernames
+    assert all("displayName" in m and "avatarName" in m for m in members)

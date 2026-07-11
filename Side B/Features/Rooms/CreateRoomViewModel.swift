@@ -4,10 +4,12 @@ import Observation
 @Observable
 final class CreateRoomViewModel {
     var roomName = ""
-    var memberUsernamesText = ""
+    var roomCode = ""
     var isLoading = false
+    var isJoining = false
     var errorMessage: String?
     var createdRoom: Room?
+    var joinedRoom: Room?
 
     private let service: any RoomServiceProtocol
 
@@ -15,20 +17,20 @@ final class CreateRoomViewModel {
         self.service = service
     }
 
-    private var parsedMemberUsernames: [String] {
-        memberUsernamesText
-            .split(separator: ",")
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-    }
-
     var canCreate: Bool {
         !isLoading
     }
 
+    var hasRoomNameInput: Bool {
+        !roomName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var hasRoomCodeInput: Bool {
+        !roomCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     func createRoom() {
         let name = roomName.trimmingCharacters(in: .whitespacesAndNewlines)
-        let usernames = parsedMemberUsernames
 
         isLoading = true
         errorMessage = nil
@@ -39,13 +41,31 @@ final class CreateRoomViewModel {
                 let room = try await service.createRoom(
                     name: name,
                     type: RoomType.group.rawValue,
-                    memberUsernames: usernames
+                    memberUsernames: []
                 )
                 createdRoom = room
             } catch {
                 errorMessage = localizedErrorMessage(for: error)
             }
             isLoading = false
+        }
+    }
+
+    func joinRoom() {
+        let code = roomCode.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !code.isEmpty else { return }
+
+        isJoining = true
+        errorMessage = nil
+
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                joinedRoom = try await service.joinRoom(code: code)
+            } catch {
+                errorMessage = localizedErrorMessage(for: error)
+            }
+            isJoining = false
         }
     }
 

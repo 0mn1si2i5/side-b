@@ -12,19 +12,19 @@ struct SendTrackToRoomView: View {
             Group {
                 switch viewModel.state {
                 case .idle, .loading:
-                    ProgressView("加载聊天室...")
+                    ProgressView("加载房间...")
                 case .failed(let message):
                     ContentUnavailableView(
-                        "无法加载聊天室",
+                        "无法加载房间",
                         systemImage: "exclamationmark.triangle",
                         description: Text(message)
                     )
                 case .loaded(let rooms):
                     if rooms.isEmpty {
                         ContentUnavailableView(
-                            "暂无聊天室",
+                            "暂无房间",
                             systemImage: "bubble.left.and.bubble.right",
-                            description: Text("先创建一个聊天室，再发送歌曲。")
+                            description: Text("先创建一个房间，再发送歌曲。")
                         )
                     } else {
                         List(rooms) { room in
@@ -61,7 +61,7 @@ struct SendTrackToRoomView: View {
                     }
                 }
             }
-            .navigationTitle("发送到聊天室")
+            .navigationTitle("发送到房间")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

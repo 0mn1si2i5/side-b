@@ -1,9 +1,11 @@
 import sys
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, "backend")
 
-from services.platform_link_resolvers import qq_candidate_score
+from models.resolver_models import CanonicalTrack, ResolverContext
+from services.platform_link_resolvers import NeteaseTargetResolver, qq_candidate_score
 
 
 class PlatformLinkResolverTests(unittest.TestCase):
@@ -39,3 +41,29 @@ class PlatformLinkResolverTests(unittest.TestCase):
         )
 
         self.assertGreater(exact_score, loose_score)
+
+    def test_netease_resolver_does_not_cache_outage_as_missing_link(self) -> None:
+        cache_store: dict = {}
+        context = ResolverContext(
+            preferred_market=None,
+            spotify_access_token=None,
+            netease_api_base_url="http://127.0.0.1:3000",
+            cache_stores={"netease_links": cache_store},
+        )
+        track = CanonicalTrack(
+            source_platform="Spotify",
+            source_id="spotify-id",
+            source_url="https://open.spotify.com/track/test",
+            title="Song",
+            artist_name="Artist",
+            album_title="Album",
+            duration_ms=180000,
+            artwork_url=None,
+            isrc=None,
+        )
+
+        with patch("services.platform_link_resolvers.search_tracks", side_effect=ConnectionRefusedError("down")):
+            resolved_url = NeteaseTargetResolver().resolve_link(track, context)
+
+        self.assertIsNone(resolved_url)
+        self.assertEqual(cache_store, {})

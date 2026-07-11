@@ -257,6 +257,7 @@ class NeteaseTargetResolver:
 
         best_candidate: dict | None = None
         best_score = -10_000
+        had_successful_search = False
 
         for search_term in build_netease_search_terms(
             canonical_track.title,
@@ -273,6 +274,8 @@ class NeteaseTargetResolver:
             except Exception as exc:
                 logger.warning("Netease search skipped: %s", exc)
                 continue
+
+            had_successful_search = True
 
             for query_rank, candidate in enumerate(candidates):
                 candidate_id = candidate.get("id")
@@ -322,7 +325,8 @@ class NeteaseTargetResolver:
         if best_candidate is not None and best_score >= 64:
             resolved_url = build_netease_track_url(str(best_candidate["id"]))
 
-        write_cached_value(cache_store, cache_key_for_url(canonical_track.source_url, context.preferred_market), resolved_url)
+        if had_successful_search:
+            write_cached_value(cache_store, cache_key_for_url(canonical_track.source_url, context.preferred_market), resolved_url)
         return resolved_url
 
 

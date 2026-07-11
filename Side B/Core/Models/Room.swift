@@ -7,6 +7,7 @@ enum RoomType: String, Codable, Hashable {
 
 struct Room: Identifiable, Hashable {
     let id: UUID
+    let roomCode: String
     let name: String
     let type: RoomType
     let memberIDs: [UUID]
@@ -19,6 +20,7 @@ struct Room: Identifiable, Hashable {
 
     init(
         id: UUID = UUID(),
+        roomCode: String? = nil,
         name: String,
         type: RoomType = .group,
         memberIDs: [UUID] = [],
@@ -30,6 +32,7 @@ struct Room: Identifiable, Hashable {
         latestMessagePreview: String? = nil
     ) {
         self.id = id
+        self.roomCode = roomCode ?? String(id.uuidString.prefix(8)).uppercased()
         self.name = name
         self.type = type
         self.memberIDs = memberIDs
@@ -40,4 +43,14 @@ struct Room: Identifiable, Hashable {
         self.latestTrack = latestTrack
         self.latestMessagePreview = latestMessagePreview
     }
+}
+
+struct RoomMemberProfile: Identifiable, Hashable {
+    let id: UUID
+    let roomID: UUID
+    let userID: UUID
+    let username: String
+    let displayName: String
+    let avatarName: String
+    let joinedAt: Date
 }
