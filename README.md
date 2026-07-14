@@ -2,6 +2,8 @@
 
 Side B 是一个以跨平台歌曲解析、收藏和房间分享为核心的 iOS App。
 
+![Side B：歌曲首页、跨平台歌曲详情与聊天室](docs/portfolio/side-b-overview.webp)
+
 核心路径是：
 
 ```text
