@@ -9,7 +9,11 @@ from resolvers.apple_music_platform import (
 )
 from resolvers.netease_platform import build_netease_track_url, parse_netease_track_id
 from resolvers.qq_music_platform import build_qq_music_track_url, parse_qq_music_track_id
-from resolvers.spotify_platform import fetch_spotify_track, parse_spotify_track_id
+from resolvers.spotify_platform import (
+    fetch_spotify_public_metadata,
+    fetch_spotify_track,
+    parse_spotify_track_id,
+)
 
 
 def normalize_link(raw_link: str) -> str:
@@ -36,13 +40,14 @@ class SpotifySourceAdapter:
         )
 
     def fetch_canonical_track(self, parsed_source: ParsedSource, context: ResolverContext) -> CanonicalTrack:
-        if not context.spotify_access_token:
-            raise ValueError("Missing SPOTIFY_CLIENT_ID or SPOTIFY_CLIENT_SECRET")
-
-        track_payload = fetch_spotify_track(
-            context.spotify_access_token,
-            parsed_source.resource_id,
-            context.preferred_market,
+        track_payload = (
+            fetch_spotify_track(
+                context.spotify_access_token,
+                parsed_source.resource_id,
+                context.preferred_market,
+            )
+            if context.spotify_access_token
+            else fetch_spotify_public_metadata(parsed_source.resource_id)
         )
         images = track_payload.get("album", {}).get("images", [])
         artwork_url = images[0].get("url") if images else None

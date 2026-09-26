@@ -1,6 +1,7 @@
 import base64
 import json
 import logging
+from html.parser import HTMLParser
 from urllib import parse, request
 
 from utils.resolver_common import (
@@ -23,6 +24,22 @@ logger = logging.getLogger(__name__)
 SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token"
 SPOTIFY_TRACK_URL = "https://api.spotify.com/v1/tracks/{track_id}"
 SPOTIFY_SEARCH_URL = "https://api.spotify.com/v1/search"
+SPOTIFY_TRACK_PAGE_URL = "https://open.spotify.com/track/{track_id}"
+
+
+class _SpotifyMetadataParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.values: dict[str, str] = {}
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag != "meta":
+            return
+        values = dict(attrs)
+        key = values.get("property") or values.get("name")
+        content = values.get("content")
+        if key and content and key not in self.values:
+            self.values[key] = content
 
 
 def parse_spotify_track_id(raw_link: str) -> str | None:
@@ -65,6 +82,41 @@ def fetch_spotify_track(access_token: str, track_id: str, market: str | None) ->
 
     with request.urlopen(req, timeout=10) as response:
         return json.loads(response.read().decode("utf-8"))
+
+
+def fetch_spotify_public_metadata(track_id: str) -> dict:
+    """Read Spotify's public track metadata when API credentials are unavailable."""
+    req = request.Request(
+        SPOTIFY_TRACK_PAGE_URL.format(track_id=parse.quote(track_id, safe="")),
+        headers={"Accept": "text/html", "User-Agent": "SideBResolver/1.0"},
+        method="GET",
+    )
+    with request.urlopen(req, timeout=10) as response:
+        parser = _SpotifyMetadataParser()
+        parser.feed(response.read().decode("utf-8"))
+
+    title = parser.values.get("og:title")
+    artist_name = parser.values.get("music:musician_description")
+    if not title or not artist_name:
+        raise ValueError("Spotify public metadata omitted title or artist")
+    description_parts = [
+        part.strip() for part in parser.values.get("og:description", "").split("·")
+    ]
+    album_title = description_parts[1] if len(description_parts) >= 3 else None
+    duration_seconds = parser.values.get("music:duration")
+    return {
+        "name": title,
+        "artists": [{"name": artist_name}],
+        "album": {
+            "name": album_title,
+            "images": ([{"url": parser.values["og:image"]}]
+                       if parser.values.get("og:image") else []),
+        },
+        "duration_ms": (round(float(duration_seconds) * 1000)
+                        if duration_seconds else None),
+        "external_urls": {"spotify": SPOTIFY_TRACK_PAGE_URL.format(track_id=track_id)},
+        "external_ids": {},
+    }
 
 
 def fetch_spotify_search_candidates(
