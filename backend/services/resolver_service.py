@@ -8,7 +8,11 @@ from models.resolver_models import CanonicalTrack, ParsedSource, ResolverContext
 from resolvers.spotify_platform import fetch_spotify_access_token, parse_spotify_track_id
 from services.input_parser import InputParser, InputParseResult
 from services.platform_link_cache import get_platform_link_cache
-from services.platform_link_resolvers import SpotifyTargetResolver, resolve_platform_link, resolve_platform_links
+from services.platform_link_resolvers import (
+    SpotifyTargetResolver,
+    resolve_platform_link,
+    resolve_platform_links_with_results,
+)
 from services.source_platform_adapters import SpotifySourceAdapter, default_source_adapters
 
 
@@ -104,7 +108,7 @@ class ResolverService:
 
     def resolve_platform_links(self, canonical_track: CanonicalTrack, preferred_market: str | None) -> dict:
         context = self.build_context(preferred_market)
-        platform_links = resolve_platform_links(
+        platform_links, platform_results = resolve_platform_links_with_results(
             canonical_track,
             context,
             resolvers=self.target_resolvers,
@@ -122,6 +126,7 @@ class ResolverService:
 
         return {
             "platformLinks": platform_links,
+            "platformResults": platform_results,
             "resolverVersion": RESOLVER_VERSION,
         }
 
@@ -199,10 +204,10 @@ class ResolverService:
         include_platform_links: bool,
         diagnostic: ResolverDiagnostic | None,
     ) -> dict:
-        platform_links = (
-            resolve_platform_links(canonical_track, context, resolvers=self.target_resolvers)
+        platform_links, platform_results = (
+            resolve_platform_links_with_results(canonical_track, context, resolvers=self.target_resolvers)
             if include_platform_links
-            else self._build_source_platform_links(canonical_track)
+            else (self._build_source_platform_links(canonical_track), [])
         )
         resolved_track = {
             "track": self._build_track_body(canonical_track),
@@ -210,6 +215,7 @@ class ResolverService:
             "sourceURL": canonical_track.source_url,
             "sourceResourceID": canonical_track.source_id,
             "platformLinks": platform_links,
+            "platformResults": platform_results,
         }
         return {
             "resolvedTrack": resolved_track,

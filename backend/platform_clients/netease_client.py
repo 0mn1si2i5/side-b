@@ -11,6 +11,12 @@ REQUEST_HEADERS = {
         "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0 Safari/537.36"
     )
 }
+PUBLIC_SEARCH_URL = "https://music.163.com/api/search/get/web"
+PUBLIC_SEARCH_HEADERS = {
+    **REQUEST_HEADERS,
+    "Content-Type": "application/x-www-form-urlencoded",
+    "Referer": "https://music.163.com/",
+}
 
 _cache_store: dict[tuple, tuple[float, object]] = {}
 
@@ -85,6 +91,19 @@ def search_tracks(base_url: str, query_text: str, limit: int = 10, timeout_secon
     )
     songs = payload.get("result", {}).get("songs", [])
     return songs if isinstance(songs, list) else []
+
+
+def search_public_tracks(query_text: str, limit: int = 10, timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS) -> list[dict]:
+    body = parse.urlencode({"s": query_text, "type": 1, "limit": limit, "offset": 0}).encode("utf-8")
+    req = request.Request(PUBLIC_SEARCH_URL, data=body, headers=PUBLIC_SEARCH_HEADERS, method="POST")
+    with request.urlopen(req, timeout=timeout_seconds) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+    if not isinstance(payload, dict) or payload.get("code") != 200:
+        raise ValueError("Netease public search unavailable")
+    result = payload.get("result") or {}
+    if not isinstance(result, dict) or not isinstance(result.get("songs", []), list):
+        raise ValueError("Invalid Netease public search result")
+    return [song for song in result.get("songs", []) if isinstance(song, dict)]
 
 
 def fetch_song_url(

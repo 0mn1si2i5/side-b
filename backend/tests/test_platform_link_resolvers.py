@@ -63,7 +63,31 @@ class PlatformLinkResolverTests(unittest.TestCase):
         )
 
         with patch("services.platform_link_resolvers.search_tracks", side_effect=ConnectionRefusedError("down")):
-            resolved_url = NeteaseTargetResolver().resolve_link(track, context)
+            with self.assertRaises(ConnectionRefusedError):
+                NeteaseTargetResolver().resolve_link(track, context)
 
-        self.assertIsNone(resolved_url)
         self.assertEqual(cache_store, {})
+
+class PlatformRecoveryTests(unittest.TestCase):
+    def track(self):
+        return CanonicalTrack(source_platform="Apple Music", source_id="1", source_url="https://music.apple.com/sg/song/1", title="No Surprises", artist_name="Radiohead", album_title="OK Computer", duration_ms=229000, artwork_url=None, isrc=None)
+
+    def test_public_netease_catalog_does_not_need_a_companion_service(self):
+        context = ResolverContext(preferred_market="SG", spotify_access_token=None, netease_api_base_url=None)
+        song = {"id": 22497479, "name": "No Surprises", "artists": [{"name": "Radiohead"}], "album": {"name": "OK Computer"}, "duration": 229000}
+        with patch("services.platform_link_resolvers.search_public_tracks", return_value=[song]) as search, patch("services.platform_link_resolvers.check_music") as playable:
+            self.assertEqual(NeteaseTargetResolver().resolve_link(self.track(), context), "https://music.163.com/#/song?id=22497479")
+            self.assertTrue(search.called)
+            playable.assert_not_called()
+
+    def test_platform_outages_remain_distinct_from_missing_matches(self):
+        from types import SimpleNamespace
+        from services.platform_link_resolvers import resolve_platform_links_with_results
+        context = ResolverContext(preferred_market="SG", spotify_access_token=None, netease_api_base_url=None)
+        def fail(*_args):
+            raise ConnectionError("offline")
+        resolvers = [SimpleNamespace(platform="Spotify", resolve_link=lambda *_: None), SimpleNamespace(platform="QQ 音乐", resolve_link=fail), SimpleNamespace(platform="网易云音乐", resolve_link=lambda *_: "https://music.163.com/song?id=22497479")]
+        with patch("services.platform_link_resolvers.settings.SONGLINK_API_KEY", ""):
+            links, results = resolve_platform_links_with_results(self.track(), context, resolvers)
+        self.assertEqual(links[0]["destinationURL"], self.track().source_url)
+        self.assertEqual({item["platform"]: item["status"] for item in results}, {"Apple Music": "matched", "Spotify": "unavailable", "QQ 音乐": "failed", "网易云音乐": "matched"})
