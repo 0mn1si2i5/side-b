@@ -266,15 +266,19 @@ def fetch_spotify_track_url(
 
     best_url: str | None = None
     best_score = -10_000
+    had_successful_search = False
+    last_error: Exception | None = None
 
     for search_term in build_spotify_search_terms(title, artist_name, album_title):
         for search_market in spotify_search_markets(preferred_market):
             try:
                 candidates = fetch_spotify_search_candidates(access_token, search_term, search_market)
             except Exception as exc:
+                last_error = exc
                 logger.warning("Spotify search skipped: %s", exc)
                 continue
 
+            had_successful_search = True
             for query_rank, candidate in enumerate(candidates):
                 candidate_url = candidate.get("external_urls", {}).get("spotify")
                 if not isinstance(candidate_url, str) or not candidate_url.startswith("http"):
@@ -298,6 +302,8 @@ def fetch_spotify_track_url(
                     best_score = candidate_score
                     best_url = candidate_url
 
+    if not had_successful_search and last_error is not None:
+        raise last_error
     resolved_url = best_url if best_score >= 64 else None
     write_cached_value(cache_store, cache_key_for_url(source_url, preferred_market), resolved_url)
     return resolved_url
