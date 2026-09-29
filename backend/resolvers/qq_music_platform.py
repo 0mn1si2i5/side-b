@@ -45,19 +45,20 @@ def parse_qq_music_track_id(raw_link: str) -> str | None:
         logger.warning("QQ Music link resolution failed: %s", e)
         return None
 
-    parsed_url = parse.urlparse(resolved_link)
+    parsed_url = parse.urlparse(parse.unquote(resolved_link))
     query = parse.parse_qs(parsed_url.query)
-    for key in ("songmid", "mid", "mids"):
+    for key in ("songmid", "mid", "mids", "song_mid"):
         raw_value = query.get(key, [None])[0]
         if isinstance(raw_value, str) and raw_value:
-            return raw_value.split(",")[0]
+            candidate = raw_value.split(",")[0].strip()
+            if re.fullmatch(r"[A-Za-z0-9]+", candidate):
+                return candidate
 
     for pattern in (
-        r"/songDetail/([A-Za-z0-9]+)",
-        r"/song/([A-Za-z0-9]+)",
+        r"/(?:songDetail|song)/([A-Za-z0-9]+)",
         r"[?&]songmid=([A-Za-z0-9]+)",
     ):
-        match = re.search(pattern, resolved_link)
+        match = re.search(pattern, resolved_link, re.IGNORECASE)
         if match:
             return match.group(1)
 

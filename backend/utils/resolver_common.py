@@ -19,6 +19,12 @@ CACHE_MISS = object()
 TITLE_VERSION_KEYWORDS = (
     "live",
     "remix",
+    "remaster",
+    "remastered",
+    "version",
+    "edit",
+    "cover",
+    "demo",
     "mix",
     "acoustic",
     "karaoke",
@@ -89,6 +95,15 @@ def normalize_text(raw_value: str | None) -> str:
     normalized = convert_chinese_text(raw_value, T2S_CONVERTER).casefold()
     normalized = re.sub(r"\([^)]*\)", " ", normalized)
     normalized = re.sub(r"\[[^\]]*\]", " ", normalized)
+    normalized = re.sub(r"[^a-z0-9\u4e00-\u9fff]+", " ", normalized)
+    return re.sub(r"\s+", " ", normalized).strip()
+
+
+def normalize_text_preserving_versions(raw_value: str | None) -> str:
+    if not raw_value:
+        return ""
+
+    normalized = convert_chinese_text(raw_value, T2S_CONVERTER).casefold()
     normalized = re.sub(r"[^a-z0-9\u4e00-\u9fff]+", " ", normalized)
     return re.sub(r"\s+", " ", normalized).strip()
 

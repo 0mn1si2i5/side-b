@@ -18,6 +18,7 @@ from utils.resolver_common import (
     base_title_variants,
     contains_keyword,
     normalize_text,
+    normalize_text_preserving_versions,
     text_variants,
 )
 
@@ -191,12 +192,39 @@ def netease_candidate_score(
     source_album = normalize_text(album_title)
 
     candidate_title = normalize_text(candidate.get("name"))
+    candidate_title_with_versions = normalize_text_preserving_versions(candidate.get("name"))
+    source_title_with_versions = normalize_text_preserving_versions(title)
     artist_items = candidate.get("ar") or candidate.get("artists") or []
     candidate_artist = normalize_text(
         ", ".join(artist.get("name", "") for artist in artist_items if isinstance(artist, dict))
     )
     album_payload = candidate.get("al") or candidate.get("album") or {}
     candidate_album = normalize_text(album_payload.get("name") if isinstance(album_payload, dict) else None)
+
+    if not candidate_title or not any(
+        candidate_title == variant or candidate_title in variant or variant in candidate_title
+        for variant in source_title_variants if variant
+    ):
+        return -10_000
+
+    candidate_has_version = contains_keyword(candidate_title_with_versions, TITLE_VERSION_KEYWORDS)
+    source_has_version = contains_keyword(source_title_with_versions, TITLE_VERSION_KEYWORDS)
+    if candidate_has_version and not source_has_version:
+        return -10_000
+
+    artist_matches = (
+        not source_artist
+        or (
+            bool(candidate_artist)
+            and (
+                candidate_artist == source_artist
+                or source_artist in candidate_artist
+                or candidate_artist in source_artist
+            )
+        )
+    )
+    if not artist_matches:
+        return -10_000
 
     if candidate_title in source_title_variants:
         score += 60
@@ -217,6 +245,8 @@ def netease_candidate_score(
     duration_delta = None
     if duration_ms and isinstance(candidate_duration, int):
         duration_delta = abs(candidate_duration - duration_ms)
+        if duration_delta > 10_000:
+            return -10_000
         if duration_delta <= 2_000:
             score += 28
         elif duration_delta <= 5_000:
@@ -226,11 +256,6 @@ def netease_candidate_score(
 
     if query_rank < 10:
         score += max(0, 18 - query_rank * 2)
-
-    candidate_has_version = contains_keyword(candidate_title, TITLE_VERSION_KEYWORDS)
-    source_has_version = contains_keyword(source_title, TITLE_VERSION_KEYWORDS)
-    if candidate_has_version and not source_has_version:
-        score -= 20
 
     if contains_keyword(candidate_album, COMPILATION_KEYWORDS):
         score -= 20
@@ -256,6 +281,7 @@ class NeteaseTargetResolver:
         best_candidate: dict | None = None
         best_score = -10_000
         had_successful_search = False
+        had_search_failure = False
         last_error: Exception | None = None
 
         for search_term in build_netease_search_terms(
@@ -275,6 +301,7 @@ class NeteaseTargetResolver:
                     )
             except Exception as exc:
                 last_error = exc
+                had_search_failure = True
                 logger.warning("Netease search skipped: %s", exc)
                 continue
 
@@ -328,9 +355,9 @@ class NeteaseTargetResolver:
         if best_candidate is not None and best_score >= 64:
             resolved_url = build_netease_track_url(str(best_candidate["id"]))
 
-        if not had_successful_search and last_error is not None:
+        if not resolved_url and last_error is not None:
             raise last_error
-        if had_successful_search:
+        if had_successful_search and (resolved_url or not had_search_failure):
             write_cached_value(cache_store, cache_key_for_url(canonical_track.source_url, context.preferred_market), resolved_url)
         return resolved_url
 
@@ -352,8 +379,35 @@ def qq_candidate_score(
     source_album = normalize_text(album_title)
 
     candidate_title = normalize_text(candidate.get("title"))
+    candidate_title_with_versions = normalize_text_preserving_versions(candidate.get("title"))
+    source_title_with_versions = normalize_text_preserving_versions(title)
     candidate_artist = normalize_text(candidate.get("artist_name"))
     candidate_album = normalize_text(candidate.get("album_title"))
+
+    if not candidate_title or not any(
+        candidate_title == variant or candidate_title in variant or variant in candidate_title
+        for variant in source_title_variants if variant
+    ):
+        return -10_000
+
+    candidate_has_version = contains_keyword(candidate_title_with_versions, TITLE_VERSION_KEYWORDS)
+    source_has_version = contains_keyword(source_title_with_versions, TITLE_VERSION_KEYWORDS)
+    if candidate_has_version and not source_has_version:
+        return -10_000
+
+    artist_matches = (
+        not source_artist
+        or (
+            bool(candidate_artist)
+            and (
+                candidate_artist == source_artist
+                or source_artist in candidate_artist
+                or candidate_artist in source_artist
+            )
+        )
+    )
+    if not artist_matches:
+        return -10_000
 
     if candidate_title in source_title_variants:
         score += 60
@@ -374,6 +428,8 @@ def qq_candidate_score(
     duration_delta = None
     if duration_ms and isinstance(candidate_duration, int):
         duration_delta = abs(candidate_duration - duration_ms)
+        if duration_delta > 10_000:
+            return -10_000
         if duration_delta <= 2_000:
             score += 28
         elif duration_delta <= 5_000:
@@ -383,11 +439,6 @@ def qq_candidate_score(
 
     if query_rank < 10:
         score += max(0, 18 - query_rank * 2)
-
-    candidate_has_version = contains_keyword(candidate_title, TITLE_VERSION_KEYWORDS)
-    source_has_version = contains_keyword(source_title, TITLE_VERSION_KEYWORDS)
-    if candidate_has_version and not source_has_version:
-        score -= 20
 
     if contains_keyword(candidate_album, COMPILATION_KEYWORDS):
         score -= 20
@@ -413,6 +464,7 @@ class QQMusicTargetResolver:
         best_candidate: dict | None = None
         best_score = -10_000
         had_successful_search = False
+        had_search_failure = False
         last_error: Exception | None = None
 
         for search_term in build_platform_search_terms(
@@ -424,6 +476,7 @@ class QQMusicTargetResolver:
                 candidates = search_qq_tracks(search_term, limit=10)
             except Exception as exc:
                 last_error = exc
+                had_search_failure = True
                 logger.warning("QQ Music search skipped: %s", exc)
                 continue
 
@@ -450,9 +503,10 @@ class QQMusicTargetResolver:
         if best_candidate is not None and best_score >= 64:
             resolved_url = build_qq_music_track_url(best_candidate["mid"])
 
-        if not had_successful_search and last_error is not None:
+        if not resolved_url and last_error is not None:
             raise last_error
-        write_cached_value(cache_store, cache_key_for_url(canonical_track.source_url, context.preferred_market), resolved_url)
+        if had_successful_search and (resolved_url or not had_search_failure):
+            write_cached_value(cache_store, cache_key_for_url(canonical_track.source_url, context.preferred_market), resolved_url)
         return resolved_url
 
 

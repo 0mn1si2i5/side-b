@@ -1,6 +1,9 @@
 import json
+import re
 import time
 from urllib import parse, request
+
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 
 DEFAULT_TIMEOUT_SECONDS = 10.0
@@ -17,6 +20,7 @@ PUBLIC_SEARCH_HEADERS = {
     "Content-Type": "application/x-www-form-urlencoded",
     "Referer": "https://music.163.com/",
 }
+EAPI_AES_KEY = b"e82ckenh8dichen8"
 
 _cache_store: dict[tuple, tuple[float, object]] = {}
 
@@ -97,13 +101,52 @@ def search_public_tracks(query_text: str, limit: int = 10, timeout_seconds: floa
     body = parse.urlencode({"s": query_text, "type": 1, "limit": limit, "offset": 0}).encode("utf-8")
     req = request.Request(PUBLIC_SEARCH_URL, data=body, headers=PUBLIC_SEARCH_HEADERS, method="POST")
     with request.urlopen(req, timeout=timeout_seconds) as response:
-        payload = json.loads(response.read().decode("utf-8"))
+        payload = _decode_public_search_response(response.read())
     if not isinstance(payload, dict) or payload.get("code") != 200:
         raise ValueError("Netease public search unavailable")
     result = payload.get("result") or {}
     if not isinstance(result, dict) or not isinstance(result.get("songs", []), list):
         raise ValueError("Invalid Netease public search result")
     return [song for song in result.get("songs", []) if isinstance(song, dict)]
+
+
+def _decode_public_search_response(response_body: bytes) -> object:
+    response_text = response_body.decode("utf-8", errors="strict").strip()
+    try:
+        payload = json.loads(response_text)
+    except json.JSONDecodeError:
+        payload = None
+
+    if isinstance(payload, dict):
+        encrypted_result = payload.get("result")
+        if isinstance(encrypted_result, str):
+            decoded_result = _decode_hex_json(encrypted_result)
+            payload = {**payload, "result": decoded_result}
+        return payload
+    if isinstance(payload, list):
+        return payload
+    if isinstance(payload, str):
+        response_text = payload.strip()
+
+    return _decode_hex_json(response_text)
+
+
+def _decode_hex_json(response_text: str) -> object:
+    if not re.fullmatch(r"[0-9a-fA-F]+", response_text) or len(response_text) % 32:
+        raise ValueError("Invalid Netease public search response encoding")
+
+    try:
+        encrypted = bytes.fromhex(response_text)
+        decryptor = Cipher(algorithms.AES(EAPI_AES_KEY), modes.ECB()).decryptor()
+        decrypted = decryptor.update(encrypted) + decryptor.finalize()
+        padding_length = decrypted[-1]
+        if padding_length < 1 or padding_length > 16:
+            raise ValueError("Invalid Netease public search padding")
+        if decrypted[-padding_length:] != bytes([padding_length]) * padding_length:
+            raise ValueError("Invalid Netease public search padding")
+        return json.loads(decrypted[:-padding_length].decode("utf-8"))
+    except (ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError("Unable to decrypt Netease public search response") from exc
 
 
 def fetch_song_url(
