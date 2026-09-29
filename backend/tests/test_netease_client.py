@@ -1,5 +1,6 @@
 import json
 import sys
+from urllib import parse
 
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
@@ -41,9 +42,36 @@ def test_public_search_decodes_encrypted_hex_response(monkeypatch):
     assert netease_client.search_public_tracks("New Normal") == payload["result"]["songs"]
 
 
+def test_public_search_uses_public_eapi_cloudsearch_transport(monkeypatch):
+    captured = {}
+    payload = {"code": 200, "result": {"songs": [{"id": 1409136858, "name": "New Normal"}]}}
+
+    def fake_urlopen(req, **_kwargs):
+        captured["url"] = req.full_url
+        captured["body"] = parse.parse_qs(req.data.decode("ascii"))["params"][0]
+        decrypted = Cipher(algorithms.AES(netease_client.EAPI_AES_KEY), modes.ECB()).decryptor()
+        padded = decrypted.update(bytes.fromhex(captured["body"])) + decrypted.finalize()
+        padding_length = padded[-1]
+        request_text = padded[:-padding_length].decode("utf-8")
+        assert request_text.startswith("/api/cloudsearch/pc-36cd479b6b5-")
+        assert '"s":"New Normal"' in request_text
+        assert '"total":true' in request_text
+        assert '"e_r":false' in request_text
+        return _Response(json.dumps(payload).encode("utf-8"))
+
+    monkeypatch.setattr(netease_client.request, "urlopen", fake_urlopen)
+
+    assert netease_client.search_public_tracks("New Normal") == payload["result"]["songs"]
+    assert captured["url"] == "https://interface.music.163.com/eapi/cloudsearch/pc"
+
+
 def test_public_search_decodes_nested_encrypted_result(monkeypatch):
     result = {"songs": [{"id": 123, "name": "New Normal"}]}
-    outer_payload = {"code": 200, "result": _encrypt_eapi_response(result).decode("ascii")}
+    outer_payload = {
+        "code": 200,
+        "abroad": True,
+        "result": _encrypt_eapi_response(result).decode("ascii"),
+    }
     monkeypatch.setattr(
         netease_client.request,
         "urlopen",

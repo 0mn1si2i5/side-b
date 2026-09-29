@@ -130,6 +130,47 @@ class PlatformRecoveryTests(unittest.TestCase):
             self.assertTrue(search.called)
             playable.assert_not_called()
 
+    def test_production_new_normal_prefers_original_over_instrumental_and_wrong_artist(self):
+        context = ResolverContext(preferred_market="SG", spotify_access_token=None, netease_api_base_url=None)
+        track = CanonicalTrack(
+            source_platform="Apple Music",
+            source_id="1482421875",
+            source_url="https://music.apple.com/sg/album/new-normal/1482421639?i=1482421875&uo=4",
+            title="New Normal",
+            artist_name="Caroline Polachek",
+            album_title="Pang",
+            duration_ms=154198,
+            artwork_url=None,
+            isrc=None,
+        )
+        candidates = [
+            {
+                "id": 1409136858,
+                "name": "New Normal",
+                "ar": [{"name": "Caroline Polachek"}],
+                "al": {"name": "Pang"},
+                "dt": 154197,
+            },
+            {
+                "id": 2672497601,
+                "name": "New Normal (Instrumental)",
+                "ar": [{"name": "Caroline Polachek"}],
+                "al": {"name": "Pang"},
+                "dt": 154197,
+            },
+            {
+                "id": 3000000000,
+                "name": "New Normal",
+                "ar": [{"name": "Ganja White Night"}],
+                "al": {"name": "Pang"},
+                "dt": 154197,
+            },
+        ]
+        with patch("services.platform_link_resolvers.search_public_tracks", return_value=candidates):
+            resolved_url = NeteaseTargetResolver().resolve_link(track, context)
+
+        self.assertEqual(resolved_url, "https://music.163.com/#/song?id=1409136858")
+
     def test_platform_outages_remain_distinct_from_missing_matches(self):
         from types import SimpleNamespace
         from services.platform_link_resolvers import resolve_platform_links_with_results

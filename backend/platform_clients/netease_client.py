@@ -1,3 +1,4 @@
+import hashlib
 import json
 import re
 import time
@@ -14,7 +15,8 @@ REQUEST_HEADERS = {
         "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0 Safari/537.36"
     )
 }
-PUBLIC_SEARCH_URL = "https://music.163.com/api/search/get/web"
+PUBLIC_SEARCH_URL = "https://interface.music.163.com/eapi/cloudsearch/pc"
+PUBLIC_SEARCH_PATH = "/api/cloudsearch/pc"
 PUBLIC_SEARCH_HEADERS = {
     **REQUEST_HEADERS,
     "Content-Type": "application/x-www-form-urlencoded",
@@ -98,7 +100,27 @@ def search_tracks(base_url: str, query_text: str, limit: int = 10, timeout_secon
 
 
 def search_public_tracks(query_text: str, limit: int = 10, timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS) -> list[dict]:
-    body = parse.urlencode({"s": query_text, "type": 1, "limit": limit, "offset": 0}).encode("utf-8")
+    request_json = json.dumps(
+        {
+            "s": query_text,
+            "type": 1,
+            "limit": limit,
+            "offset": 0,
+            "total": True,
+            "e_r": False,
+        },
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+    digest = hashlib.md5(
+        f"nobody{PUBLIC_SEARCH_PATH}use{request_json}md5forencrypt".encode("utf-8")
+    ).hexdigest()
+    plaintext = f"{PUBLIC_SEARCH_PATH}-36cd479b6b5-{request_json}-36cd479b6b5-{digest}"
+    encryptor = Cipher(algorithms.AES(EAPI_AES_KEY), modes.ECB()).encryptor()
+    padding_length = 16 - (len(plaintext.encode("utf-8")) % 16)
+    padded_plaintext = plaintext.encode("utf-8") + bytes([padding_length]) * padding_length
+    encrypted = encryptor.update(padded_plaintext) + encryptor.finalize()
+    body = parse.urlencode({"params": encrypted.hex().upper()}).encode("ascii")
     req = request.Request(PUBLIC_SEARCH_URL, data=body, headers=PUBLIC_SEARCH_HEADERS, method="POST")
     with request.urlopen(req, timeout=timeout_seconds) as response:
         payload = _decode_public_search_response(response.read())
